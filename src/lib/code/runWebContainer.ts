@@ -5,43 +5,77 @@ import { getImports } from './dependencies'
 
 const installedPackages = new Set<string>()
 
-export async function runInWebContainer (webContainer: WebContainer, code: string, onResult: (result: any) => void) {
-  if (!code.trim()) return () => {}
+export async function runInWebContainer (
+  webContainer: WebContainer,
+  code: string,
+  onResult: (result: unknown) => void
+) {
+  if (!code.trim()) {
+    return () => {
+      // No cleanup needed for empty code
+    }
+  }
 
   // 1. Detect and Install Packages
   const imports = getImports(code)
-  const newPackages = imports.filter(pkg => !installedPackages.has(pkg))
+  const newPackages = imports.filter((pkg) => !installedPackages.has(pkg))
 
   if (newPackages.length > 0) {
     try {
-      const installProcess = await webContainer.spawn('npm', ['install', ...newPackages])
+      const installProcess = await webContainer.spawn('npm', [
+        'install',
+        ...newPackages
+      ])
 
-      installProcess.output.pipeTo(new WritableStream({
-        write () {
-          // console.log('[npm]', data);
-        }
-      }))
+      installProcess.output.pipeTo(
+        new WritableStream({
+          write () {
+            // npm install output is being suppressed to avoid cluttering the UI
+          }
+        })
+      )
 
       const installExitCode = await installProcess.exit
 
       if (installExitCode !== 0) {
-        onResult({ element: { content: `Failed to install packages: ${newPackages.join(', ')}`, color: Colors.ERROR }, type: 'error' })
-        return () => {}
+        onResult({
+          element: {
+            content: `Failed to install packages: ${newPackages.join(', ')}`,
+            color: Colors.ERROR
+          },
+          type: 'error'
+        })
+        return () => {
+          // No cleanup needed after installation failure
+        }
       }
 
-      newPackages.forEach(pkg => installedPackages.add(pkg))
-    } catch (e: any) {
-      onResult({ element: { content: `Error installing packages: ${e.message}`, color: Colors.ERROR }, type: 'error' })
-      return () => {}
+      newPackages.forEach((pkg) => installedPackages.add(pkg))
+    } catch (e: unknown) {
+      onResult({
+        element: {
+          content: `Error installing packages: ${(e as Error).message}`,
+          color: Colors.ERROR
+        },
+        type: 'error'
+      })
+      return () => {
+        // No cleanup needed after installation error
+      }
     }
   }
 
   let transformed = ''
   try {
     transformed = transformCode(code)
-  } catch (e: any) {
-    onResult({ element: { content: e.message, color: Colors.ERROR }, type: 'error' })
-    return () => {}
+  } catch (e: unknown) {
+    onResult({
+      element: { content: (e as Error).message, color: Colors.ERROR },
+      type: 'error'
+    })
+    return () => {
+      // No cleanup needed after transform error
+    }
   }
 
   const script = `
@@ -228,42 +262,47 @@ ${transformed}
 
   const process = await webContainer.spawn('node', ['index.js'])
 
-  process.output.pipeTo(new WritableStream({
-    write (data) {
-      const lines = data.split('\n')
-      for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const json = JSON.parse(line)
-          if (json.__type === 'debug') {
-            onResult({
-              lineNumber: json.line,
-              element: { content: json.content, color: getColor(json.jsType, json.content) },
-              type: 'execution'
-            })
-          } else if (json.__type === 'console') {
-            onResult({
-              element: { content: json.content, color: Colors.STRING },
-              type: 'execution'
-            })
-          } else if (json.__type === 'error') {
-            onResult({
-              element: { content: json.message, color: Colors.ERROR },
-              type: 'error'
-            })
-          }
-        } catch (e) {
-          // Non-JSON output, might be regular stdout - capture it too
-          if (line.trim().length > 0) {
-            onResult({
-              element: { content: line, color: Colors.GRAY },
-              type: 'execution'
-            })
+  process.output.pipeTo(
+    new WritableStream({
+      write (data) {
+        const lines = data.split('\n')
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const json = JSON.parse(line)
+            if (json.__type === 'debug') {
+              onResult({
+                lineNumber: json.line,
+                element: {
+                  content: json.content,
+                  color: getColor(json.jsType, json.content)
+                },
+                type: 'execution'
+              })
+            } else if (json.__type === 'console') {
+              onResult({
+                element: { content: json.content, color: Colors.STRING },
+                type: 'execution'
+              })
+            } else if (json.__type === 'error') {
+              onResult({
+                element: { content: json.message, color: Colors.ERROR },
+                type: 'error'
+              })
+            }
+          } catch (e) {
+            // Non-JSON output, might be regular stdout - capture it too
+            if (line.trim().length > 0) {
+              onResult({
+                element: { content: line, color: Colors.GRAY },
+                type: 'execution'
+              })
+            }
           }
         }
       }
-    }
-  }))
+    })
+  )
 
   return () => {
     process.kill()
@@ -272,11 +311,17 @@ ${transformed}
 
 function getColor (type: string, content?: string) {
   switch (type) {
-    case 'string': return Colors.STRING
-    case 'number': return Colors.NUMBER
-    case 'boolean': return content === 'true' ? Colors.TRUE : Colors.FALSE
-    case 'undefined': return Colors.GRAY
-    case 'object': return Colors.GRAY
-    default: return Colors.GRAY
+    case 'string':
+      return Colors.STRING
+    case 'number':
+      return Colors.NUMBER
+    case 'boolean':
+      return content === 'true' ? Colors.TRUE : Colors.FALSE
+    case 'undefined':
+      return Colors.GRAY
+    case 'object':
+      return Colors.GRAY
+    default:
+      return Colors.GRAY
   }
 }

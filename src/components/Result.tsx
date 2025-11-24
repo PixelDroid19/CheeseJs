@@ -5,7 +5,7 @@ import { themes } from '../themes'
 import Editor, { Monaco } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 
-function Result () {
+function ResultDisplay () {
   const elements = useCodeStore((state) => state.result)
   const code = useCodeStore((state) => state.code)
   const { themeName, fontSize, alignResults } = useSettingsStore()
@@ -22,12 +22,15 @@ function Result () {
     if (!elements || elements.length === 0) return ''
 
     if (!alignResults) {
-      return elements.map(data => data.element?.content || '').join('\n')
+      return elements.map((data) => data.element?.content || '').join('\n')
     }
 
     // Align results with source
     const sourceLineCount = code.split('\n').length
-    const maxLine = Math.max(sourceLineCount, ...elements.map(e => e.lineNumber || 0))
+    const maxLine = Math.max(
+      sourceLineCount,
+      ...elements.map((e) => e.lineNumber || 0)
+    )
     const lines = new Array(maxLine).fill('')
 
     elements.forEach((data) => {
@@ -36,7 +39,9 @@ function Result () {
         // If multiple results on same line, join them
         const current = lines[data.lineNumber - 1]
         const content = data.element?.content || ''
-        lines[data.lineNumber - 1] = current ? `${current} ${content}` : content
+        lines[data.lineNumber - 1] = current
+          ? `${current} ${content}`
+          : content
       } else {
         // If no line number, just append to the end or handle differently?
         // For now, let's just ignore or append to end
@@ -44,7 +49,7 @@ function Result () {
     })
 
     return lines.join('\n')
-  }, [elements, alignResults])
+  }, [elements, alignResults, code])
 
   return (
     <div className=" text-cyan-50 bg-[#1e1e1e]">
@@ -80,4 +85,4 @@ function Result () {
   )
 }
 
-export default Result
+export default ResultDisplay

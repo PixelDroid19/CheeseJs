@@ -1,14 +1,15 @@
-import type { TraverseOptions, Node } from '@babel/traverse'
+import type { PluginObj } from '@babel/core'
+import type * as BabelTypes from '@babel/types'
 
-export default function ({ types: t }: { types: any }): { visitor: TraverseOptions<Node> } {
+export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj {
   return {
     visitor: {
       CallExpression (path) {
-        const callee = path.node.callee as any
+        const callee = path.node.callee
 
         // Check if it's a console method call: console.log(...)
         if (!t.isMemberExpression(callee)) return
-        if (!t.isIdentifier(callee.object) || callee.object.name !== 'console') return
+        if (!t.isIdentifier(callee.object) || callee.object.name !== 'console') { return }
         if (!t.isIdentifier(callee.property)) return
 
         // We transform all console methods (log, warn, error, info, table, etc.)

@@ -5,7 +5,12 @@ export interface Theme {
   name: string;
   type: 'vs-dark' | 'vs-light' | 'hc-black';
   colors: Record<string, string>;
-  rules: Array<{ token: string; foreground?: string; background?: string; fontStyle?: string }>;
+  rules: Array<{
+    token: string;
+    foreground?: string;
+    background?: string;
+    fontStyle?: string;
+  }>;
 }
 
 interface SettingsState {
@@ -43,8 +48,10 @@ export const useSettingsStore = create<SettingsState>()(
       setThemeName: (themeName) => set({ themeName }),
       setFontSize: (fontSize) => set({ fontSize }),
       setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
-      toggleSettings: () => set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
-      setShowTopLevelResults: (showTopLevelResults) => set({ showTopLevelResults }),
+      toggleSettings: () =>
+        set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
+      setShowTopLevelResults: (showTopLevelResults) =>
+        set({ showTopLevelResults }),
       setAlignResults: (alignResults) => set({ alignResults }),
       setShowUndefined: (showUndefined) => set({ showUndefined }),
       setLoopProtection: (loopProtection) => set({ loopProtection })

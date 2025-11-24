@@ -7,7 +7,7 @@ import { useDebouncedFunction } from '../hooks/useDebouce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import type { editor } from 'monaco-editor'
 
-function EDITOR () {
+function CodeEditor () {
   const code = useCodeStore((state) => state.code)
   const language = useCodeStore((state) => state.language)
   const { themeName, fontSize } = useSettingsStore()
@@ -32,17 +32,23 @@ function EDITOR () {
     monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true)
   }, [])
 
-  const handleEditorDidMount = useCallback((editorInstance: editor.IStandaloneCodeEditor) => {
-    monacoRef.current = editorInstance
-  }, [])
+  const handleEditorDidMount = useCallback(
+    (editorInstance: editor.IStandaloneCodeEditor) => {
+      monacoRef.current = editorInstance
+    },
+    []
+  )
 
   const debouncedRunner = useDebouncedFunction(runCode, 250)
 
-  const handler = useCallback((value: string | undefined) => {
-    if (value !== undefined) {
-      debouncedRunner(value)
-    }
-  }, [debouncedRunner])
+  const handler = useCallback(
+    (value: string | undefined) => {
+      if (value !== undefined) {
+        debouncedRunner(value)
+      }
+    },
+    [debouncedRunner]
+  )
 
   return (
     <div>
@@ -71,4 +77,4 @@ function EDITOR () {
   )
 }
 
-export default EDITOR
+export default CodeEditor

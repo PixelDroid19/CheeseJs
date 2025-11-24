@@ -1,24 +1,49 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, HelpCircle, Sliders, Cpu, AlignLeft, Palette, Bot, Package, Wrench } from 'lucide-react'
+import {
+  X,
+  HelpCircle,
+  Sliders,
+  Cpu,
+  AlignLeft,
+  Palette,
+  Bot,
+  Package,
+  Wrench
+} from 'lucide-react'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { themeOptions } from '../themes'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 
-type Tab = 'general' | 'compilation' | 'formatting' | 'appearance' | 'ai' | 'npm' | 'advanced';
+type Tab =
+  | 'general'
+  | 'compilation'
+  | 'formatting'
+  | 'appearance'
+  | 'ai'
+  | 'npm'
+  | 'advanced';
 
 export default function Settings () {
   const { t, i18n } = useTranslation()
   const {
-    themeName, setThemeName,
-    fontSize, setFontSize,
-    language, setLanguage,
-    isSettingsOpen, setIsSettingsOpen,
-    showTopLevelResults, setShowTopLevelResults,
-    alignResults, setAlignResults,
-    showUndefined, setShowUndefined,
-    loopProtection, setLoopProtection
+    themeName,
+    setThemeName,
+    fontSize,
+    setFontSize,
+    language,
+    setLanguage,
+    isSettingsOpen,
+    setIsSettingsOpen,
+    showTopLevelResults,
+    setShowTopLevelResults,
+    alignResults,
+    setAlignResults,
+    showUndefined,
+    setShowUndefined,
+    loopProtection,
+    setLoopProtection
   } = useSettingsStore()
 
   const [activeTab, setActiveTab] = useState<Tab>('advanced')
@@ -30,9 +55,21 @@ export default function Settings () {
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'general', label: t('settings.categories.general'), icon: Sliders },
-    { id: 'compilation', label: t('settings.categories.compilation'), icon: Cpu },
-    { id: 'formatting', label: t('settings.categories.formatting'), icon: AlignLeft },
-    { id: 'appearance', label: t('settings.categories.appearance'), icon: Palette },
+    {
+      id: 'compilation',
+      label: t('settings.categories.compilation'),
+      icon: Cpu
+    },
+    {
+      id: 'formatting',
+      label: t('settings.categories.formatting'),
+      icon: AlignLeft
+    },
+    {
+      id: 'appearance',
+      label: t('settings.categories.appearance'),
+      icon: Palette
+    },
     { id: 'ai', label: t('settings.categories.ai'), icon: Bot },
     { id: 'npm', label: t('settings.categories.npm'), icon: Package },
     { id: 'advanced', label: t('settings.categories.advanced'), icon: Wrench }
@@ -99,7 +136,7 @@ export default function Settings () {
                     animate={{ opacity: 1, x: 0 }}
                     className="space-y-6"
                   >
-                     <div>
+                    <div>
                       <label className="block text-sm font-medium mb-2 text-gray-300">
                         {t('settings.language')}
                       </label>
@@ -170,12 +207,16 @@ export default function Settings () {
                             <input
                               type="checkbox"
                               checked={showTopLevelResults}
-                              onChange={(e) => setShowTopLevelResults(e.target.checked)}
+                              onChange={(e) =>
+                                setShowTopLevelResults(e.target.checked)
+                              }
                               className="peer sr-only"
                             />
                             <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </div>
-                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">{t('settings.advanced.showTopLevel')}</span>
+                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                            {t('settings.advanced.showTopLevel')}
+                          </span>
                         </label>
                       </div>
                     </div>
@@ -190,15 +231,22 @@ export default function Settings () {
                             <input
                               type="checkbox"
                               checked={alignResults}
-                              onChange={(e) => setAlignResults(e.target.checked)}
+                              onChange={(e) =>
+                                setAlignResults(e.target.checked)
+                              }
                               className="peer sr-only"
                             />
                             <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </div>
-                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">{t('settings.advanced.alignWithSource')}</span>
+                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                            {t('settings.advanced.alignWithSource')}
+                          </span>
                         </label>
                         <div className="group/tooltip relative flex items-center">
-                          <HelpCircle size={16} className="text-gray-500 hover:text-blue-400 transition-colors cursor-help" />
+                          <HelpCircle
+                            size={16}
+                            className="text-gray-500 hover:text-blue-400 transition-colors cursor-help"
+                          />
                           <div className="absolute left-full ml-3 w-64 p-3 bg-gray-800 border border-gray-700 text-xs text-gray-200 rounded-lg shadow-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50 whitespace-pre-wrap backdrop-blur-sm">
                             {t('settings.advanced.alignTooltip')}
                           </div>
@@ -216,12 +264,16 @@ export default function Settings () {
                             <input
                               type="checkbox"
                               checked={showUndefined}
-                              onChange={(e) => setShowUndefined(e.target.checked)}
+                              onChange={(e) =>
+                                setShowUndefined(e.target.checked)
+                              }
                               className="peer sr-only"
                             />
                             <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </div>
-                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">{t('settings.advanced.showUndefinedValues')}</span>
+                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                            {t('settings.advanced.showUndefinedValues')}
+                          </span>
                         </label>
                       </div>
                     </div>
@@ -236,12 +288,16 @@ export default function Settings () {
                             <input
                               type="checkbox"
                               checked={loopProtection}
-                              onChange={(e) => setLoopProtection(e.target.checked)}
+                              onChange={(e) =>
+                                setLoopProtection(e.target.checked)
+                              }
                               className="peer sr-only"
                             />
                             <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </div>
-                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">{t('settings.advanced.protectLongRunning')}</span>
+                          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                            {t('settings.advanced.protectLongRunning')}
+                          </span>
                         </label>
                       </div>
                     </div>
@@ -249,7 +305,9 @@ export default function Settings () {
                 )}
 
                 {/* Placeholder for other tabs */}
-                {['compilation', 'formatting', 'ai', 'npm'].includes(activeTab) && (
+                {['compilation', 'formatting', 'ai', 'npm'].includes(
+                  activeTab
+                ) && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

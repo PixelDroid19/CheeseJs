@@ -1,3 +1,4 @@
+import React from 'react'
 import { motion } from 'framer-motion'
 import { Play, Settings, Brush } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -22,15 +23,35 @@ export default function FloatingToolbar () {
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
         className="flex items-center gap-1 px-2 py-2 bg-white dark:bg-[#2c313a] rounded-full shadow-2xl border border-gray-200 dark:border-gray-700"
       >
-        <ToolbarButton icon={<Play size={20} />} onClick={() => runCode()} label={t('toolbar.run')} />
-        <ToolbarButton icon={<Brush size={20} />} onClick={handleLint} label={t('toolbar.format')} />
-        <ToolbarButton icon={<Settings size={20} />} onClick={toggleSettings} label={t('toolbar.settings')} />
+        <ToolbarButton
+          icon={<Play size={20} />}
+          onClick={() => runCode()}
+          label={t('toolbar.run')}
+        />
+        <ToolbarButton
+          icon={<Brush size={20} />}
+          onClick={handleLint}
+          label={t('toolbar.format')}
+        />
+        <ToolbarButton
+          icon={<Settings size={20} />}
+          onClick={toggleSettings}
+          label={t('toolbar.settings')}
+        />
       </motion.div>
     </div>
   )
 }
 
-function ToolbarButton ({ icon, onClick, label }: { icon: React.ReactNode; onClick: () => void; label: string }) {
+function ToolbarButton ({
+  icon,
+  onClick,
+  label
+}: {
+  icon: React.ReactNode;
+  onClick: () => void;
+  label: string;
+}) {
   return (
     <motion.button
       whileHover={{ scale: 1.1 }}

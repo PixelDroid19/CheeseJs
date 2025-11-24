@@ -11,10 +11,14 @@
     "build:all": "vite build && electron-builder -mwl ",
     "build:mac": "vite build && electron-builder  --mac ",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
+    "format": "prettier --write src/**/*.{ts,tsx,js,jsx,json,css,md}",
+    "format:check": "prettier --check src/**/*.{ts,tsx,js,jsx,json,css,md}",
     "preview": "vite preview",
     "test": "vitest",
     "publish": "electron-builder --publish always",
-    "release": "electron-builder"
+    "release": "electron-builder",
+    "quality": "npm run lint && npm run format:check && npm run test"
   },
   "dependencies": {
     "@babel/core": "^7.22.5",

@@ -15,51 +15,71 @@ export function useCodeRunner () {
   const language = useCodeStore((state) => state.language)
   const setLanguage = useCodeStore((state) => state.setLanguage)
 
-  const { showTopLevelResults, loopProtection, showUndefined } = useSettingsStore()
+  const { showTopLevelResults, loopProtection, showUndefined } =
+    useSettingsStore()
 
   const webContainer = useWebContainerStore((state) => state.webContainer)
   const killProcessRef = useRef<(() => void) | null>(null)
 
-  const runCode = useCallback(async (codeToRun?: string) => {
-    const sourceCode = codeToRun ?? code
+  const runCode = useCallback(
+    async (codeToRun?: string) => {
+      const sourceCode = codeToRun ?? code
 
-    if (killProcessRef.current) {
-      killProcessRef.current()
-      killProcessRef.current = null
-    }
-
-    // Detect language
-    const detectedLang = await detectLanguage(sourceCode)
-    if (detectedLang !== language) {
-      setLanguage(detectedLang)
-    }
-
-    clearResult()
-    try {
-      if (webContainer) {
-        const kill = await runInWebContainer(webContainer, sourceCode, (result) => {
-          appendResult(result)
-        })
-        killProcessRef.current = kill
-      } else {
-        const transformed = transformCode(sourceCode, {
-          showTopLevelResults,
-          loopProtection
-        })
-        const element = await run(transformed, {
-          showUndefined
-        })
-        setResult(Array.isArray(element) ? element : [])
+      if (killProcessRef.current) {
+        killProcessRef.current()
+        killProcessRef.current = null
       }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.error('Execution error:', error)
-      setResult([{ element: { content: message }, type: 'error' }])
-    }
-    if (codeToRun !== undefined) {
-      setCode(codeToRun)
-    }
-  }, [webContainer, language, setResult, setCode, appendResult, clearResult, setLanguage, code, showTopLevelResults, loopProtection, showUndefined])
+
+      // Detect language
+      const detectedLang = await detectLanguage(sourceCode)
+      if (detectedLang !== language) {
+        setLanguage(detectedLang)
+      }
+
+      clearResult()
+      try {
+        if (webContainer) {
+          const kill = await runInWebContainer(
+            webContainer,
+            sourceCode,
+            (result) => {
+              appendResult(result)
+            }
+          )
+          killProcessRef.current = kill
+        } else {
+          const transformed = transformCode(sourceCode, {
+            showTopLevelResults,
+            loopProtection
+          })
+          const element = await run(transformed, {
+            showUndefined
+          })
+          setResult(Array.isArray(element) ? element : [])
+        }
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'An unknown error occurred'
+        setResult([{ element: { content: message }, type: 'error' }])
+      }
+      if (codeToRun !== undefined) {
+        setCode(codeToRun)
+      }
+    },
+    [
+      webContainer,
+      language,
+      setResult,
+      setCode,
+      appendResult,
+      clearResult,
+      setLanguage,
+      code,
+      showTopLevelResults,
+      loopProtection,
+      showUndefined
+    ]
+  )
 
   return { runCode }
 }

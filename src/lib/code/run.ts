@@ -5,11 +5,11 @@ import topLevelThis from '../babel/top-level-this'
 import loopProtection from '../babel/loop-protection'
 import { Colors, stringify, type ColoredElement } from '../elementParser'
 
-const AsyncFunction = Object.getPrototypeOf(async () => { }).constructor
+const AsyncFunction = Object.getPrototypeOf(async () => { return undefined }).constructor
 
 interface unparsedResult {
   lineNumber?: number;
-  content: ColoredElement;
+  content: unknown;
 }
 interface Result {
   lineNumber?: number;
@@ -29,8 +29,11 @@ interface TransformOptions {
   loopProtection?: boolean;
 }
 
-export function transformCode (code: string, options: TransformOptions = {}): string {
-  const plugins: any[] = [
+export function transformCode (
+  code: string,
+  options: TransformOptions = {}
+): string {
+  const plugins: Array<string | [string, object]> = [
     ['proposal-decorators', { legacy: true }],
     'top-level-this',
     'log-transform'
@@ -47,10 +50,13 @@ export function transformCode (code: string, options: TransformOptions = {}): st
   const result = transform(code, {
     filename: 'index.ts',
     presets: [
-      ['typescript', {
-        allowDeclareFields: true,
-        onlyRemoveTypeImports: true
-      }]
+      [
+        'typescript',
+        {
+          allowDeclareFields: true,
+          onlyRemoveTypeImports: true
+        }
+      ]
     ],
     sourceType: 'module',
     parserOpts: {
@@ -64,7 +70,9 @@ export function transformCode (code: string, options: TransformOptions = {}): st
     plugins
   })
 
-  console.log(result)
+  if (!result.code) {
+    throw new Error('Failed to transform code')
+  }
 
   return result.code
 }
@@ -73,14 +81,17 @@ interface RunOptions {
   showUndefined?: boolean;
 }
 
-export async function run (string: string, options: RunOptions = {}): Promise<Result[] | Error> {
-  if (string == '') return []
+export async function run (
+  string: string,
+  options: RunOptions = {}
+): Promise<Result[] | Error> {
+  if (string === '') return []
   try {
     let unparsedResults: unparsedResult[] = []
 
     const asyncFunction = AsyncFunction('debug', string)
 
-    await asyncFunction((lineNumber: number, ...args: any[]) => {
+    await asyncFunction((lineNumber: number, ...args: unknown[]) => {
       const content = args.length > 1 ? args : args[0]
       unparsedResults = [...unparsedResults, { lineNumber, content }]
     })
@@ -102,12 +113,19 @@ export async function run (string: string, options: RunOptions = {}): Promise<Re
       }
     })
 
-    const parsedResults = (await Promise.all(promises)).filter((r): r is Result => r !== null)
+    const parsedResults = (await Promise.all(promises)).filter(
+      (result) => result !== null
+    ) as Result[]
 
     return parsedResults
   } catch (e: unknown) {
+    const errorMessage =
+      e instanceof Error ? e.message : 'Unknown error occurred'
     return [
-      { element: { content: e.message, color: Colors.ERROR }, type: 'error' }
+      {
+        element: { content: errorMessage, color: Colors.ERROR },
+        type: 'error'
+      }
     ]
   }
 }

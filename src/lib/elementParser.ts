@@ -10,24 +10,24 @@ export enum Colors {
   ERROR = '#ff0000',
 }
 
-export type ColoredElement = RecursiveColoredElement | StringColoredElement;
-
-export interface RecursiveColoredElement {
-  content: ColoredElement[];
-  color?: Colors;
-}
-
 export interface StringColoredElement {
   content: string;
   color?: Colors;
 }
 
-const isPromise = (promiseToCheck: Promise<any>) => {
+export interface RecursiveColoredElement {
+  content: Array<StringColoredElement | RecursiveColoredElement>;
+  color?: Colors;
+}
+
+export type ColoredElement = RecursiveColoredElement | StringColoredElement;
+
+const isPromise = (promiseToCheck: unknown): promiseToCheck is Promise<unknown> => {
   return (
     !!promiseToCheck &&
     (typeof promiseToCheck === 'object' ||
       typeof promiseToCheck === 'function') &&
-    typeof promiseToCheck.then === 'function'
+    typeof (promiseToCheck as Promise<unknown>).then === 'function'
   )
 }
 
@@ -53,7 +53,7 @@ export function flattenColoredElement (
     })
     .flat()
 }
-export async function stringify (element: any) {
+export async function stringify (element: unknown): Promise<ColoredElement> {
   if (Array.isArray(element)) {
     return {
       content: ObjetToString(jc.decycle(element), {

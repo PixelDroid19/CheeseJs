@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
 
-export function useDebouncedFunction<T extends (...args: any[]) => any>(
-  callback: T,
-  delay: number
-): T {
-  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null)
+export function useDebouncedFunction<
+  T extends (...args: Parameters<T>) => ReturnType<T>,
+>(callback: T, delay: number): T {
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const debouncedCallback = useCallback(
     (...args: Parameters<T>) => {
@@ -13,6 +12,7 @@ export function useDebouncedFunction<T extends (...args: any[]) => any>(
       }
 
       timeoutIdRef.current = setTimeout(() => {
+        // eslint-disable-next-line n/no-callback-literal
         callback(...args)
       }, delay)
     },

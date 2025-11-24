@@ -1,28 +1,44 @@
-import type { TraverseOptions, Node } from '@babel/traverse'
+import type { PluginObj } from '@babel/core'
+import type * as BabelTypes from '@babel/types'
 
-export default function ({ types: t }: { types: any }): { visitor: TraverseOptions<Node> } {
+export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj {
   return {
     visitor: {
       ExpressionStatement (path) {
         // Only transform top-level expressions (Program body)
         if (!t.isProgram(path.parent)) return
 
-        const expression = path.node.expression as any
+        const expression = path.node.expression
 
         // Skip 'use strict' and other directives
-        if (t.isStringLiteral(expression) && (expression.value === 'use strict' || expression.value.startsWith('use '))) return
+        if (
+          t.isStringLiteral(expression) &&
+          (expression.value === 'use strict' ||
+            expression.value.startsWith('use '))
+        ) { return }
 
         // Skip console method calls
-        if (t.isCallExpression(expression) && t.isMemberExpression(expression.callee) && t.isIdentifier(expression.callee.object, { name: 'console' })) {
+        if (
+          t.isCallExpression(expression) &&
+          t.isMemberExpression(expression.callee) &&
+          t.isIdentifier(expression.callee.object, { name: 'console' })
+        ) {
           return
         }
 
         // Skip if it's already a debug call (safety check)
-        if (t.isCallExpression(expression) && t.isIdentifier(expression.callee) && expression.callee.name === 'debug') return
+        if (
+          t.isCallExpression(expression) &&
+          t.isIdentifier(expression.callee) &&
+          expression.callee.name === 'debug'
+        ) { return }
 
         // Handle 'this' expression specifically if it was transformed to 'globalThis'
         // or if it is a raw 'this' expression
-        if (t.isThisExpression(expression) || (t.isIdentifier(expression) && expression.name === 'globalThis')) {
+        if (
+          t.isThisExpression(expression) ||
+          (t.isIdentifier(expression) && expression.name === 'globalThis')
+        ) {
           let line = expression.loc?.start.line
           if (!line && path.node.loc) {
             line = path.node.loc.start.line
@@ -77,7 +93,7 @@ export default function ({ types: t }: { types: any }): { visitor: TraverseOptio
           // Only handle simple identifiers (const x = 1)
           if (t.isIdentifier(decl.id)) {
             const line = decl.loc.start.line
-            const name = (decl.id as any).name
+            const name = decl.id.name
 
             // Insert debug(line, x) AFTER the declaration
             path.insertAfter(

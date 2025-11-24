@@ -15,13 +15,15 @@ export const useWebContainerStore = create<WebContainerState>((set) => ({
   bootWebContainer: async () => {
     try {
       const instance = await WebContainer.boot()
-      await instance.fs.writeFile('package.json', JSON.stringify({
-        name: 'jsrunner-sandbox',
-        type: 'module'
-      }))
+      await instance.fs.writeFile(
+        'package.json',
+        JSON.stringify({
+          name: 'jsrunner-sandbox',
+          type: 'module'
+        })
+      )
       set({ webContainer: instance, isLoading: false })
     } catch (err) {
-      console.error('Failed to boot WebContainer:', err)
       set({ error: err as Error, isLoading: false })
     }
   }

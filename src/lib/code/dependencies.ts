@@ -1,4 +1,6 @@
 import { transform } from '@babel/standalone'
+import type { NodePath } from '@babel/traverse'
+import type * as t from '@babel/types'
 
 export function getImports (code: string): string[] {
   const imports: Set<string> = new Set()
@@ -9,10 +11,10 @@ export function getImports (code: string): string[] {
       plugins: [
         {
           visitor: {
-            ImportDeclaration (path: any) {
+            ImportDeclaration (path: NodePath<t.ImportDeclaration>) {
               imports.add(path.node.source.value)
             },
-            CallExpression (path: any) {
+            CallExpression (path: NodePath<t.CallExpression>) {
               if (
                 path.node.callee.type === 'Identifier' &&
                 path.node.callee.name === 'require' &&
@@ -34,5 +36,7 @@ export function getImports (code: string): string[] {
   // We can't easily know all built-ins, but we can filter '.' and '/'
   // Also 'util' is built-in, but npm install util works too (polyfill).
   // Let's just filter relative paths for now.
-  return Array.from(imports).filter(pkg => !pkg.startsWith('.') && !pkg.startsWith('/'))
+  return Array.from(imports).filter(
+    (pkg) => !pkg.startsWith('.') && !pkg.startsWith('/')
+  )
 }

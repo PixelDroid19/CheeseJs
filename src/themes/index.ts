@@ -1,7 +1,7 @@
 import onedark from './onedark.json'
 import light from './light.json'
 
-export const themes: Record<string, any> = {
+export const themes: Record<string, unknown> = {
   onedark,
   light
 }

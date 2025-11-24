@@ -1,6 +1,7 @@
-import type { TraverseOptions, Node } from '@babel/traverse'
+import type { PluginObj } from '@babel/core'
+import type * as BabelTypes from '@babel/types'
 
-export default function ({ types: t }: { types: any }): { visitor: TraverseOptions<Node> } {
+export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj {
   const MAX_ITERATIONS = 10000
 
   return {
@@ -24,7 +25,11 @@ export default function ({ types: t }: { types: any }): { visitor: TraverseOptio
             t.updateExpression('++', counterId, false),
             t.numericLiteral(MAX_ITERATIONS)
           ),
-          t.throwStatement(t.newExpression(t.identifier('Error'), [t.stringLiteral('Loop limit exceeded')]))
+          t.throwStatement(
+            t.newExpression(t.identifier('Error'), [
+              t.stringLiteral('Loop limit exceeded')
+            ])
+          )
         )
 
         // Insert the check inside the loop body

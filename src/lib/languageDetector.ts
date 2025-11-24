@@ -9,25 +9,9 @@ const PATTERNS = {
     /from\s+\w+\s+import/,
     /print\s*\(/
   ],
-  html: [
-    /<html/i,
-    /<div/i,
-    /<head/i,
-    /<body/i,
-    /<script/i,
-    /<style/i
-  ],
-  css: [
-    /[.#]\w+\s*{/,
-    /:\s*[\w-]+\s*;/,
-    /@media/,
-    /@keyframes/
-  ],
-  json: [
-    /^\s*{/,
-    /^\s*\[/,
-    /"[\w-]+"\s*:/
-  ],
+  html: [/<html/i, /<div/i, /<head/i, /<body/i, /<script/i, /<style/i],
+  css: [/[.#]\w+\s*{/, /:\s*[\w-]+\s*;/, /@media/, /@keyframes/],
+  json: [/^\s*{/, /^\s*\[/, /"[\w-]+"\s*:/],
   javascript: [
     /^function\s+\w+/m,
     /^const\s+\w+\s*=/m,

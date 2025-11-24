@@ -1,6 +1,8 @@
-import type { TraverseOptions, Node } from '@babel/traverse'
+import type { NodePath } from '@babel/traverse'
+import type { PluginObj } from '@babel/core'
+import type * as BabelTypes from '@babel/types'
 
-export default function ({ types: t }: { types: any }): { visitor: TraverseOptions<Node> } {
+export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj {
   return {
     visitor: {
       Program (path) {
@@ -18,7 +20,7 @@ export default function ({ types: t }: { types: any }): { visitor: TraverseOptio
             }
 
             // If we are inside an arrow function, 'this' is lexical.
-            let current = parentFn
+            let current: NodePath<BabelTypes.Function> | null = parentFn
             while (current && current.isArrowFunctionExpression()) {
               current = current.parentPath.getFunctionParent()
             }
