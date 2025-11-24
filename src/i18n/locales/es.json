@@ -1,0 +1,38 @@
+{
+  "settings": {
+    "title": "Configuración",
+    "theme": "Tema",
+    "language": "Idioma",
+    "fontSize": "Tamaño de fuente",
+    "close": "Cerrar",
+    "categories": {
+      "general": "General",
+      "compilation": "Compilación",
+      "formatting": "Formatear",
+      "appearance": "Apariencia",
+      "ai": "IA",
+      "npm": "NPM",
+      "advanced": "Avanzado"
+    },
+    "advanced": {
+      "expressionResults": "Resultados de expresión",
+      "showTopLevel": "Muestre el resultado de cada expresión de nivel superior",
+      "align": "Alinear",
+      "alignWithSource": "Alinear resultado con la fuente",
+      "alignTooltip": "Los resultados de salida se colocarán en la misma línea que su fuente.\nDeshabilite esto para mostrar los resultados de salida en su orden natural de ejecución.",
+      "showUndefined": "Mostrar indefinidas",
+      "showUndefinedValues": "Mostrar valores indefinidos",
+      "loopProtection": "Protección de bucles",
+      "protectLongRunning": "Proteger contra scripts de ejecución prolongada"
+    }
+  },
+  "editor": {
+    "run": "Ejecutar",
+    "clear": "Limpiar"
+  },
+  "toolbar": {
+    "run": "Ejecutar Código",
+    "format": "Formatear Código",
+    "settings": "Abrir Configuración"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "base": "vs",
+  "inherit": true,
+  "rules": [
+    {
+      "background": "ffffff",
+      "token": ""
+    },
+    {
+      "foreground": "008000",
+      "token": "comment"
+    },
+    {
+      "foreground": "a31515",
+      "token": "string"
+    }
+  ],
+  "colors": {
+    "editor.foreground": "#000000",
+    "editor.background": "#ffffff",
+    "editor.selectionBackground": "#add6ff",
+    "editor.lineHighlightBackground": "#e8e8e8",
+    "editorCursor.foreground": "#000000",
+    "editorWhitespace.foreground": "#e3e4e2"
+  }
+}

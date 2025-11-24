@@ -1,0 +1,38 @@
+{
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "language": "Language",
+    "fontSize": "Font Size",
+    "close": "Close",
+    "categories": {
+      "general": "General",
+      "compilation": "Compilation",
+      "formatting": "Formatting",
+      "appearance": "Appearance",
+      "ai": "AI",
+      "npm": "NPM",
+      "advanced": "Advanced"
+    },
+    "advanced": {
+      "expressionResults": "Expression results",
+      "showTopLevel": "Show the result of each top-level expression",
+      "align": "Align",
+      "alignWithSource": "Align result with source",
+      "alignTooltip": "Output results will be placed on the same line as their source.\nDisable this to show output results in their natural order of execution.",
+      "showUndefined": "Show undefined",
+      "showUndefinedValues": "Show undefined values",
+      "loopProtection": "Loop protection",
+      "protectLongRunning": "Protect against long-running execution scripts"
+    }
+  },
+  "editor": {
+    "run": "Run",
+    "clear": "Clear"
+  },
+  "toolbar": {
+    "run": "Run Code",
+    "format": "Format Code",
+    "settings": "Open Settings"
+  }
+}
