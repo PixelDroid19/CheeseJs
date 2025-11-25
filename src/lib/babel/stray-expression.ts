@@ -67,33 +67,33 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
         const line = expression.loc.start.line
 
         // Check if expression is a promise chain with console methods
-        const isPromiseChainWithConsole = 
-          t.isCallExpression(expression) && 
-          t.isMemberExpression(expression.callee) && 
-          t.isIdentifier(expression.callee.property) && 
-          (expression.callee.property.name === 'then' || 
+        const isPromiseChainWithConsole =
+          t.isCallExpression(expression) &&
+          t.isMemberExpression(expression.callee) &&
+          t.isIdentifier(expression.callee.property) &&
+          (expression.callee.property.name === 'then' ||
            expression.callee.property.name === 'catch' ||
            expression.callee.property.name === 'finally') &&
-          expression.arguments.some(arg => 
+          expression.arguments.some(arg =>
             t.isMemberExpression(arg) &&
             t.isIdentifier((arg as BabelTypes.MemberExpression).object, { name: 'console' })
           )
 
         // Check if expression is a promise chain (has .then, .catch, .finally)
-        const isPromiseChain = 
-          t.isCallExpression(expression) && 
-          t.isMemberExpression(expression.callee) && 
-          t.isIdentifier(expression.callee.property) && 
-          (expression.callee.property.name === 'then' || 
+        const isPromiseChain =
+          t.isCallExpression(expression) &&
+          t.isMemberExpression(expression.callee) &&
+          t.isIdentifier(expression.callee.property) &&
+          (expression.callee.property.name === 'then' ||
            expression.callee.property.name === 'catch' ||
            expression.callee.property.name === 'finally')
 
         // Check if expression might be a Promise (async call, fetch(), etc.)
-        const mightBePromise = 
+        const mightBePromise =
           t.isAwaitExpression(expression) ||
           isPromiseChain ||
-          (t.isCallExpression(expression) && 
-            (t.isIdentifier(expression.callee) && 
+          (t.isCallExpression(expression) &&
+            (t.isIdentifier(expression.callee) &&
              (expression.callee.name === 'fetch'))) ||
           (t.isCallExpression(expression) &&
            t.isMemberExpression(expression.callee) &&
@@ -109,7 +109,7 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
             t.isCallExpression(root) &&
             t.isMemberExpression(root.callee) &&
             t.isIdentifier(root.callee.property) &&
-            (root.callee.property.name === 'then' || 
+            (root.callee.property.name === 'then' ||
              root.callee.property.name === 'catch' ||
              root.callee.property.name === 'finally')
           ) {

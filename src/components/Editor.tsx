@@ -4,10 +4,11 @@ import { useCodeStore } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
 import { themes } from '../themes'
-import { useDebouncedFunction } from '../hooks/useDebouce'
+import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
-import type { editor, IDisposable } from 'monaco-editor'
+import { setupTypeAcquisition } from '../lib/ata'
+import type { editor, languages } from 'monaco-editor'
 
 function CodeEditor () {
   const code = useCodeStore((state) => state.code)
@@ -15,6 +16,7 @@ function CodeEditor () {
   const { themeName, fontSize } = useSettingsStore()
 
   const monacoRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const ataDisposeRef = useRef<(() => void) | null>(null)
 
   const { runCode } = useCodeRunner()
 
@@ -23,7 +25,16 @@ function CodeEditor () {
       monacoRef.current?.getAction('editor.action.formatDocument')?.run()
     }
     window.addEventListener('trigger-format', handleFormat)
-    return () => window.removeEventListener('trigger-format', handleFormat)
+
+    return () => {
+      window.removeEventListener('trigger-format', handleFormat)
+      // Dispose Monaco providers on unmount
+      disposeMonacoProviders()
+      // Dispose ATA subscription
+      if (ataDisposeRef.current) {
+        ataDisposeRef.current()
+      }
+    }
   }, [])
 
   const handleEditorWillMount = useCallback((monaco: Monaco) => {
@@ -31,9 +42,9 @@ function CodeEditor () {
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
-    
-    // Configure language features for JavaScript
-    monaco.languages.setLanguageConfiguration('javascript', {
+
+    // Shared language configuration
+    const languageConfig: languages.LanguageConfiguration = {
       comments: {
         lineComment: '//',
         blockComment: ['/*', '*/']
@@ -65,95 +76,73 @@ function CodeEditor () {
           end: /^\s*\/\/#endregion\b/
         }
       },
-      wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
+      wordPattern: /(-?\d*\.\d\w*)|([^`~!@#%^&*()\-=[{\]}\\|;:'",.<>/?\s]+)/g,
       indentationRules: {
         increaseIndentPattern: /^((?!\/\/).)*(\{[^}"'`]*|\([^)"'`]*|\[[^\]"'`]*)$/,
-        decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[\}\]\)].*$/
+        decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[}\])].*$/
       }
-    })
-    
+    }
+
+    // Configure language features for JavaScript
+    monaco.languages.setLanguageConfiguration('javascript', languageConfig)
+
     // Configure language features for TypeScript
     monaco.languages.setLanguageConfiguration('typescript', {
-      comments: {
-        lineComment: '//',
-        blockComment: ['/*', '*/']
-      },
+      ...languageConfig,
       brackets: [
-        ['{', '}'],
-        ['[', ']'],
-        ['(', ')'],
+        ...(languageConfig.brackets || []),
         ['<', '>']
       ],
       autoClosingPairs: [
-        { open: '{', close: '}' },
-        { open: '[', close: ']' },
-        { open: '(', close: ')' },
-        { open: '"', close: '"', notIn: ['string'] },
-        { open: "'", close: "'", notIn: ['string', 'comment'] },
-        { open: '`', close: '`', notIn: ['string', 'comment'] },
+        ...(languageConfig.autoClosingPairs || []),
         { open: '<', close: '>', notIn: ['string', 'comment'] }
       ],
       surroundingPairs: [
-        { open: '{', close: '}' },
-        { open: '[', close: ']' },
-        { open: '(', close: ')' },
-        { open: '"', close: '"' },
-        { open: "'", close: "'" },
-        { open: '`', close: '`' },
+        ...(languageConfig.surroundingPairs || []),
         { open: '<', close: '>' }
-      ],
-      folding: {
-        markers: {
-          start: /^\s*\/\/#region\b/,
-          end: /^\s*\/\/#endregion\b/
-        }
-      },
-      wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\%\^\&\*\(\)\-\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
-      indentationRules: {
-        increaseIndentPattern: /^((?!\/\/).)*(\{[^}"'`]*|\([^)"'`]*|\[[^\]"'`]*)$/,
-        decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[\}\]\)].*$/
-      }
+      ]
     })
-    
-    monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true)
-    
-    // Configure TypeScript/JavaScript language features
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false
-    })
-    
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2020,
+
+    // Compiler options for both JS and TS
+    const compilerOptions: languages.typescript.CompilerOptions = {
+      target: monaco.languages.typescript.ScriptTarget.ESNext,
       allowNonTsExtensions: true,
       moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
       module: monaco.languages.typescript.ModuleKind.ESNext,
-      allowJs: true
-    })
-    
-    // Lazy-load Monaco providers when JavaScript or TypeScript is used
-    const disposables: IDisposable[] = []
-    
-    disposables.push(
-      monaco.languages.onLanguage('javascript', () => {
-        // Providers will be registered on editor mount
-      })
-    )
-    
-    disposables.push(
-      monaco.languages.onLanguage('typescript', () => {
-        // Providers will be registered on editor mount
-      })
-    )
-    
-    return () => {
-      disposables.forEach((d) => d.dispose())
+      allowJs: true,
+      checkJs: true,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: 'React',
+      allowSyntheticDefaultImports: true,
+      // Disable unused warnings as per user request
+      noUnusedLocals: false,
+      noUnusedParameters: false
     }
+
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions)
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions)
+
+    // Eager sync for better performance in small files
+    monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true)
+    monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true)
+
+    // Diagnostics options
+    const diagnosticsOptions = {
+      noSemanticValidation: false,
+      noSyntaxValidation: false
+    }
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
   }, [])
 
   const handleEditorDidMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
       monacoRef.current = editorInstance
+
+      // Setup ATA
+      ataDisposeRef.current = setupTypeAcquisition(monaco)
 
       // Register hover and code action providers
       registerMonacoProviders(monaco, editorInstance)
@@ -205,11 +194,6 @@ function CodeEditor () {
           window.open(`https://www.npmjs.com/package/${packageName}`, '_blank')
         }
       })
-
-      // Cleanup on unmount
-      return () => {
-        disposeMonacoProviders()
-      }
     },
     [runCode]
   )
@@ -226,21 +210,28 @@ function CodeEditor () {
   )
 
   return (
-    <div>
+    <div className="h-full w-full">
       <Editor
         defaultLanguage="typescript"
         language={language}
         theme={themeName}
         options={{
+          automaticLayout: true,
           dragAndDrop: true,
           minimap: {
-            enabled: false
+            enabled: false // Keeping disabled as per original, but user can change if requested
           },
-          overviewRulerLanes: 0,
+          padding: {
+            top: 16,
+            bottom: 16
+          },
           scrollbar: {
-            vertical: 'hidden'
+            vertical: 'auto',
+            horizontal: 'auto'
           },
           fontSize,
+          fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
+          fontLigatures: true,
           wordWrap: 'on',
           quickSuggestions: {
             other: true,
@@ -267,7 +258,10 @@ function CodeEditor () {
             showFunctions: true,
             showVariables: true
           },
-          contextmenu: false // Disable Monaco's context menu to use native
+          contextmenu: true, // Enabled context menu
+          smoothScrolling: true,
+          cursorBlinking: 'smooth',
+          cursorSmoothCaretAnimation: 'on'
         }}
         onChange={handler}
         defaultValue={code}

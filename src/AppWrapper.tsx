@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useWebContainerStore } from './store/useWebContainerStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoadingIndicator from './components/LoadingIndicator'
+import { PackageInstaller } from './components/PackageInstaller'
 import App from './App'
 
 function AppWrapper () {
@@ -24,6 +25,7 @@ function AppWrapper () {
 
   return (
     <ErrorBoundary>
+      <PackageInstaller />
       <App />
     </ErrorBoundary>
   )

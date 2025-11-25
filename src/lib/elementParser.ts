@@ -27,6 +27,7 @@ const isPromise = (promiseToCheck: unknown): promiseToCheck is Promise<unknown> 
   if (typeof promiseToCheck !== 'object' && typeof promiseToCheck !== 'function') {
     return false
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return typeof (promiseToCheck as any).then === 'function'
 }
 
@@ -67,16 +68,18 @@ export async function stringify (element: unknown): Promise<ColoredElement> {
     try {
       // Use Promise.resolve for reliable promise handling
       const resolvedValue = await Promise.resolve(element)
-      
+
       // Check if the resolved value is a Response object
-      const isResponseObject = resolvedValue && 
+      const isResponseObject = resolvedValue &&
         typeof resolvedValue === 'object' &&
         'status' in resolvedValue &&
         'headers' in resolvedValue &&
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         typeof (resolvedValue as any).text === 'function'
 
       if (isResponseObject) {
         return {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           content: `Response { status: ${(resolvedValue as any).status} }`,
           color: Colors.STRING
         }

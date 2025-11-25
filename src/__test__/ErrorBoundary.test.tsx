@@ -19,7 +19,7 @@ describe('ErrorBoundary', () => {
     }
 
     // Suppress console.error for this test
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* no-op */ })
 
     render(
       <ErrorBoundary>
@@ -40,7 +40,7 @@ describe('ErrorBoundary', () => {
 
     const customFallback = (error: Error) => <div>Custom Error: {error.message}</div>
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* no-op */ })
 
     render(
       <ErrorBoundary fallback={customFallback}>

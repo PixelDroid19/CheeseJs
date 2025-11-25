@@ -1,15 +1,15 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { usePackagesStore } from '../store/usePackagesStore'
 import { useTranslation } from 'react-i18next'
 
-export function PackageManager() {
+export function PackageManager () {
   const { t } = useTranslation()
   const [packageName, setPackageName] = useState('')
   const packages = usePackagesStore((state) => state.packages)
 
   const handleAddPackage = () => {
     if (!packageName.trim()) return
-    
+
     // Add package to store - it will be installed on next code run
     usePackagesStore.getState().addPackage(packageName.trim())
     setPackageName('')
@@ -56,11 +56,13 @@ export function PackageManager() {
 
       {/* Packages List */}
       <div className="flex-1 overflow-auto border border-gray-300 dark:border-gray-600 rounded-md">
-        {packages.length === 0 ? (
+        {packages.length === 0
+          ? (
           <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
             {t('settings.npm.empty', 'No packages installed yet')}
           </div>
-        ) : (
+            )
+          : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {packages.map((pkg) => (
               <div
@@ -83,27 +85,38 @@ export function PackageManager() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Status Indicator */}
                   <div className="flex items-center">
-                    {pkg.installing ? (
+                    {pkg.installing
+                      ? (
                       <div className="flex items-center gap-2 text-blue-500">
                         <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-xs">Installing...</span>
                       </div>
-                    ) : pkg.error ? (
+                        )
+                      : pkg.error
+                        ? (
                       <div className="flex items-center gap-2 text-red-500">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                         </svg>
                       </div>
-                    ) : (
+                          )
+                        : pkg.isInstalled
+                          ? (
                       <div className="flex items-center gap-2 text-green-500">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                       </div>
-                    )}
+                            )
+                          : (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs">Pending...</span>
+                      </div>
+                            )}
                   </div>
                 </div>
 
@@ -121,7 +134,7 @@ export function PackageManager() {
               </div>
             ))}
           </div>
-        )}
+            )}
       </div>
 
       {/* Info Box */}

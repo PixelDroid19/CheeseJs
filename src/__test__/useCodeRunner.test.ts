@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { useCodeStore } from '../store/useCodeStore'
 import { useWebContainerStore } from '../store/useWebContainerStore'
@@ -10,7 +10,8 @@ vi.mock('../store/useCodeStore')
 vi.mock('../store/useWebContainerStore')
 vi.mock('../store/useSettingsStore')
 vi.mock('../lib/languageDetector', () => ({
-  detectLanguage: vi.fn().mockResolvedValue('javascript')
+  detectLanguage: vi.fn().mockResolvedValue('javascript'),
+  isLanguageExecutable: vi.fn().mockReturnValue(true)
 }))
 
 describe('useCodeRunner', () => {
@@ -25,6 +26,7 @@ describe('useCodeRunner', () => {
     const mockSetCode = vi.fn()
     const mockAppendResult = vi.fn()
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(useCodeStore).mockImplementation((selector: any) => {
       const state = {
         code: 'console.log("test")',
@@ -46,6 +48,7 @@ describe('useCodeRunner', () => {
       isLoading: false,
       error: null,
       bootWebContainer: vi.fn()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
     vi.mocked(useSettingsStore).mockReturnValue({
@@ -55,6 +58,7 @@ describe('useCodeRunner', () => {
       themeName: 'onedark',
       fontSize: 14,
       alignResults: true
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
   })
 
@@ -70,6 +74,7 @@ describe('useCodeRunner', () => {
     const mockClearResult = vi.fn()
     const mockSetResult = vi.fn()
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(useCodeStore).mockImplementation((selector: any) => {
       const state = {
         code: 'const x = 1',
@@ -100,6 +105,7 @@ describe('useCodeRunner', () => {
     const mockSetLanguage = vi.fn()
     const mockSetResult = vi.fn()
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(useCodeStore).mockImplementation((selector: any) => {
       const state = {
         code: 'const x = 1',

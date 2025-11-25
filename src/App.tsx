@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import CodeEditor from './components/Editor'
 import ResultDisplay from './components/Result'
-import Settings from './components/Settings'
+import Settings from './components/Settings/Settings'
 import FloatingToolbar from './components/FloatingToolbar'
 import Split from 'react-split'
 

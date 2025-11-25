@@ -8,6 +8,10 @@ interface CodeResult {
   element: CodeResultElement;
   type: 'execution' | 'error';
   lineNumber?: number;
+  action?: {
+    type: 'install-package';
+    payload: string;
+  };
 }
 
 interface CodeState {
@@ -41,14 +45,14 @@ export const useCodeStore = create<CodeState>((set) => ({
  * Helper function to check if a language is executable in this runtime
  * Only JavaScript and TypeScript can be executed
  */
-export function isLanguageExecutable(languageId: string): boolean {
+export function isLanguageExecutable (languageId: string): boolean {
   return languageId === 'javascript' || languageId === 'typescript'
 }
 
 /**
  * Helper function to get the display name for a language
  */
-export function getLanguageDisplayName(languageId: string): string {
+export function getLanguageDisplayName (languageId: string): string {
   const displayNames: Record<string, string> = {
     javascript: 'JavaScript',
     typescript: 'TypeScript',

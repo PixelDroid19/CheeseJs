@@ -1,37 +1,16 @@
 import type { Monaco } from '@monaco-editor/react'
 import type { editor, languages, IDisposable, IRange, Position, CancellationToken } from 'monaco-editor'
 import { usePackagesStore } from '../store/usePackagesStore'
+import { fetchPackageInfo, getCachedPackageInfo, clearPackageInfoCache } from './npm'
 
 let hoverProvider: IDisposable | null = null
 let codeActionProvider: IDisposable | null = null
 let completionProvider: IDisposable | null = null
 
-// Cache for package information
-const packageInfoCache = new Map<string, any>()
-
-// Fetch package info from npm registry
-async function fetchPackageInfo(packageName: string): Promise<any> {
-  if (packageInfoCache.has(packageName)) {
-    return packageInfoCache.get(packageName)
-  }
-
-  try {
-    const response = await fetch(`https://registry.npmjs.org/${packageName}/latest`)
-    if (response.ok) {
-      const data = await response.json()
-      packageInfoCache.set(packageName, data)
-      return data
-    }
-  } catch (error) {
-    console.error('Failed to fetch package info:', error)
-  }
-  return null
-}
-
 // Extract package name from import statement at cursor position
-function getPackageAtPosition(model: editor.ITextModel, position: Position): { packageName: string; range: IRange } | null {
+function getPackageAtPosition (model: editor.ITextModel, position: Position): { packageName: string; range: IRange } | null {
   const lineContent = model.getLineContent(position.lineNumber)
-  
+
   // Match various import patterns
   const patterns = [
     { regex: /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g, group: 1 },
@@ -45,11 +24,11 @@ function getPackageAtPosition(model: editor.ITextModel, position: Position): { p
     let match
     while ((match = regex.exec(lineContent)) !== null) {
       const packagePath = match[group]
-      
+
       // Find the exact position of the package name in quotes
       const quoteMatch = lineContent.substring(match.index).match(/['"]([^'"]+)['"]/)
       if (!quoteMatch) continue
-      
+
       const quoteStart = match.index + lineContent.substring(match.index).indexOf(quoteMatch[0])
       const packageStart = quoteStart + 1 // After opening quote
       const packageEnd = packageStart + packagePath.length
@@ -86,13 +65,134 @@ function getPackageAtPosition(model: editor.ITextModel, position: Position): { p
   return null
 }
 
-export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.IStandaloneCodeEditor) {
+// Scan for imports and set markers for missing packages
+function validateImports (model: editor.ITextModel, monaco: Monaco) {
+  const code = model.getValue()
+  const markers: editor.IMarkerData[] = []
+  const packages = usePackagesStore.getState().packages
+  const missingPackages: string[] = []
+
+  // Match various import patterns
+  const patterns = [
+    { regex: /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g, group: 1 },
+    { regex: /import\s+['"]([^'"]+)['"]/g, group: 1 },
+    { regex: /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g, group: 1 },
+    { regex: /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g, group: 1 } // dynamic import
+  ]
+
+  for (const { regex, group } of patterns) {
+    regex.lastIndex = 0
+    let match
+    while ((match = regex.exec(code)) !== null) {
+      const packagePath = match[group]
+
+      // Extract base package name
+      let packageName = packagePath
+      if (packagePath.startsWith('@')) {
+        const parts = packagePath.split('/')
+        packageName = parts.length >= 2 ? `${parts[0]}/${parts[1]}` : packagePath
+      } else {
+        packageName = packagePath.split('/')[0]
+      }
+
+      // Skip relative imports
+      if (packageName.startsWith('.') || packageName.startsWith('/')) {
+        continue
+      }
+
+      // Skip invalid package names or common keywords that might be matched incorrectly
+      const ignoredPackages = ['from', 'as', 'in', 'of', 'export', 'import', 'default', 'const', 'var', 'let', 'type', 'interface']
+      if (ignoredPackages.includes(packageName)) {
+        continue
+      }
+
+      // Check if installed
+      const isInstalled = packages.some(p => p.name === packageName)
+
+      if (!isInstalled) {
+        // Add to missing packages list
+        if (!missingPackages.includes(packageName)) {
+          missingPackages.push(packageName)
+        }
+
+        // Find the range of the package name in the match
+        // We look for the package path inside the full match to be safe
+        const fullMatch = match[0]
+        const packageIndexInMatch = fullMatch.lastIndexOf(packagePath)
+        
+        // Safety check
+        if (packageIndexInMatch === -1) continue
+
+        const startOffset = match.index + packageIndexInMatch
+        const endOffset = startOffset + packagePath.length
+
+        const startPos = model.getPositionAt(startOffset)
+        const endPos = model.getPositionAt(endOffset)
+
+        markers.push({
+          severity: monaco.MarkerSeverity.Warning,
+          message: `Package "${packageName}" is not installed.`,
+          startLineNumber: startPos.lineNumber,
+          startColumn: startPos.column,
+          endLineNumber: endPos.lineNumber,
+          endColumn: endPos.column,
+          code: 'missing-package',
+          source: 'Package Manager'
+        })
+      }
+    }
+  }
+
+  monaco.editor.setModelMarkers(model, 'package-manager', markers)
+
+  // Update detected missing packages in store
+  // We compare with current state to avoid unnecessary updates/re-renders
+  const currentMissing = usePackagesStore.getState().detectedMissingPackages
+  const hasChanged = missingPackages.length !== currentMissing.length ||
+                     !missingPackages.every(p => currentMissing.includes(p))
+
+  if (hasChanged) {
+    usePackagesStore.getState().setDetectedMissingPackages(missingPackages)
+  }
+}
+
+export function registerMonacoProviders (monaco: Monaco, editorInstance: editor.IStandaloneCodeEditor) {
   // Dispose previous providers if they exist
   disposeMonacoProviders()
 
   // Use lazy loading with onLanguage for better performance
   // Only register providers when JavaScript or TypeScript is activated
   const languageDisposables: IDisposable[] = []
+
+  // Subscribe to package store changes to re-validate
+  const unsubscribePackages = usePackagesStore.subscribe(() => {
+    const model = editorInstance.getModel()
+    if (model) {
+      validateImports(model, monaco)
+    }
+  })
+
+  // Validate on content change (debounced)
+  let debounceTimer: ReturnType<typeof setTimeout>
+  const contentChangeDisposable = editorInstance.onDidChangeModelContent(() => {
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(() => {
+      const model = editorInstance.getModel()
+      if (model) {
+        validateImports(model, monaco)
+      }
+    }, 1000) // Wait 1 second after typing stops
+  })
+
+  // Validate initially
+  const model = editorInstance.getModel()
+  if (model) {
+    validateImports(model, monaco)
+  }
+
+  // Add subscription to disposables (we wrap it in an IDisposable)
+  languageDisposables.push({ dispose: unsubscribePackages })
+  languageDisposables.push(contentChangeDisposable)
 
   const registerProviders = () => {
     // Register Enhanced Hover Provider with IntelliSense
@@ -109,7 +209,7 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
         }
 
         const { packageName, range } = packageInfo
-        
+
         // Check cancellation again
         if (token.isCancellationRequested) {
           return null
@@ -117,9 +217,9 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
 
         const packages = usePackagesStore.getState().packages
         const installedPkg = packages.find(p => p.name === packageName)
-        
+
         const contents: { value: string; isTrusted?: boolean; supportHtml?: boolean }[] = []
-        
+
         // Header with package name
         contents.push({
           value: `### 📦 \`${packageName}\``,
@@ -130,29 +230,29 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
         let statusText = ''
         if (installedPkg) {
           if (installedPkg.installing) {
-            statusText = `**Status:** $(sync~spin) Installing...`
+            statusText = '**Status:** ⏳ Installing...'
           } else if (installedPkg.error) {
-            statusText = `**Status:** $(error) Error: ${installedPkg.error}`
+            statusText = `**Status:** ❌ Error: ${installedPkg.error}`
           } else {
-            statusText = `**Status:** $(check) Installed`
+            statusText = '**Status:** ✅ Installed'
             if (installedPkg.version) {
               statusText += `\n\n**Version:** \`${installedPkg.version}\``
             }
           }
         } else {
-          statusText = `**Status:** $(warning) Not installed\n\n*Will be installed automatically on first run*`
+          statusText = '**Status:** ⚠️ Not installed\n\n*Use Quick Fix (Ctrl+.) or Install button in output*'
         }
-        
+
         contents.push({
           value: statusText,
           isTrusted: true
         })
 
         // Try to get cached info from npm
-        const pkgInfo = packageInfoCache.get(packageName)
+        const pkgInfo = getCachedPackageInfo(packageName)
         if (pkgInfo) {
           contents.push({ value: '---', isTrusted: true })
-          
+
           if (pkgInfo.description) {
             contents.push({
               value: pkgInfo.description,
@@ -166,8 +266,8 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           }
 
           if (pkgInfo.author) {
-            const authorName = typeof pkgInfo.author === 'string' 
-              ? pkgInfo.author 
+            const authorName = typeof pkgInfo.author === 'string'
+              ? pkgInfo.author
               : pkgInfo.author?.name
             if (authorName) {
               detailParts.push(`**Author:** ${authorName}`)
@@ -217,14 +317,14 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           })
 
           contents.push({
-            value: `\n\n*Loading package information...*`,
+            value: '\n\n*Loading package information...*',
             isTrusted: true
           })
         }
 
         // Quick actions hint
         contents.push({
-          value: `\n\n---\n\n$(lightbulb) Press **Ctrl+.** for quick actions`,
+          value: '\n\n---\n\n💡 Press **Ctrl+.** for quick actions',
           isTrusted: true
         })
 
@@ -238,33 +338,58 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
     // Register Code Action Provider with Quick Fixes
     codeActionProvider = monaco.languages.registerCodeActionProvider(['javascript', 'typescript'], {
       provideCodeActions: (
-        model: editor.ITextModel, 
-        range: IRange, 
+        model: editor.ITextModel,
+        range: IRange,
         _context: languages.CodeActionContext,
         token: CancellationToken
       ): languages.ProviderResult<languages.CodeActionList> => {
         if (token.isCancellationRequested) {
-          return { actions: [], dispose: () => {} }
+          return { actions: [], dispose: () => { /* no-op */ } }
         }
 
         const actions: languages.CodeAction[] = []
         const position = model.getPositionAt(model.getOffsetAt({ lineNumber: range.startLineNumber, column: range.startColumn }))
-        const packageInfo = getPackageAtPosition(model, position)
-        
+        let packageInfo = getPackageAtPosition(model, position)
+
+        // Fallback: Check markers if getPackageAtPosition failed
         if (!packageInfo) {
-          return { actions: [], dispose: () => {} }
+          const marker = _context.markers.find(m => m.code === 'missing-package')
+          if (marker) {
+            // Extract package name from message: Package "packageName" is not installed.
+            const match = marker.message.match(/Package "([^"]+)" is not installed/)
+            if (match) {
+              packageInfo = {
+                packageName: match[1],
+                range: {
+                  startLineNumber: marker.startLineNumber,
+                  startColumn: marker.startColumn,
+                  endLineNumber: marker.endLineNumber,
+                  endColumn: marker.endColumn
+                }
+              }
+            }
+          }
+        }
+
+        if (!packageInfo) {
+          return { actions: [], dispose: () => { /* no-op */ } }
         }
 
         const { packageName } = packageInfo
         const packages = usePackagesStore.getState().packages
         const pkg = packages.find(p => p.name === packageName)
 
+        // Find relevant diagnostics
+        const diagnostics = _context.markers.filter(m =>
+          m.code === 'missing-package' && m.message.includes(`"${packageName}"`)
+        )
+
         if (!pkg) {
           // Package not installed
           actions.push({
             title: `$(cloud-download) Install "${packageName}"`,
             kind: 'quickfix',
-            diagnostics: [],
+            diagnostics,
             isPreferred: true,
             command: {
               id: 'cheeseJS.installPackage',
@@ -276,7 +401,7 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           actions.push({
             title: `$(play) Install "${packageName}" and run code`,
             kind: 'quickfix',
-            diagnostics: [],
+            diagnostics,
             command: {
               id: 'cheeseJS.installAndRun',
               title: 'Install Package and Run',
@@ -287,7 +412,7 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           actions.push({
             title: `$(link-external) View "${packageName}" on npm`,
             kind: 'quickfix',
-            diagnostics: [],
+            diagnostics,
             command: {
               id: 'cheeseJS.viewOnNpm',
               title: 'View on npm',
@@ -299,7 +424,7 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           actions.push({
             title: `$(refresh) Retry installing "${packageName}"`,
             kind: 'quickfix',
-            diagnostics: [],
+            diagnostics,
             isPreferred: true,
             command: {
               id: 'cheeseJS.retryInstall',
@@ -311,7 +436,7 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           actions.push({
             title: `$(link-external) View "${packageName}" on npm`,
             kind: 'quickfix',
-            diagnostics: [],
+            diagnostics,
             command: {
               id: 'cheeseJS.viewOnNpm',
               title: 'View on npm',
@@ -323,20 +448,20 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           actions.push({
             title: `$(sync~spin) "${packageName}" is being installed...`,
             kind: 'empty',
-            diagnostics: []
+            diagnostics
           })
         } else {
           // Package is installed
           actions.push({
             title: `$(check) "${packageName}" is installed${pkg.version ? ` (v${pkg.version})` : ''}`,
             kind: 'empty',
-            diagnostics: []
+            diagnostics
           })
-          
+
           actions.push({
             title: `$(trash) Uninstall "${packageName}"`,
             kind: 'refactor',
-            diagnostics: [],
+            diagnostics,
             command: {
               id: 'cheeseJS.uninstallPackage',
               title: 'Uninstall Package',
@@ -347,7 +472,7 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           actions.push({
             title: `$(link-external) View "${packageName}" on npm`,
             kind: 'quickfix',
-            diagnostics: [],
+            diagnostics,
             command: {
               id: 'cheeseJS.viewOnNpm',
               title: 'View on npm',
@@ -358,7 +483,7 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
 
         return {
           actions,
-          dispose: () => {}
+          dispose: () => { /* no-op */ }
         }
       }
     })
@@ -378,12 +503,12 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
 
         const lineContent = model.getLineContent(position.lineNumber)
         const textUntilPosition = lineContent.substring(0, position.column - 1)
-        
+
         // Check if we're in an import/require statement
         const isImport = /import\s+.*?\s+from\s+['"]/.test(textUntilPosition) ||
                          /require\s*\(\s*['"]/.test(textUntilPosition) ||
                          /import\s*\(\s*['"]/.test(textUntilPosition)
-        
+
         if (!isImport) {
           return { suggestions: [] }
         }
@@ -405,8 +530,8 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
           kind: monaco.languages.CompletionItemKind.Module,
           insertText: pkg.name,
           detail: pkg.installing ? 'Installing...' : 'Installed',
-          documentation: pkg.error 
-            ? `Error: ${pkg.error}` 
+          documentation: pkg.error
+            ? `Error: ${pkg.error}`
             : `Installed package: ${pkg.name}`,
           range,
           sortText: pkg.installing ? 'z' + pkg.name : 'a' + pkg.name // Prioritize installed packages
@@ -450,12 +575,12 @@ export function registerMonacoProviders(monaco: Monaco, _editorInstance: editor.
   } as IDisposable
 }
 
-export function disposeMonacoProviders() {
+export function disposeMonacoProviders () {
   hoverProvider?.dispose()
   codeActionProvider?.dispose()
   completionProvider?.dispose()
   hoverProvider = null
   codeActionProvider = null
   completionProvider = null
-  packageInfoCache.clear()
+  clearPackageInfoCache()
 }

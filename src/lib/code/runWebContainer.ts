@@ -11,6 +11,10 @@ interface CodeResult {
   };
   type: 'execution' | 'error';
   lineNumber?: number;
+  action?: {
+    type: 'install-package';
+    payload: string;
+  };
 }
 
 const installedPackages = new Set<string>()
@@ -27,66 +31,34 @@ export async function runInWebContainer (
   }
 
   // 1. Detect and Install Packages
+  // Sync with store first
+  const storePackages = usePackagesStore.getState().packages
+  storePackages.forEach(pkg => {
+    if (!pkg.error && !pkg.installing) {
+      installedPackages.add(pkg.name)
+    }
+  })
+
   const imports = getImports(code)
   const newPackages = imports.filter((pkg) => !installedPackages.has(pkg))
 
   if (newPackages.length > 0) {
-    try {
-      // Notificar al store que se están instalando paquetes
-      newPackages.forEach((pkg) => {
-        usePackagesStore.getState().setPackageInstalling(pkg, true)
-      })
-
-      const installProcess = await webContainer.spawn('npm', [
-        'install',
-        ...newPackages
-      ])
-
-      installProcess.output.pipeTo(
-        new WritableStream({
-          write () {
-            // npm install output is being suppressed to avoid cluttering the UI
-          }
-        })
-      )
-
-      const installExitCode = await installProcess.exit
-
-      if (installExitCode !== 0) {
-        newPackages.forEach((pkg) => {
-          usePackagesStore.getState().setPackageError(pkg, 'Installation failed')
-        })
-        onResult({
-          element: {
-            content: `Failed to install packages: ${newPackages.join(', ')}`,
-            color: Colors.ERROR
-          },
-          type: 'error'
-        })
-        return () => {
-          // No cleanup needed after installation failure
-        }
-      }
-
-      newPackages.forEach((pkg) => {
-        installedPackages.add(pkg)
-        usePackagesStore.getState().addPackage(pkg)
-        usePackagesStore.getState().setPackageInstalling(pkg, false)
-      })
-    } catch (e: unknown) {
-      newPackages.forEach((pkg) => {
-        usePackagesStore.getState().setPackageError(pkg, (e as Error).message)
-      })
+    newPackages.forEach((pkg) => {
       onResult({
         element: {
-          content: `Error installing packages: ${(e as Error).message}`,
-          color: Colors.ERROR
+          content: `Package "${pkg}" is not installed.`,
+          color: Colors.GRAY
         },
-        type: 'error'
+        type: 'execution',
+        action: {
+          type: 'install-package',
+          payload: pkg
+        }
       })
-      return () => {
-        // No cleanup needed after installation error
-      }
+    })
+
+    return () => {
+      // No cleanup needed
     }
   }
 
@@ -106,6 +78,9 @@ export async function runInWebContainer (
   const script = `
 import util from 'util';
 import { EventEmitter } from 'events';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 // Increase max listeners to prevent warnings in complex async scenarios
 EventEmitter.defaultMaxListeners = 50;
@@ -266,6 +241,17 @@ const consoleOverride = {
 Object.assign(console, consoleOverride);
 
 process.on('uncaughtException', (e) => {
+    const msg = String(e);
+    if (msg.includes('Cannot find module')) {
+        const match = msg.match(/Cannot find module '([^']+)'/);
+        if (match) {
+             originalLog(JSON.stringify({
+                __type: 'error',
+                message: \`Package "\${match[1]}" is not installed. Please install it to run this code.\`
+            }));
+            return;
+        }
+    }
     originalLog(JSON.stringify({
         __type: 'error',
         message: String(e)
@@ -273,6 +259,17 @@ process.on('uncaughtException', (e) => {
 });
 
 process.on('unhandledRejection', (e) => {
+    const msg = String(e);
+    if (msg.includes('Cannot find module')) {
+        const match = msg.match(/Cannot find module '([^']+)'/);
+        if (match) {
+             originalLog(JSON.stringify({
+                __type: 'error',
+                message: \`Package "\${match[1]}" is not installed. Please install it to run this code.\`
+            }));
+            return;
+        }
+    }
     originalLog(JSON.stringify({
         __type: 'error',
         message: String(e)

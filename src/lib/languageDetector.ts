@@ -71,7 +71,7 @@ const ENHANCED_PATTERNS = {
 // Cache for Monaco languages
 let monacoLanguages: LanguageInfo[] = []
 
-export async function initLanguageDetector(): Promise<void> {
+export async function initLanguageDetector (): Promise<void> {
   // Get all registered languages from Monaco
   monacoLanguages = monaco.languages.getLanguages() as LanguageInfo[]
 }
@@ -80,7 +80,7 @@ export async function initLanguageDetector(): Promise<void> {
  * Detect programming language using Monaco's language registry
  * Falls back to pattern matching for ambiguous cases
  */
-export async function detectLanguage(code: string): Promise<string> {
+export async function detectLanguage (code: string): Promise<string> {
   if (!code.trim()) return 'javascript'
 
   // Initialize if not already done
@@ -118,7 +118,7 @@ export async function detectLanguage(code: string): Promise<string> {
   // Special case: TypeScript vs JavaScript disambiguation
   const tsScore = scores.get('typescript') || 0
   const jsScore = scores.get('javascript') || 0
-  
+
   if (tsScore > 0 && jsScore > 0) {
     // If TypeScript-specific patterns found, prefer TypeScript
     if (tsScore >= jsScore) {
@@ -138,21 +138,21 @@ export async function detectLanguage(code: string): Promise<string> {
  * Check if a language is executable in this runtime
  * Only JavaScript and TypeScript can be executed
  */
-export function isLanguageExecutable(languageId: string): boolean {
+export function isLanguageExecutable (languageId: string): boolean {
   return languageId === 'javascript' || languageId === 'typescript'
 }
 
 /**
  * Get all available Monaco languages
  */
-export function getAvailableLanguages(): LanguageInfo[] {
+export function getAvailableLanguages (): LanguageInfo[] {
   return monacoLanguages
 }
 
 /**
  * Get language info by ID
  */
-export function getLanguageById(id: string): LanguageInfo | undefined {
+export function getLanguageById (id: string): LanguageInfo | undefined {
   return monacoLanguages.find(
     (lang) => lang.id === id || lang.aliases?.includes(id)
   )
