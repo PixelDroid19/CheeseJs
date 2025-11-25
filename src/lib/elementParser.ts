@@ -23,12 +23,11 @@ export interface RecursiveColoredElement {
 export type ColoredElement = RecursiveColoredElement | StringColoredElement;
 
 const isPromise = (promiseToCheck: unknown): promiseToCheck is Promise<unknown> => {
-  return (
-    !!promiseToCheck &&
-    (typeof promiseToCheck === 'object' ||
-      typeof promiseToCheck === 'function') &&
-    typeof (promiseToCheck as Promise<unknown>).then === 'function'
-  )
+  if (!promiseToCheck) return false
+  if (typeof promiseToCheck !== 'object' && typeof promiseToCheck !== 'function') {
+    return false
+  }
+  return typeof (promiseToCheck as any).then === 'function'
 }
 
 export function flattenColoredElement (
@@ -63,21 +62,34 @@ export async function stringify (element: unknown): Promise<ColoredElement> {
       })
     }
   }
-  // TODO: repair bug on non-await promises
+
   if (isPromise(element)) {
-    const waited = await element
-    const IsPromise = Object.getPrototypeOf(element)
-      .toString()
-      .includes('Promise')
-    const IsResponse = Object.getPrototypeOf(waited)
-      .toString()
-      .includes('Response')
-    return {
-      content:
-        IsPromise && IsResponse
-          ? 'Promise { <pending> }'
-          : ObjetToString(waited),
-      color: Colors.STRING
+    try {
+      // Use Promise.resolve for reliable promise handling
+      const resolvedValue = await Promise.resolve(element)
+      
+      // Check if the resolved value is a Response object
+      const isResponseObject = resolvedValue && 
+        typeof resolvedValue === 'object' &&
+        'status' in resolvedValue &&
+        'headers' in resolvedValue &&
+        typeof (resolvedValue as any).text === 'function'
+
+      if (isResponseObject) {
+        return {
+          content: `Response { status: ${(resolvedValue as any).status} }`,
+          color: Colors.STRING
+        }
+      }
+
+      return await stringify(resolvedValue)
+    } catch (error) {
+      // Handle rejected promises
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return {
+        content: `Promise { <rejected>: ${errorMessage} }`,
+        color: Colors.ERROR
+      }
     }
   }
 

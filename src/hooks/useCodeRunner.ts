@@ -4,7 +4,7 @@ import { useWebContainerStore } from '../store/useWebContainerStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { run, transformCode } from '../lib/code/run'
 import { runInWebContainer } from '../lib/code/runWebContainer'
-import { detectLanguage } from '../lib/languageDetector'
+import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
 
 export function useCodeRunner () {
   const code = useCodeStore((state) => state.code)
@@ -14,6 +14,7 @@ export function useCodeRunner () {
   const clearResult = useCodeStore((state) => state.clearResult)
   const language = useCodeStore((state) => state.language)
   const setLanguage = useCodeStore((state) => state.setLanguage)
+  const setIsExecuting = useCodeStore((state) => state.setIsExecuting)
 
   const { showTopLevelResults, loopProtection, showUndefined } =
     useSettingsStore()
@@ -36,7 +37,22 @@ export function useCodeRunner () {
         setLanguage(detectedLang)
       }
 
+      // Validate that language is executable
+      if (!isLanguageExecutable(detectedLang)) {
+        setIsExecuting(false)
+        setResult([
+          {
+            element: {
+              content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can only execute JavaScript and TypeScript code.\n\nDetected language: ${detectedLang}\nSupported languages: javascript, typescript`
+            },
+            type: 'error'
+          }
+        ])
+        return
+      }
+
       clearResult()
+      setIsExecuting(true)
       try {
         if (webContainer) {
           const kill = await runInWebContainer(
@@ -61,6 +77,8 @@ export function useCodeRunner () {
         const message =
           error instanceof Error ? error.message : 'An unknown error occurred'
         setResult([{ element: { content: message }, type: 'error' }])
+      } finally {
+        setIsExecuting(false)
       }
       if (codeToRun !== undefined) {
         setCode(codeToRun)
@@ -74,6 +92,7 @@ export function useCodeRunner () {
       appendResult,
       clearResult,
       setLanguage,
+      setIsExecuting,
       code,
       showTopLevelResults,
       loopProtection,

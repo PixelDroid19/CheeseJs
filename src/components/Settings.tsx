@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { PackageManager } from './PackageManager'
 import {
   X,
   HelpCircle,
@@ -15,6 +15,7 @@ import { useSettingsStore } from '../store/useSettingsStore'
 import { themeOptions } from '../themes'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 type Tab =
   | 'general'
@@ -305,7 +306,7 @@ export default function Settings () {
                 )}
 
                 {/* Placeholder for other tabs */}
-                {['compilation', 'formatting', 'ai', 'npm'].includes(
+                {['compilation', 'formatting', 'ai'].includes(
                   activeTab
                 ) && (
                   <motion.div
@@ -314,6 +315,17 @@ export default function Settings () {
                     className="flex items-center justify-center h-full text-gray-500"
                   >
                     Coming soon...
+                  </motion.div>
+                )}
+
+                {/* NPM Package Manager */}
+                {activeTab === 'npm' && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="h-full"
+                  >
+                    <PackageManager />
                   </motion.div>
                 )}
               </div>

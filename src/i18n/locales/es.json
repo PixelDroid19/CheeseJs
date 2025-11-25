@@ -16,14 +16,28 @@
     },
     "advanced": {
       "expressionResults": "Resultados de expresión",
-      "showTopLevel": "Muestre el resultado de cada expresión de nivel superior",
+      "showTopLevel": "Mostrar el resultado de cada expresión de nivel superior",
       "align": "Alinear",
-      "alignWithSource": "Alinear resultado con la fuente",
+      "alignWithSource": "Alinear resultado con fuente",
       "alignTooltip": "Los resultados de salida se colocarán en la misma línea que su fuente.\nDeshabilite esto para mostrar los resultados de salida en su orden natural de ejecución.",
-      "showUndefined": "Mostrar indefinidas",
-      "showUndefinedValues": "Mostrar valores indefinidos",
+      "showUndefined": "Mostrar undefined",
+      "showUndefinedValues": "Mostrar valores undefined",
       "loopProtection": "Protección de bucles",
       "protectLongRunning": "Proteger contra scripts de ejecución prolongada"
+    },
+    "npm": {
+      "description": "Administra paquetes npm para tu código. Los paquetes se instalan automáticamente cuando se detectan en los imports.",
+      "placeholder": "Nombre del paquete (ej: lodash)",
+      "add": "Agregar",
+      "remove": "Eliminar paquete",
+      "empty": "No hay paquetes instalados aún",
+      "info": {
+        "title": "Cómo funciona:",
+        "auto": "Los paquetes se detectan automáticamente desde las declaraciones import",
+        "install": "Se instalan en la primera ejecución del código",
+        "manual": "También puedes agregar paquetes manualmente aquí",
+        "webcontainer": "Todos los paquetes se ejecutan en un entorno WebContainer aislado"
+      }
     }
   },
   "editor": {

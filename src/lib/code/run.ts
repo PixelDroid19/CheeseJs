@@ -70,8 +70,8 @@ export function transformCode (
     plugins
   })
 
-  if (!result.code) {
-    throw new Error('Failed to transform code')
+  if (!result.code || code.trim() === '') {
+    return ''
   }
 
   return result.code

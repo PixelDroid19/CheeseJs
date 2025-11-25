@@ -27,6 +27,7 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.stackblitz.com https://*.webcontainer.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https://registry.npmjs.org https://unpkg.com https://cdn.jsdelivr.net https://stackblitz.com https://*.stackblitz.com https://*.stackblitz.io https://*.webcontainer.io https://*.staticblitz.com wss://*.webcontainer.io; frame-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io; child-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io; worker-src 'self' blob: https://*.staticblitz.com https://*.webcontainer.io;",
     },
   },
 })

@@ -24,6 +24,20 @@
       "showUndefinedValues": "Show undefined values",
       "loopProtection": "Loop protection",
       "protectLongRunning": "Protect against long-running execution scripts"
+    },
+    "npm": {
+      "description": "Manage npm packages for your code. Packages are automatically installed when detected in imports.",
+      "placeholder": "Package name (e.g., lodash)",
+      "add": "Add",
+      "remove": "Remove package",
+      "empty": "No packages installed yet",
+      "info": {
+        "title": "How it works:",
+        "auto": "Packages are automatically detected from import statements",
+        "install": "They are installed on first code execution",
+        "manual": "You can also manually add packages here",
+        "webcontainer": "All packages run in an isolated WebContainer environment"
+      }
     }
   },
   "editor": {

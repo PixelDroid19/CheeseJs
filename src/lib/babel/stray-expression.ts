@@ -66,12 +66,69 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
 
         const line = expression.loc.start.line
 
-        // Replace: expr -> debug(line, expr)
+        // Check if expression is a promise chain with console methods
+        const isPromiseChainWithConsole = 
+          t.isCallExpression(expression) && 
+          t.isMemberExpression(expression.callee) && 
+          t.isIdentifier(expression.callee.property) && 
+          (expression.callee.property.name === 'then' || 
+           expression.callee.property.name === 'catch' ||
+           expression.callee.property.name === 'finally') &&
+          expression.arguments.some(arg => 
+            t.isMemberExpression(arg) &&
+            t.isIdentifier((arg as BabelTypes.MemberExpression).object, { name: 'console' })
+          )
+
+        // Check if expression is a promise chain (has .then, .catch, .finally)
+        const isPromiseChain = 
+          t.isCallExpression(expression) && 
+          t.isMemberExpression(expression.callee) && 
+          t.isIdentifier(expression.callee.property) && 
+          (expression.callee.property.name === 'then' || 
+           expression.callee.property.name === 'catch' ||
+           expression.callee.property.name === 'finally')
+
+        // Check if expression might be a Promise (async call, fetch(), etc.)
+        const mightBePromise = 
+          t.isAwaitExpression(expression) ||
+          isPromiseChain ||
+          (t.isCallExpression(expression) && 
+            (t.isIdentifier(expression.callee) && 
+             (expression.callee.name === 'fetch'))) ||
+          (t.isCallExpression(expression) &&
+           t.isMemberExpression(expression.callee) &&
+           t.isIdentifier(expression.callee.object) &&
+           expression.callee.object.name === 'Promise')
+
+        let expressionToLog = expression
+
+        if (isPromiseChainWithConsole) {
+          // Find the root of the promise chain (before the first .then/.catch/.finally)
+          let root: BabelTypes.Expression = expression
+          while (
+            t.isCallExpression(root) &&
+            t.isMemberExpression(root.callee) &&
+            t.isIdentifier(root.callee.property) &&
+            (root.callee.property.name === 'then' || 
+             root.callee.property.name === 'catch' ||
+             root.callee.property.name === 'finally')
+          ) {
+            root = root.callee.object as BabelTypes.Expression
+          }
+
+          // Instead of awaiting the chain that ends with console.log (returns undefined),
+          // await the root promise directly to show the actual resolved value
+          expressionToLog = t.awaitExpression(root)
+        } else if (mightBePromise) {
+          expressionToLog = t.awaitExpression(expression)
+        }
+
+        // Replace: expr -> debug(line, await expr) or debug(line, expr)
         path.replaceWith(
           t.expressionStatement(
             t.callExpression(t.identifier('debug'), [
               t.numericLiteral(line),
-              expression
+              expressionToLog
             ])
           )
         )

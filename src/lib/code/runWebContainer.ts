@@ -2,13 +2,23 @@ import { WebContainer } from '@webcontainer/api'
 import { transformCode } from './run'
 import { Colors } from '../elementParser'
 import { getImports } from './dependencies'
+import { usePackagesStore } from '../../store/usePackagesStore'
+
+interface CodeResult {
+  element: {
+    content: string;
+    color?: Colors;
+  };
+  type: 'execution' | 'error';
+  lineNumber?: number;
+}
 
 const installedPackages = new Set<string>()
 
 export async function runInWebContainer (
   webContainer: WebContainer,
   code: string,
-  onResult: (result: unknown) => void
+  onResult: (result: CodeResult) => void
 ) {
   if (!code.trim()) {
     return () => {
@@ -22,6 +32,11 @@ export async function runInWebContainer (
 
   if (newPackages.length > 0) {
     try {
+      // Notificar al store que se están instalando paquetes
+      newPackages.forEach((pkg) => {
+        usePackagesStore.getState().setPackageInstalling(pkg, true)
+      })
+
       const installProcess = await webContainer.spawn('npm', [
         'install',
         ...newPackages
@@ -38,6 +53,9 @@ export async function runInWebContainer (
       const installExitCode = await installProcess.exit
 
       if (installExitCode !== 0) {
+        newPackages.forEach((pkg) => {
+          usePackagesStore.getState().setPackageError(pkg, 'Installation failed')
+        })
         onResult({
           element: {
             content: `Failed to install packages: ${newPackages.join(', ')}`,
@@ -50,8 +68,15 @@ export async function runInWebContainer (
         }
       }
 
-      newPackages.forEach((pkg) => installedPackages.add(pkg))
+      newPackages.forEach((pkg) => {
+        installedPackages.add(pkg)
+        usePackagesStore.getState().addPackage(pkg)
+        usePackagesStore.getState().setPackageInstalling(pkg, false)
+      })
     } catch (e: unknown) {
+      newPackages.forEach((pkg) => {
+        usePackagesStore.getState().setPackageError(pkg, (e as Error).message)
+      })
       onResult({
         element: {
           content: `Error installing packages: ${(e as Error).message}`,

@@ -4,10 +4,12 @@ import { useSettingsStore } from '../store/useSettingsStore'
 import { themes } from '../themes'
 import Editor, { Monaco } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
+import LoadingIndicator from './LoadingIndicator'
 
 function ResultDisplay () {
   const elements = useCodeStore((state) => state.result)
   const code = useCodeStore((state) => state.code)
+  const isExecuting = useCodeStore((state) => state.isExecuting)
   const { themeName, fontSize, alignResults } = useSettingsStore()
 
   function handleEditorWillMount (monaco: Monaco) {
@@ -52,7 +54,12 @@ function ResultDisplay () {
   }, [elements, alignResults, code])
 
   return (
-    <div className=" text-cyan-50 bg-[#1e1e1e]">
+    <div className=" text-cyan-50 bg-[#1e1e1e] relative">
+      {isExecuting && (
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm z-10 flex items-center justify-center">
+          <LoadingIndicator message="Executing code..." size="md" />
+        </div>
+      )}
       <Editor
         theme={themeName}
         options={{
