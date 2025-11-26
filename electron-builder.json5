@@ -3,7 +3,7 @@
  */
 {
   $schema: "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  appId: "YourAppID",
+  appId: "com.pixeldroid19.cheesejs",
   asar: true,
   directories: {
     output: "release/${version}",
@@ -28,11 +28,10 @@
 
     category: "Development",
   },
-  // publish: {
-  //   provider: "github",
-  //   repo: "",
-  //   owner: "",
-  //   releaseType: "release",
-  //   token: "<PERSONAL_ACCESS_TOKEN_REFERENCE>",
-  // },
+  publish: {
+    provider: "github",
+    owner: "PixelDroid19",
+    repo: "CheeseJs",
+    releaseType: "release",
+  },
 }

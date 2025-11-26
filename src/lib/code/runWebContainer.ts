@@ -57,8 +57,11 @@ export async function runInWebContainer (
       })
     })
 
-    return () => {
-      // No cleanup needed
+    return {
+      kill: () => {
+        // No cleanup needed
+      },
+      missingPackages: newPackages
     }
   }
 
@@ -70,8 +73,11 @@ export async function runInWebContainer (
       element: { content: (e as Error).message, color: Colors.ERROR },
       type: 'error'
     })
-    return () => {
-      // No cleanup needed after transform error
+    return {
+      kill: () => {
+        // No cleanup needed after transform error
+      },
+      missingPackages: []
     }
   }
 
@@ -326,8 +332,11 @@ ${transformed}
     })
   )
 
-  return () => {
-    process.kill()
+  return {
+    kill: () => {
+      process.kill()
+    },
+    missingPackages: []
   }
 }
 

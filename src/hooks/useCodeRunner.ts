@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import { useCodeStore } from '../store/useCodeStore'
 import { useWebContainerStore } from '../store/useWebContainerStore'
 import { useSettingsStore } from '../store/useSettingsStore'
+import { usePackagesStore } from '../store/usePackagesStore'
 import { run, transformCode } from '../lib/code/run'
 import { runInWebContainer } from '../lib/code/runWebContainer'
 import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
@@ -15,6 +16,8 @@ export function useCodeRunner () {
   const language = useCodeStore((state) => state.language)
   const setLanguage = useCodeStore((state) => state.setLanguage)
   const setIsExecuting = useCodeStore((state) => state.setIsExecuting)
+  const setIsPendingRun = useCodeStore((state) => state.setIsPendingRun)
+  const setDetectedMissingPackages = usePackagesStore((state) => state.setDetectedMissingPackages)
 
   const { showTopLevelResults, loopProtection, showUndefined } =
     useSettingsStore()
@@ -55,13 +58,19 @@ export function useCodeRunner () {
       setIsExecuting(true)
       try {
         if (webContainer) {
-          const kill = await runInWebContainer(
+          const { kill, missingPackages } = await runInWebContainer(
             webContainer,
             sourceCode,
             (result) => {
               appendResult(result)
             }
           )
+          
+          if (missingPackages.length > 0) {
+            setIsPendingRun(true)
+            setDetectedMissingPackages(missingPackages)
+          }
+
           killProcessRef.current = kill
         } else {
           const transformed = transformCode(sourceCode, {

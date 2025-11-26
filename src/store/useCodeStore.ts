@@ -25,6 +25,8 @@ interface CodeState {
   appendResult: (resultItem: CodeResult) => void;
   clearResult: () => void;
   setIsExecuting: (isExecuting: boolean) => void;
+  isPendingRun: boolean;
+  setIsPendingRun: (isPendingRun: boolean) => void;
 }
 
 export const useCodeStore = create<CodeState>((set) => ({
@@ -32,13 +34,15 @@ export const useCodeStore = create<CodeState>((set) => ({
   language: 'javascript',
   result: [],
   isExecuting: false,
+  isPendingRun: false,
   setCode: (code) => set({ code }),
   setLanguage: (language) => set({ language }),
   setResult: (result) => set({ result }),
   appendResult: (resultItem) =>
     set((state) => ({ result: [...state.result, resultItem] })),
   clearResult: () => set({ result: [] }),
-  setIsExecuting: (isExecuting) => set({ isExecuting })
+  setIsExecuting: (isExecuting) => set({ isExecuting }),
+  setIsPendingRun: (isPendingRun) => set({ isPendingRun })
 }))
 
 /**
