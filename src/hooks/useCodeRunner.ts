@@ -63,6 +63,11 @@ export function useCodeRunner () {
             sourceCode,
             (result) => {
               appendResult(result)
+            },
+            {
+              showTopLevelResults,
+              loopProtection,
+              showUndefined
             }
           )
           

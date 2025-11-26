@@ -26,6 +26,25 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
           return
         }
 
+        // Skip setTimeout and setInterval calls (when used as statements)
+        if (
+          t.isCallExpression(expression) &&
+          (
+            (t.isIdentifier(expression.callee) && 
+             (expression.callee.name === 'setTimeout' || expression.callee.name === 'setInterval')) ||
+            (t.isMemberExpression(expression.callee) && 
+             t.isIdentifier(expression.callee.property) &&
+             (expression.callee.property.name === 'setTimeout' || expression.callee.property.name === 'setInterval'))
+          )
+        ) {
+          return
+        }
+
+        // Skip assignment expressions (e.g. x = 10 or window.x = {})
+        if (t.isAssignmentExpression(expression)) {
+          return
+        }
+
         // Skip if it's already a debug call (safety check)
         if (
           t.isCallExpression(expression) &&
@@ -134,35 +153,6 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
         )
 
         path.skip() // Don't process the new node
-      },
-
-      VariableDeclaration (path) {
-        // Only transform top-level declarations
-        if (!t.isProgram(path.parent)) return
-
-        const declarations = path.node.declarations
-        // We only care about the last declaration in a statement (e.g. let a=1, b=2; -> we log b)
-        // Or maybe we should log all of them? RunJS usually logs the last one if on the same line.
-
-        declarations.forEach((decl) => {
-          if (!decl.id || !decl.loc) return
-
-          // Only handle simple identifiers (const x = 1)
-          if (t.isIdentifier(decl.id)) {
-            const line = decl.loc.start.line
-            const name = decl.id.name
-
-            // Insert debug(line, x) AFTER the declaration
-            path.insertAfter(
-              t.expressionStatement(
-                t.callExpression(t.identifier('debug'), [
-                  t.numericLiteral(line),
-                  t.identifier(name)
-                ])
-              )
-            )
-          }
-        })
       }
     }
   }

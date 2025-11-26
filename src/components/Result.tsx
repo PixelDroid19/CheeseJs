@@ -52,7 +52,9 @@ function ResultDisplay () {
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
-    monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true)
+    // @ts-ignore - Accessing new top-level typescript namespace
+    const ts = (monaco as any).typescript
+    ts.javascriptDefaults.setEagerModelSync(true)
   }
 
   const displayValue = useMemo(() => {
@@ -83,8 +85,8 @@ function ResultDisplay () {
           ? `${current} ${content}`
           : content
       } else {
-        // If no line number, just append to the end or handle differently?
-        // For now, let's just ignore or append to end
+        // Append results without line numbers (like global errors) to the end
+        lines.push(data.element?.content || '')
       }
     })
 

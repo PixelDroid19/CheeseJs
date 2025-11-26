@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react'
 import Editor, { Monaco } from '@monaco-editor/react'
-import { useCodeStore } from '../store/useCodeStore'
+import { useCodeStore, CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
 import { themes } from '../themes'
@@ -8,11 +8,14 @@ import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
 import { setupTypeAcquisition } from '../lib/ata'
-import type { editor, languages } from 'monaco-editor'
+import type { languages } from 'monaco-editor'
+import { editor } from 'monaco-editor'
 
-function CodeEditor () {
-  const code = useCodeStore((state) => state.code)
-  const language = useCodeStore((state) => state.language)
+export interface EditorProps {}
+
+function CodeEditor ({}: EditorProps) {
+  const code = useCodeStore((state: CodeState) => state.code)
+  const language = useCodeStore((state: CodeState) => state.language)
   const { themeName, fontSize } = useSettingsStore()
 
   const monacoRef = useRef<editor.IStandaloneCodeEditor | null>(null)
@@ -103,17 +106,20 @@ function CodeEditor () {
       ]
     })
 
+    // @ts-ignore - Accessing new top-level typescript namespace
+    const ts = (monaco as any).typescript
+
     // Compiler options for both JS and TS
-    const compilerOptions: languages.typescript.CompilerOptions = {
-      target: monaco.languages.typescript.ScriptTarget.ESNext,
+    const compilerOptions: any = {
+      target: ts.ScriptTarget.ESNext,
       allowNonTsExtensions: true,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      module: monaco.languages.typescript.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      module: ts.ModuleKind.ESNext,
       allowJs: true,
       checkJs: true,
       noEmit: true,
       esModuleInterop: true,
-      jsx: monaco.languages.typescript.JsxEmit.React,
+      jsx: ts.JsxEmit.React,
       reactNamespace: 'React',
       allowSyntheticDefaultImports: true,
       // Disable unused warnings as per user request
@@ -121,20 +127,20 @@ function CodeEditor () {
       noUnusedParameters: false
     }
 
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions)
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions)
+    ts.javascriptDefaults.setCompilerOptions(compilerOptions)
+    ts.typescriptDefaults.setCompilerOptions(compilerOptions)
 
     // Eager sync for better performance in small files
-    monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true)
-    monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true)
+    ts.javascriptDefaults.setEagerModelSync(true)
+    ts.typescriptDefaults.setEagerModelSync(true)
 
     // Diagnostics options
     const diagnosticsOptions = {
       noSemanticValidation: false,
       noSyntaxValidation: false
     }
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
-    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
+    ts.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
+    ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
   }, [])
 
   const handleEditorDidMount = useCallback(
@@ -242,7 +248,7 @@ function CodeEditor () {
           acceptSuggestionOnCommitCharacter: true,
           tabCompletion: 'on',
           lightbulb: {
-            enabled: true
+            enabled: editor.ShowLightbulbIconMode.On
           },
           hover: {
             enabled: true,

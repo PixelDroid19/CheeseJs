@@ -19,10 +19,17 @@ interface CodeResult {
 
 const installedPackages = new Set<string>()
 
+interface RunOptions {
+  showTopLevelResults?: boolean;
+  loopProtection?: boolean;
+  showUndefined?: boolean;
+}
+
 export async function runInWebContainer (
   webContainer: WebContainer,
   code: string,
-  onResult: (result: CodeResult) => void
+  onResult: (result: CodeResult) => void,
+  options: RunOptions = {}
 ) {
   if (!code.trim()) {
     return () => {
@@ -67,7 +74,10 @@ export async function runInWebContainer (
 
   let transformed = ''
   try {
-    transformed = transformCode(code)
+    transformed = transformCode(code, {
+      showTopLevelResults: options.showTopLevelResults,
+      loopProtection: options.loopProtection
+    })
   } catch (e: unknown) {
     onResult({
       element: { content: (e as Error).message, color: Colors.ERROR },
@@ -110,8 +120,9 @@ function customInspect(val) {
     if (val === null) return 'null';
     if (typeof val === 'symbol') return val.toString();
     
-    if (typeof val === 'function') {
-        return \`f \${val.name || ''}()\`;
+    // Handle Timeout objects gracefully
+    if (val && typeof val === 'object' && val.constructor && val.constructor.name === 'Timeout') {
+        return \`Timeout { \${val._idleTimeout}ms }\`;
     }
 
     const isBuiltin = (
@@ -136,39 +147,28 @@ function customInspect(val) {
         const name = val[Symbol.toStringTag] || (val.constructor && val.constructor.name) || 'Object';
         Object.defineProperty(cleanObj, Symbol.toStringTag, { value: name });
         
-        let result = util.inspect(cleanObj, {
+        return util.inspect(cleanObj, {
             colors: false,
             depth: null,
             showHidden: false,
-            compact: false,
-            breakLength: Infinity
+            compact: false
         });
-        
-        result = result.replace(/\\[Function:? (.*?)\\]/g, (match, name) => {
-            const fnName = name === '(anonymous)' ? '' : name;
-            return \`f \${fnName}()\`;
-        });
-        
-        return result;
     }
 
-    let result = util.inspect(val, {
+    return util.inspect(val, {
         colors: false,
         depth: null,
         showHidden: false,
-        compact: false,
-        breakLength: Infinity
+        compact: false
     });
-
-    result = result.replace(/\\[Function:? (.*?)\\]/g, (match, name) => {
-        const fnName = name === '(anonymous)' ? '' : name;
-        return \`f \${fnName}()\`;
-    });
-    
-    return result;
 }
 
 function debug(line, ...args) {
+  // Silence Timeout objects in debug channel (implicit returns)
+  if (args.length === 1 && args[0] && typeof args[0] === 'object' && args[0].constructor && args[0].constructor.name === 'Timeout') {
+    return;
+  }
+
   const content = args.map(arg => customInspect(arg)).join(' ');
 
   originalLog(JSON.stringify({
@@ -299,6 +299,9 @@ ${transformed}
           try {
             const json = JSON.parse(line)
             if (json.__type === 'debug') {
+              if (options.showUndefined === false && json.content === 'undefined') {
+                continue
+              }
               onResult({
                 lineNumber: json.line,
                 element: {

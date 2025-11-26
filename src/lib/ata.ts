@@ -59,8 +59,10 @@ async function fetchAndAddTypes (monaco: Monaco, packageName: string, version?: 
       const libPath = `file:///node_modules/${packageName}/index.d.ts`
 
       // Add to both JS and TS defaults
-      monaco.languages.typescript.javascriptDefaults.addExtraLib(content, libPath)
-      monaco.languages.typescript.typescriptDefaults.addExtraLib(content, libPath)
+      // @ts-ignore - Accessing new top-level typescript namespace
+      const ts = (monaco as any).typescript
+      ts.javascriptDefaults.addExtraLib(content, libPath)
+      ts.typescriptDefaults.addExtraLib(content, libPath)
 
       console.log(`[ATA] Added types for ${packageName} from ${typesUrl}`)
 
@@ -129,7 +131,9 @@ function addFallbackDeclaration (monaco: Monaco, packageName: string) {
   const content = `declare module "${packageName}" { const value: any; export default value; export = value; }`
   const libPath = `file:///node_modules/${packageName}/fallback.d.ts`
   
-  monaco.languages.typescript.javascriptDefaults.addExtraLib(content, libPath)
-  monaco.languages.typescript.typescriptDefaults.addExtraLib(content, libPath)
+  // @ts-ignore - Accessing new top-level typescript namespace
+  const ts = (monaco as any).typescript
+  ts.javascriptDefaults.addExtraLib(content, libPath)
+  ts.typescriptDefaults.addExtraLib(content, libPath)
   console.log(`[ATA] Added fallback types for ${packageName}`)
 }

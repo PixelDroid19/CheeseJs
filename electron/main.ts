@@ -12,6 +12,8 @@ function createWindow () {
   win = new BrowserWindow({
     icon: path.join(process.env.PUBLIC, 'cheesejs.png'),
     frame: false,
+    show: false, // Don't show the window until it's ready
+    backgroundColor: '#1e1e1e', // Set a dark background color
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       devTools: true,
@@ -21,6 +23,11 @@ function createWindow () {
     }
 
   })
+  
+  win.once('ready-to-show', () => {
+    win?.show()
+  })
+
   ipcMain.on('close-me', () => {
     app.quit()
   })

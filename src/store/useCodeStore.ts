@@ -14,7 +14,7 @@ interface CodeResult {
   };
 }
 
-interface CodeState {
+export interface CodeState {
   code: string;
   language: string;
   result: CodeResult[];
