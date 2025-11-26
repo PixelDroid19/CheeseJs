@@ -25,6 +25,7 @@ interface RunOptions {
   showUndefined?: boolean;
   internalLogLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug';
   npmRcContent?: string;
+  magicComments?: boolean;
 }
 
 export async function runInWebContainer (
@@ -91,7 +92,8 @@ export async function runInWebContainer (
     transformed = transformCode(code, {
       showTopLevelResults: options.showTopLevelResults,
       loopProtection: options.loopProtection,
-      internalLogLevel: options.internalLogLevel
+      internalLogLevel: options.internalLogLevel,
+      magicComments: options.magicComments
     })
   } catch (e: unknown) {
     onResult({

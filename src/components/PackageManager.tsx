@@ -159,7 +159,7 @@ export function PackageManager () {
                     )}
                     title={t('settings.npm.remove', 'Remove package')}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               ))}

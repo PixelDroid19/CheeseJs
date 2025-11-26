@@ -19,7 +19,7 @@ export function useCodeRunner () {
   const setIsPendingRun = useCodeStore((state) => state.setIsPendingRun)
   const setDetectedMissingPackages = usePackagesStore((state) => state.setDetectedMissingPackages)
 
-  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent } =
+  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments } =
     useSettingsStore()
 
   const webContainer = useWebContainerStore((state) => state.webContainer)
@@ -69,7 +69,8 @@ export function useCodeRunner () {
               loopProtection,
               showUndefined,
               internalLogLevel,
-              npmRcContent
+              npmRcContent,
+              magicComments
             }
           )
           
@@ -83,7 +84,8 @@ export function useCodeRunner () {
           const transformed = transformCode(sourceCode, {
             showTopLevelResults,
             loopProtection,
-            internalLogLevel
+            internalLogLevel,
+            magicComments
           })
           const element = await run(transformed, {
             showUndefined
@@ -115,7 +117,8 @@ export function useCodeRunner () {
       loopProtection,
       showUndefined,
       internalLogLevel,
-      npmRcContent
+      npmRcContent,
+      magicComments
     ]
   )
 

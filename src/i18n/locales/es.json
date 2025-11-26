@@ -12,7 +12,14 @@
       "appearance": "Personalización Visual",
       "ai": "IA",
       "npm": "Integración NPM",
+      "snippets": "Fragmentos (Snippets)",
       "advanced": "Opciones Avanzadas"
+    },
+    "snippets": {
+      "description": "Guarda fragmentos de código utilizados frecuentemente para un acceso rápido.",
+      "saveCurrent": "Guardar código actual",
+      "empty": "No hay fragmentos guardados aún.",
+      "confirmLoad": "¿Reemplazar el código actual con este fragmento?"
     },
     "advanced": {
       "logsConfig": "Configuración de logs",
@@ -35,7 +42,9 @@
       "loopProtectionLabel": "Proteger contra scripts de ejecución prolongada",
       "protectLongRunning": "Proteger contra scripts de ejecución prolongada",
       "internalLogs": "Registros internos",
-      "internalLogsDesc": "Configurar nivel de detalle para logs internos"
+      "internalLogsDesc": "Configurar nivel de detalle para logs internos",
+      "magicComments": "Comentarios mágicos",
+      "magicCommentsTooltip": "Habilita el uso de comentarios como //? para mostrar valores en línea."
     },
     "npm": {
       "description": "Administra paquetes npm para tu código. Los paquetes se instalan automáticamente cuando se detectan en los imports.",

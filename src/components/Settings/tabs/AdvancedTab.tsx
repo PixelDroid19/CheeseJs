@@ -21,7 +21,9 @@ export function AdvancedTab () {
     loopProtection,
     setLoopProtection,
     internalLogLevel,
-    setInternalLogLevel
+    setInternalLogLevel,
+    magicComments,
+    setMagicComments
   } = useSettingsStore()
 
   const HelpIcon = ({ content }: { content: string }) => (
@@ -141,6 +143,16 @@ export function AdvancedTab () {
           <Toggle 
             checked={loopProtection} 
             onChange={setLoopProtection} 
+          />
+        </Row>
+
+        <Row 
+          label={t('settings.advanced.magicComments') || "Comentarios mágicos"}
+          helpContent={t('settings.advanced.magicCommentsTooltip') || "Habilita comentarios especiales como //? para depuración"}
+        >
+          <Toggle 
+            checked={magicComments} 
+            onChange={setMagicComments} 
           />
         </Row>
       </div>

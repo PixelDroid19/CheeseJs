@@ -38,20 +38,49 @@ function createWindow () {
     win?.unmaximize()
   })
 
-  // TODO: CONNECT THE MENU WITH NPM WORKSPACE
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'File',
+      submenu: [
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { type: 'separator' },
+        {
+          label: 'Toggle Magic Comments',
+          click: () => {
+            win?.webContents.send('toggle-magic-comments')
+          }
+        }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    }
+  ]
 
-  ipcMain.on('show-context-menu', (event) => {
-    const template: MenuItemConstructorOptions[] = [
-      {
-        label: 'Working on npm workspace module',
-        click: () => { event.sender.send('context-menu-command', 'menu-item-1') }
-      },
-      { type: 'separator' },
-      { label: 'coming soon', type: 'checkbox', checked: false }
-    ]
-    const menu = Menu.buildFromTemplate(template)
-    menu.popup({ window: BrowserWindow.fromWebContents(event.sender) ?? undefined })
-  })
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
 
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {

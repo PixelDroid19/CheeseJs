@@ -24,17 +24,17 @@ export default function FloatingToolbar () {
         className="flex items-center gap-1 px-2 py-2 bg-white dark:bg-[#2c313a] rounded-full shadow-2xl border border-gray-200 dark:border-gray-700"
       >
         <ToolbarButton
-          icon={<Play size={20} />}
+          icon={<Play className="w-5 h-5" />}
           onClick={() => runCode()}
           label={t('toolbar.run')}
         />
         <ToolbarButton
-          icon={<Brush size={20} />}
+          icon={<Brush className="w-5 h-5" />}
           onClick={handleLint}
           label={t('toolbar.format')}
         />
         <ToolbarButton
-          icon={<Settings size={20} />}
+          icon={<Settings className="w-5 h-5" />}
           onClick={toggleSettings}
           label={t('toolbar.settings')}
         />

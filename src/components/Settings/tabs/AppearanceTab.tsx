@@ -10,7 +10,7 @@ import clsx from 'clsx'
 
 export function AppearanceTab () {
   const { t } = useTranslation()
-  const { themeName, setThemeName, fontSize, setFontSize } = useSettingsStore()
+  const { themeName, setThemeName, fontSize, setFontSize, uiFontSize, setUiFontSize } = useSettingsStore()
   const colors = useThemeColors()
 
   return (
@@ -43,7 +43,7 @@ export function AppearanceTab () {
             <div className="space-y-3">
                  <div className="flex items-center justify-between">
                     <label className={clsx("text-sm font-medium", colors.text)}>
-                    {t('settings.fontSize')}
+                    {t('settings.fontSize')} (Editor)
                     </label>
                     <span className={clsx("text-sm", colors.textSecondary)}>
                         {fontSize}px
@@ -54,6 +54,24 @@ export function AppearanceTab () {
                 max="32"
                 value={fontSize}
                 onChange={(e) => setFontSize(Number(e.target.value))}
+                className="w-full"
+                />
+            </div>
+
+            <div className="space-y-3">
+                 <div className="flex items-center justify-between">
+                    <label className={clsx("text-sm font-medium", colors.text)}>
+                    {t('settings.uiFontSize') || "Tamaño de fuente (UI)"}
+                    </label>
+                    <span className={clsx("text-sm", colors.textSecondary)}>
+                        {uiFontSize}px
+                    </span>
+                 </div>
+                <Slider
+                min="10"
+                max="24"
+                value={uiFontSize}
+                onChange={(e) => setUiFontSize(Number(e.target.value))}
                 className="w-full"
                 />
             </div>

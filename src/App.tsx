@@ -1,11 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CodeEditor from './components/Editor'
 import ResultDisplay from './components/Result'
 import Settings from './components/Settings/Settings'
 import FloatingToolbar from './components/FloatingToolbar'
 import Split from 'react-split'
+import { useSettingsStore } from './store/useSettingsStore'
 
 function App () {
+  const { uiFontSize, setMagicComments } = useSettingsStore()
+  
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${uiFontSize}px`
+  }, [uiFontSize])
+
+  useEffect(() => {
+    if (window.electronAPI?.onToggleMagicComments) {
+      window.electronAPI.onToggleMagicComments(() => {
+        const current = useSettingsStore.getState().magicComments
+        setMagicComments(!current)
+      })
+    }
+  }, [setMagicComments])
+
   const [direction] = useState(() => {
     const storedDirection = window.localStorage.getItem('split-direction')
     if (storedDirection) return storedDirection

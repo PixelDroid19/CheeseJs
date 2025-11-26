@@ -3,6 +3,7 @@ import logPlugin from '../babel/log-babel'
 import strayExpression from '../babel/stray-expression'
 import topLevelThis from '../babel/top-level-this'
 import loopProtection from '../babel/loop-protection'
+import magicComments from '../babel/magic-comments'
 import { Colors, stringify, type ColoredElement } from '../elementParser'
 
 const AsyncFunction = Object.getPrototypeOf(async () => { return undefined }).constructor
@@ -21,13 +22,15 @@ registerPlugins({
   'stray-expression-babel': strayExpression,
   'log-transform': logPlugin,
   'top-level-this': topLevelThis,
-  'loop-protection': loopProtection
+  'loop-protection': loopProtection,
+  'magic-comments': magicComments
 })
 
 interface TransformOptions {
   showTopLevelResults?: boolean;
   loopProtection?: boolean;
   internalLogLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug';
+  magicComments?: boolean;
 }
 
 export function transformCode (
@@ -39,6 +42,10 @@ export function transformCode (
     'top-level-this',
     'log-transform'
   ]
+
+  if (options.magicComments) {
+    plugins.push('magic-comments')
+  }
 
   if (options.showTopLevelResults !== false) {
     plugins.push(['stray-expression-babel', { internalLogLevel: options.internalLogLevel }])

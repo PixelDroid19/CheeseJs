@@ -200,7 +200,7 @@ function ResultDisplay () {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="p-2 bg-[#3e3e42]/50 rounded-md">
-                        <PackageIcon size={18} className="text-blue-400" />
+                        <PackageIcon className="w-[1.125rem] h-[1.125rem] text-blue-400" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2">
@@ -223,7 +223,7 @@ function ResultDisplay () {
                       onClick={() => handleDismiss(pkgName)}
                       className="text-gray-500 hover:text-gray-300 transition-colors p-1 hover:bg-[#3e3e42] rounded"
                     >
-                      <X size={14} />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
@@ -231,7 +231,7 @@ function ResultDisplay () {
                     {pkgInfo?.installing
                       ? (
                       <span className="text-blue-400 text-xs flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-md border border-blue-500/20 w-full justify-center">
-                        <Loader2 size={14} className="animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         Installing...
                       </span>
                         )
@@ -239,27 +239,27 @@ function ResultDisplay () {
                         ? (
                       <div className="flex flex-col gap-2 w-full">
                          <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 p-2 rounded border border-red-500/20">
-                           <AlertCircle size={14} className="shrink-0" />
+                           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                            <span className="truncate">{pkgInfo.error}</span>
                          </span>
                          <button
                            onClick={() => pkgName && addPackage(pkgName)}
                            className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                          >
-                           <Download size={14} /> Retry
+                           <Download className="w-3.5 h-3.5" /> Retry
                          </button>
                       </div>
                           )
                         : doesNotExist
                           ? (
                       <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-md border border-red-500/20 w-full justify-center">
-                        <AlertCircle size={14} /> Package not found
+                        <AlertCircle className="w-3.5 h-3.5" /> Package not found
                       </span>
                             )
                           : isUnknown
                             ? (
                       <span className="text-gray-400 text-xs flex items-center gap-2 w-full justify-center py-1.5">
-                        <Loader2 size={14} className="animate-spin" /> Checking...
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...
                       </span>
                               )
                             : (
@@ -267,7 +267,7 @@ function ResultDisplay () {
                         onClick={() => pkgName && addPackage(pkgName)}
                         className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                       >
-                        <Download size={14} /> Install Package
+                        <Download className="w-3.5 h-3.5" /> Install Package
                       </button>
                               )}
                   </div>

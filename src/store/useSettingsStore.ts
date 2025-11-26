@@ -24,9 +24,12 @@ interface SettingsState {
   loopProtection: boolean;
   internalLogLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
   npmRcContent: string;
+  magicComments: boolean;
+  uiFontSize: number;
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
   setFontSize: (size: number) => void;
+  setUiFontSize: (size: number) => void;
   setIsSettingsOpen: (isOpen: boolean) => void;
   toggleSettings: () => void;
   setShowTopLevelResults: (show: boolean) => void;
@@ -35,6 +38,7 @@ interface SettingsState {
   setLoopProtection: (protect: boolean) => void;
   setInternalLogLevel: (level: 'none' | 'error' | 'warn' | 'info' | 'debug') => void;
   setNpmRcContent: (content: string) => void;
+  setMagicComments: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -50,9 +54,12 @@ export const useSettingsStore = create<SettingsState>()(
       loopProtection: true,
       internalLogLevel: 'none',
       npmRcContent: 'registry=https://registry.npmjs.org/\nstrict-ssl=true',
+      magicComments: true,
+      uiFontSize: 14,
       setLanguage: (language) => set({ language }),
       setThemeName: (themeName) => set({ themeName }),
       setFontSize: (fontSize) => set({ fontSize }),
+      setUiFontSize: (uiFontSize) => set({ uiFontSize }),
       setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
       toggleSettings: () =>
         set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
@@ -62,7 +69,8 @@ export const useSettingsStore = create<SettingsState>()(
       setShowUndefined: (showUndefined) => set({ showUndefined }),
       setLoopProtection: (loopProtection) => set({ loopProtection }),
       setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
-      setNpmRcContent: (npmRcContent) => set({ npmRcContent })
+      setNpmRcContent: (npmRcContent) => set({ npmRcContent }),
+      setMagicComments: (magicComments) => set({ magicComments })
     }),
     {
       name: 'settings-storage',
@@ -75,7 +83,9 @@ export const useSettingsStore = create<SettingsState>()(
         showUndefined: state.showUndefined,
         loopProtection: state.loopProtection,
         internalLogLevel: state.internalLogLevel,
-        npmRcContent: state.npmRcContent
+        npmRcContent: state.npmRcContent,
+        magicComments: state.magicComments,
+        uiFontSize: state.uiFontSize
       })
     }
   )

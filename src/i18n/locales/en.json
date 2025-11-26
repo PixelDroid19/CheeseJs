@@ -12,7 +12,14 @@
       "appearance": "Appearance",
       "ai": "AI",
       "npm": "NPM",
+      "snippets": "Snippets",
       "advanced": "Advanced"
+    },
+    "snippets": {
+      "description": "Save frequently used code snippets for quick access.",
+      "saveCurrent": "Save Current Code",
+      "empty": "No snippets saved yet.",
+      "confirmLoad": "Replace current code with snippet?"
     },
     "advanced": {
       "logsConfig": "Log configuration",
@@ -33,7 +40,9 @@
       "showUndefinedValues": "Show undefined values",
       "loopProtection": "Loop protection",
       "loopProtectionLabel": "Protect against long-running execution scripts",
-      "protectLongRunning": "Protect against long-running execution scripts"
+      "protectLongRunning": "Protect against long-running execution scripts",
+      "magicComments": "Magic Comments",
+      "magicCommentsTooltip": "Enable special comments like //? for inline debugging."
     },
     "npm": {
       "description": "Manage npm packages for your code. Packages are automatically installed when detected in imports.",

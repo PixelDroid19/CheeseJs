@@ -8,7 +8,8 @@ import {
   Palette,
   Bot,
   Package,
-  Wrench
+  Wrench,
+  FileCode
 } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useThemeColors } from '../../hooks/useThemeColors'
@@ -18,6 +19,7 @@ import { useTranslation } from 'react-i18next'
 import { GeneralTab } from './tabs/GeneralTab'
 import { AppearanceTab } from './tabs/AppearanceTab'
 import { AdvancedTab } from './tabs/AdvancedTab'
+import { SnippetsTab } from './tabs/SnippetsTab'
 
 type Tab =
   | 'general'
@@ -26,6 +28,7 @@ type Tab =
   | 'appearance'
   | 'ai'
   | 'npm'
+  | 'snippets'
   | 'advanced';
 
 export default function Settings () {
@@ -51,6 +54,7 @@ export default function Settings () {
       label: t('settings.categories.appearance'),
       icon: Palette
     },
+    { id: 'snippets', label: t('settings.categories.snippets', 'Snippets'), icon: FileCode },
     { id: 'ai', label: t('settings.categories.ai'), icon: Bot },
     { id: 'npm', label: t('settings.categories.npm'), icon: Package },
     { id: 'advanced', label: t('settings.categories.advanced'), icon: Wrench }
@@ -97,7 +101,7 @@ export default function Settings () {
                           : clsx(colors.textSecondary, "hover:bg-opacity-50", colors.hover)
                       )}
                     >
-                      <Icon size={20} className={isActive ? "text-blue-400" : "opacity-70"} />
+                      <Icon className={clsx("w-5 h-5", isActive ? "text-blue-400" : "opacity-70")} />
                       {tab.label}
                     </button>
                   )
@@ -133,6 +137,7 @@ export default function Settings () {
                 {activeTab === 'general' && <GeneralTab />}
                 {activeTab === 'appearance' && <AppearanceTab />}
                 {activeTab === 'advanced' && <AdvancedTab />}
+                {activeTab === 'snippets' && <SnippetsTab />}
 
                 {/* Placeholder for other tabs */}
                 {['compilation', 'formatting', 'ai'].includes(activeTab) && (
