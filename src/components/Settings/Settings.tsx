@@ -11,6 +11,7 @@ import {
   Wrench
 } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { useThemeColors } from '../../hooks/useThemeColors'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
@@ -31,6 +32,7 @@ export default function Settings () {
   const { t } = useTranslation()
   const { isSettingsOpen, setIsSettingsOpen } = useSettingsStore()
   const [activeTab, setActiveTab] = useState<Tab>('advanced')
+  const colors = useThemeColors()
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'general', label: t('settings.categories.general'), icon: Sliders },
@@ -57,94 +59,96 @@ export default function Settings () {
   return (
     <AnimatePresence>
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.98, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', duration: 0.5 }}
-            className="bg-[#1e1e1e]/95 backdrop-blur-md text-white rounded-xl shadow-2xl w-[900px] h-[600px] flex flex-col border border-white/10 overflow-hidden"
+            exit={{ opacity: 0, scale: 0.98, y: 10 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className={clsx(
+              "max-w-4xl w-full mx-4 h-[600px] max-h-[90vh] flex rounded-xl shadow-2xl overflow-hidden border",
+              colors.bg,
+              colors.text,
+              colors.border
+            )}
           >
-            {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b border-white/10">
-              <h2 className="text-xl font-semibold text-white">
+            {/* Sidebar */}
+            <div className={clsx(
+              "w-72 flex flex-col py-6 border-r",
+              colors.sidebarBg,
+              colors.border
+            )}>
+              <h2 className={clsx("px-6 mb-8 text-xl font-bold", colors.text)}>
                 {t('settings.title')}
               </h2>
-              <button
-                onClick={() => setIsSettingsOpen(false)}
-                className="p-2 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar Tabs */}
-              <div className="w-64 bg-black/20 border-r border-white/10 flex flex-col py-4">
+              
+              <div className="space-y-1 px-3">
                 {tabs.map((tab) => {
                   const Icon = tab.icon
+                  const isActive = activeTab === tab.id
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={clsx(
-                        'w-full px-6 py-3 text-sm font-medium transition-all flex items-center gap-3 relative',
-                        activeTab === tab.id
-                          ? 'text-blue-400 bg-white/5'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                        'w-full px-4 py-3 text-sm font-medium rounded-md transition-all flex items-center gap-3',
+                        isActive
+                          ? clsx(colors.isDark ? "bg-[#2B2D31] text-blue-400" : "bg-gray-100 text-blue-600")
+                          : clsx(colors.textSecondary, "hover:bg-opacity-50", colors.hover)
                       )}
                     >
-                      {activeTab === tab.id && (
-                        <motion.div
-                          layoutId="activeTabIndicator"
-                          className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400"
-                        />
-                      )}
-                      <Icon size={18} />
+                      <Icon size={20} className={isActive ? "text-blue-400" : "opacity-70"} />
                       {tab.label}
                     </button>
                   )
                 })}
               </div>
+            </div>
 
-              {/* Content */}
-              <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[#1e1e1e]">
+            {/* Content Area */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Header */}
+              <div className={clsx(
+                "flex items-center justify-between px-8 py-6 border-b",
+                colors.border,
+                colors.bg
+              )}>
+                <h3 className={clsx("text-lg font-semibold", colors.text)}>
+                  {tabs.find(t => t.id === activeTab)?.label}
+                </h3>
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className={clsx(
+                    "p-1 rounded-md transition-colors",
+                    colors.hover,
+                    colors.textSecondary
+                  )}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className={clsx("flex-1 overflow-y-auto p-8 custom-scrollbar", colors.bg)}>
                 {activeTab === 'general' && <GeneralTab />}
                 {activeTab === 'appearance' && <AppearanceTab />}
                 {activeTab === 'advanced' && <AdvancedTab />}
 
                 {/* Placeholder for other tabs */}
                 {['compilation', 'formatting', 'ai'].includes(activeTab) && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center justify-center h-full text-gray-500"
-                  >
-                    Coming soon...
-                  </motion.div>
+                  <div className={clsx("flex flex-col items-center justify-center h-64 opacity-50", colors.textSecondary)}>
+                    <Package size={48} className="mb-4 opacity-20" />
+                    <p>Coming soon...</p>
+                  </div>
                 )}
 
                 {/* NPM Package Manager */}
                 {activeTab === 'npm' && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="h-full"
-                  >
+                  <div className="h-full">
                     <PackageManager />
-                  </motion.div>
+                  </div>
                 )}
               </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-white/10 bg-black/20 flex justify-end">
-              <button
-                onClick={() => setIsSettingsOpen(false)}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40"
-              >
-                {t('settings.close')}
-              </button>
             </div>
           </motion.div>
         </div>
@@ -152,3 +156,4 @@ export default function Settings () {
     </AnimatePresence>
   )
 }
+

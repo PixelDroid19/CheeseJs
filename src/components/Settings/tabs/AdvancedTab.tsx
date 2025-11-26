@@ -2,9 +2,15 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { HelpCircle } from 'lucide-react'
 import { useSettingsStore } from '../../../store/useSettingsStore'
+import { useThemeColors } from '../../../hooks/useThemeColors'
+import clsx from 'clsx'
+import { Toggle } from '../ui/Toggle'
+import { Tooltip } from '../ui/Tooltip'
+import { Select } from '../ui/Select'
 
 export function AdvancedTab () {
   const { t } = useTranslation()
+  const colors = useThemeColors()
   const {
     showTopLevelResults,
     setShowTopLevelResults,
@@ -13,8 +19,42 @@ export function AdvancedTab () {
     showUndefined,
     setShowUndefined,
     loopProtection,
-    setLoopProtection
+    setLoopProtection,
+    internalLogLevel,
+    setInternalLogLevel
   } = useSettingsStore()
+
+  const HelpIcon = ({ content }: { content: string }) => (
+    <Tooltip content={content}>
+      <HelpCircle size={15} className={clsx("transition-colors", colors.textSecondary, "hover:text-gray-300")} />
+    </Tooltip>
+  )
+
+  const Row = ({ 
+    label, 
+    helpContent,
+    children, 
+    className = "" 
+  }: { 
+    label?: string, 
+    helpContent?: string,
+    children: React.ReactNode, 
+    className?: string 
+  }) => (
+    <div className={clsx("flex items-center justify-between min-h-[40px]", className)}>
+      <div className="flex items-center gap-2">
+        {label && (
+          <span className={clsx("text-sm", colors.isDark ? "text-gray-200" : "text-gray-700")}>
+            {label}
+          </span>
+        )}
+        {helpContent && <HelpIcon content={helpContent} />}
+      </div>
+      <div className="flex items-center gap-3">
+        {children}
+      </div>
+    </div>
+  )
 
   return (
     <motion.div
@@ -22,101 +62,87 @@ export function AdvancedTab () {
       animate={{ opacity: 1, x: 0 }}
       className="space-y-8"
     >
-      <div className="grid grid-cols-[250px_1fr] gap-8 items-start group">
-        <div className="text-right text-gray-300 text-sm font-medium pt-1 group-hover:text-white transition-colors">
-          {t('settings.advanced.expressionResults')}
-        </div>
-        <div>
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={showTopLevelResults}
-                onChange={(e) => setShowTopLevelResults(e.target.checked)}
-                className="peer sr-only"
-              />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </div>
-            <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
-              {t('settings.advanced.showTopLevel')}
-            </span>
-          </label>
-        </div>
-      </div>
+      {/* Sección: Configuración de logs */}
+      <div>
+        <h4 className={clsx("text-sm font-semibold mb-6", colors.textSecondary)}>
+          {t('settings.advanced.logsConfig')}
+        </h4>
 
-      <div className="grid grid-cols-[250px_1fr] gap-8 items-start group">
-        <div className="text-right text-gray-300 text-sm font-medium pt-1 group-hover:text-white transition-colors">
-          {t('settings.advanced.align')}
-        </div>
-        <div className="flex items-center space-x-3">
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={alignResults}
-                onChange={(e) => setAlignResults(e.target.checked)}
-                className="peer sr-only"
-              />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </div>
-            <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
-              {t('settings.advanced.alignWithSource')}
-            </span>
-          </label>
-          <div className="group/tooltip relative flex items-center">
-            <HelpCircle
-              size={16}
-              className="text-gray-500 hover:text-blue-400 transition-colors cursor-help"
+        <div className="space-y-6">
+          {/* Nivel de detalle */}
+          <Row 
+            label={t('settings.advanced.logLevel')} 
+            helpContent={t('settings.advanced.logLevelTooltip')}
+          >
+            <Select
+              value={internalLogLevel}
+              onChange={(e) => setInternalLogLevel(e.target.value as any)}
+              className="w-48"
+            >
+              <option value="none">Oculto (Default)</option>
+              <option value="info">Info</option>
+              <option value="debug">Debug</option>
+            </Select>
+          </Row>
+
+          {/* Evaluación de expresiones */}
+          <Row 
+            label={t('settings.advanced.expressionEvaluation')}
+            helpContent={t('settings.advanced.showTopLevelTooltip')}
+          >
+            <Toggle 
+              checked={showTopLevelResults} 
+              onChange={setShowTopLevelResults} 
             />
-            <div className="absolute left-full ml-3 w-64 p-3 bg-gray-800 border border-gray-700 text-xs text-gray-200 rounded-lg shadow-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50 whitespace-pre-wrap backdrop-blur-sm">
-              {t('settings.advanced.alignTooltip')}
+          </Row>
+
+          {/* Formato de salida */}
+          <div>
+            <div className={clsx("text-sm mb-4", colors.isDark ? "text-gray-200" : "text-gray-700")}>
+              {t('settings.advanced.outputFormat')}
+            </div>
+            <div className="space-y-4">
+              <Row 
+                label={t('settings.advanced.alignWithSource') || "Alinear resultado con fuente"}
+                helpContent={t('settings.advanced.alignTooltip')}
+              >
+                <Toggle 
+                  checked={alignResults} 
+                  onChange={setAlignResults} 
+                />
+              </Row>
+              <Row 
+                label={t('settings.advanced.showUndefined') || "Mostrar valores undefined"}
+                helpContent={t('settings.advanced.showUndefinedTooltip')}
+              >
+                <Toggle 
+                  checked={showUndefined} 
+                  onChange={setShowUndefined} 
+                />
+              </Row>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-[250px_1fr] gap-8 items-start group">
-        <div className="text-right text-gray-300 text-sm font-medium pt-1 group-hover:text-white transition-colors">
-          {t('settings.advanced.showUndefined')}
-        </div>
-        <div>
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={showUndefined}
-                onChange={(e) => setShowUndefined(e.target.checked)}
-                className="peer sr-only"
-              />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </div>
-            <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
-              {t('settings.advanced.showUndefinedValues')}
-            </span>
-          </label>
-        </div>
-      </div>
+      {/* Divider */}
+      <div className={clsx("border-t my-6", colors.isDark ? "border-[#2B2D31]" : "border-gray-200")} />
 
-      <div className="grid grid-cols-[250px_1fr] gap-8 items-start group">
-        <div className="text-right text-gray-300 text-sm font-medium pt-1 group-hover:text-white transition-colors">
-          {t('settings.advanced.loopProtection')}
-        </div>
-        <div>
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={loopProtection}
-                onChange={(e) => setLoopProtection(e.target.checked)}
-                className="peer sr-only"
-              />
-              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </div>
-            <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
-              {t('settings.advanced.protectLongRunning')}
-            </span>
-          </label>
-        </div>
+      {/* Sección: Ejecución */}
+      <div>
+        <h4 className={clsx("text-sm font-semibold mb-6", colors.textSecondary)}>
+          {t('settings.advanced.execution')}
+        </h4>
+        
+        <Row 
+          label={t('settings.advanced.loopProtection') || "Límite de ejecución para bucles"}
+          helpContent={t('settings.advanced.loopProtectionTooltip')}
+        >
+          <Toggle 
+            checked={loopProtection} 
+            onChange={setLoopProtection} 
+          />
+        </Row>
       </div>
     </motion.div>
   )

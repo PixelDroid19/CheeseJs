@@ -23,6 +23,8 @@ interface RunOptions {
   showTopLevelResults?: boolean;
   loopProtection?: boolean;
   showUndefined?: boolean;
+  internalLogLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug';
+  npmRcContent?: string;
 }
 
 export async function runInWebContainer (
@@ -32,8 +34,20 @@ export async function runInWebContainer (
   options: RunOptions = {}
 ) {
   if (!code.trim()) {
-    return () => {
-      // No cleanup needed for empty code
+    return {
+      kill: () => {
+        // No cleanup needed for empty code
+      },
+      missingPackages: []
+    }
+  }
+
+  // 0. Configure .npmrc if provided
+  if (options.npmRcContent) {
+    try {
+      await webContainer.fs.writeFile('.npmrc', options.npmRcContent)
+    } catch (e) {
+      console.warn('Failed to write .npmrc:', e)
     }
   }
 
@@ -76,7 +90,8 @@ export async function runInWebContainer (
   try {
     transformed = transformCode(code, {
       showTopLevelResults: options.showTopLevelResults,
-      loopProtection: options.loopProtection
+      loopProtection: options.loopProtection,
+      internalLogLevel: options.internalLogLevel
     })
   } catch (e: unknown) {
     onResult({
@@ -97,6 +112,7 @@ import { EventEmitter } from 'events';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
+const showUndefined = ${options.showUndefined ?? false};
 
 // Increase max listeners to prevent warnings in complex async scenarios
 EventEmitter.defaultMaxListeners = 50;
@@ -166,6 +182,11 @@ function customInspect(val) {
 function debug(line, ...args) {
   // Silence Timeout objects in debug channel (implicit returns)
   if (args.length === 1 && args[0] && typeof args[0] === 'object' && args[0].constructor && args[0].constructor.name === 'Timeout') {
+    return;
+  }
+
+  // Check showUndefined setting
+  if (!showUndefined && args.length === 1 && args[0] === undefined) {
     return;
   }
 

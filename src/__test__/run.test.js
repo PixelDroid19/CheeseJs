@@ -12,7 +12,7 @@ describe('transformCode fn', () => {
   // Tests that the function transforms the code correctly
   it('test_transforms_code_correctly', () => {
     const code = 'const a = 1';
-    const result = transformCode(code);
+    const result = transformCode(code, { internalLogLevel: 'debug' });
     expect(result).toContain('const a = 1;');
     expect(result).toContain('debug(1, a);');
   });
@@ -20,7 +20,7 @@ describe('transformCode fn', () => {
   // Tests that the function replaces new lines with debug statements
   it('test_replaces_new_lines_with_debug_statements', () => {
     const code = 'const a = 1\n\nconst b = 2';
-    const result = transformCode(code);
+    const result = transformCode(code, { internalLogLevel: 'debug' });
     expect(result).toContain('const a = 1;');
     expect(result).toContain('const b = 2;');
     expect(result).toContain('debug(1, a);');
@@ -37,7 +37,7 @@ describe('transformCode fn', () => {
   // Tests that the function handles input with no new lines
   it('test_handles_input_with_no_new_lines', () => {
     const code = 'const a = 1; console.log(a);';
-    const result = transformCode(code);
+    const result = transformCode(code, { internalLogLevel: 'debug' });
 
     expect(result).toContain('const a = 1;');
     expect(result).toContain('debug(1, a);');
@@ -46,7 +46,7 @@ describe('transformCode fn', () => {
   // Tests that the function handles input with no semicolons
   it('test_handles_input_with_no_semicolons', () => {
     const code = 'const a = 1\nconsole.log(a)';
-    const result = transformCode(code);
+    const result = transformCode(code, { internalLogLevel: 'debug' });
 
     expect(result).toContain('const a = 1;');
     expect(result).toContain('debug');

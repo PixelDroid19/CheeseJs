@@ -4,9 +4,12 @@ import type * as BabelTypes from '@babel/types'
 export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj {
   return {
     visitor: {
-      ExpressionStatement (path) {
+      ExpressionStatement (path, state: any) {
         // Only transform top-level expressions (Program body)
         if (!t.isProgram(path.parent)) return
+
+        const { internalLogLevel = 'none' } = state.opts || {}
+        const showInternal = internalLogLevel !== 'none'
 
         const expression = path.node.expression
 
@@ -41,7 +44,8 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
         }
 
         // Skip assignment expressions (e.g. x = 10 or window.x = {})
-        if (t.isAssignmentExpression(expression)) {
+        // UNLESS internal logs are enabled
+        if (!showInternal && t.isAssignmentExpression(expression)) {
           return
         }
 
@@ -153,6 +157,37 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
         )
 
         path.skip() // Don't process the new node
+      },
+      VariableDeclaration (path, state: any) {
+        const { internalLogLevel = 'none' } = state.opts || {}
+        if (internalLogLevel === 'none') return
+
+        if (!t.isProgram(path.parent)) return
+        if (path.node.declarations.length === 0) return
+
+        const debugCalls: BabelTypes.ExpressionStatement[] = []
+
+        path.node.declarations.forEach((decl) => {
+          if (!decl.init) return
+          if (!t.isIdentifier(decl.id)) return
+
+          const name = decl.id.name
+          const line = decl.loc?.start.line
+          if (!line) return
+
+          debugCalls.push(
+            t.expressionStatement(
+              t.callExpression(t.identifier('debug'), [
+                t.numericLiteral(line),
+                t.identifier(name)
+              ])
+            )
+          )
+        })
+
+        if (debugCalls.length > 0) {
+          path.insertAfter(debugCalls)
+        }
       }
     }
   }

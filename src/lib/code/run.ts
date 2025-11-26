@@ -27,6 +27,7 @@ registerPlugins({
 interface TransformOptions {
   showTopLevelResults?: boolean;
   loopProtection?: boolean;
+  internalLogLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug';
 }
 
 export function transformCode (
@@ -40,7 +41,7 @@ export function transformCode (
   ]
 
   if (options.showTopLevelResults !== false) {
-    plugins.push('stray-expression-babel')
+    plugins.push(['stray-expression-babel', { internalLogLevel: options.internalLogLevel }])
   }
 
   if (options.loopProtection) {
@@ -92,6 +93,10 @@ export async function run (
     const asyncFunction = AsyncFunction('debug', string)
 
     await asyncFunction((lineNumber: number, ...args: unknown[]) => {
+      // Check showUndefined setting
+      if (!options.showUndefined && args.length === 1 && args[0] === undefined) {
+        return
+      }
       const content = args.length > 1 ? args : args[0]
       unparsedResults = [...unparsedResults, { lineNumber, content }]
     })

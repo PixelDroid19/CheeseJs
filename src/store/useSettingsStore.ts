@@ -22,6 +22,8 @@ interface SettingsState {
   alignResults: boolean;
   showUndefined: boolean;
   loopProtection: boolean;
+  internalLogLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
+  npmRcContent: string;
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -31,6 +33,8 @@ interface SettingsState {
   setAlignResults: (align: boolean) => void;
   setShowUndefined: (show: boolean) => void;
   setLoopProtection: (protect: boolean) => void;
+  setInternalLogLevel: (level: 'none' | 'error' | 'warn' | 'info' | 'debug') => void;
+  setNpmRcContent: (content: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -41,9 +45,11 @@ export const useSettingsStore = create<SettingsState>()(
       fontSize: 19,
       isSettingsOpen: false,
       showTopLevelResults: true,
-      alignResults: true,
+      alignResults: false,
       showUndefined: false,
       loopProtection: true,
+      internalLogLevel: 'none',
+      npmRcContent: 'registry=https://registry.npmjs.org/\nstrict-ssl=true',
       setLanguage: (language) => set({ language }),
       setThemeName: (themeName) => set({ themeName }),
       setFontSize: (fontSize) => set({ fontSize }),
@@ -54,7 +60,9 @@ export const useSettingsStore = create<SettingsState>()(
         set({ showTopLevelResults }),
       setAlignResults: (alignResults) => set({ alignResults }),
       setShowUndefined: (showUndefined) => set({ showUndefined }),
-      setLoopProtection: (loopProtection) => set({ loopProtection })
+      setLoopProtection: (loopProtection) => set({ loopProtection }),
+      setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
+      setNpmRcContent: (npmRcContent) => set({ npmRcContent })
     }),
     {
       name: 'settings-storage',
@@ -65,7 +73,9 @@ export const useSettingsStore = create<SettingsState>()(
         showTopLevelResults: state.showTopLevelResults,
         alignResults: state.alignResults,
         showUndefined: state.showUndefined,
-        loopProtection: state.loopProtection
+        loopProtection: state.loopProtection,
+        internalLogLevel: state.internalLogLevel,
+        npmRcContent: state.npmRcContent
       })
     }
   )
