@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.3",
   "productName": "CheeseJS",
-  "author": "Damien Monasterios",
+  "author": "Damien Monasterios <monasterio13septiembre@gmail.com>",
   "repository": "github:PixelDroid19/CheeseJs",
   "license": "MIT",
   "scripts": {
