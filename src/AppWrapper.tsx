@@ -3,6 +3,7 @@ import { useWebContainerStore } from './store/useWebContainerStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoadingIndicator from './components/LoadingIndicator'
 import { PackageInstaller } from './components/PackageInstaller'
+import { TitleBar } from './components/TitleBar'
 import App from './App'
 
 function AppWrapper () {
@@ -17,17 +18,25 @@ function AppWrapper () {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#1e1e1e]">
-        <LoadingIndicator message="Initializing WebContainer..." size="lg" />
+      <div className="flex flex-col h-screen bg-[#1e1e1e]">
+        <TitleBar />
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingIndicator message="Initializing WebContainer..." size="lg" />
+        </div>
       </div>
     )
   }
 
   return (
-    <ErrorBoundary>
-      <PackageInstaller />
-      <App />
-    </ErrorBoundary>
+    <div className="flex flex-col h-screen bg-[#1e1e1e]">
+      <TitleBar />
+      <div className="flex-1 overflow-hidden relative">
+        <ErrorBoundary>
+          <PackageInstaller />
+          <App />
+        </ErrorBoundary>
+      </div>
+    </div>
   )
 }
 

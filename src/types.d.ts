@@ -6,6 +6,8 @@ interface Window {
     closeApp: () => void
     maximizeApp: () => void
     unmaximizeApp: () => void
+    minimizeApp: () => void
+    showContextMenu: () => void
     onToggleMagicComments: (callback: () => void) => void
   }
 }

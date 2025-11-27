@@ -32,10 +32,21 @@ function createWindow () {
     app.quit()
   })
   ipcMain.on('maximize', () => {
-    win?.maximize()
+    if (win?.isMaximized()) {
+      win.unmaximize()
+    } else {
+      win?.maximize()
+    }
   })
   ipcMain.on('unmaximize', () => {
     win?.unmaximize()
+  })
+  ipcMain.on('minimize', () => {
+    win?.minimize()
+  })
+  ipcMain.on('show-context-menu', () => {
+    const menu = Menu.getApplicationMenu()
+    menu?.popup({ window: win || undefined })
   })
 
   const template: MenuItemConstructorOptions[] = [

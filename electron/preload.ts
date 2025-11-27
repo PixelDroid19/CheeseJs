@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeApp: () => ipcRenderer.send('close-me'),
   maximizeApp: () => ipcRenderer.send('maximize'),
   unmaximizeApp: () => ipcRenderer.send('unmaximize'),
+  minimizeApp: () => ipcRenderer.send('minimize'),
+  showContextMenu: () => ipcRenderer.send('show-context-menu'),
   onToggleMagicComments: (callback: () => void) => ipcRenderer.on('toggle-magic-comments', () => callback())
 })
 

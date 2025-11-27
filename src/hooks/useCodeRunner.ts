@@ -120,7 +120,8 @@ export function useCodeRunner () {
       npmRcContent,
       magicComments,
       setDetectedMissingPackages,
-      setIsPendingRun
+      setIsPendingRun,
+      executionEnvironment
     ]
   )
 

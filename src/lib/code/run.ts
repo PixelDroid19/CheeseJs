@@ -4,13 +4,13 @@ import strayExpression from '../babel/stray-expression'
 import topLevelThis from '../babel/top-level-this'
 import loopProtection from '../babel/loop-protection'
 import magicComments from '../babel/magic-comments'
-// @ts-ignore - Babel plugins don't always have types
+// @ts-expect-error - Babel plugins don't always have types
 import pluginDoExpressions from '@babel/plugin-proposal-do-expressions'
-// @ts-ignore
+// @ts-expect-error - Babel plugins don't always have types
 import pluginExplicitResourceManagement from '@babel/plugin-transform-explicit-resource-management'
-// @ts-ignore
+// @ts-expect-error - Babel plugins don't always have types
 import pluginThrowExpressions from '@babel/plugin-proposal-throw-expressions'
-// @ts-ignore
+// @ts-expect-error - Babel plugins don't always have types
 import pluginExportDefaultFrom from '@babel/plugin-proposal-export-default-from'
 
 import { Colors, stringify, type ColoredElement } from '../elementParser'
