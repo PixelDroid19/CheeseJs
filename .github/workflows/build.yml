@@ -10,6 +10,9 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
@@ -27,11 +30,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-
-      - name: Build JS/TS
-        env:
-          NODE_OPTIONS: --max-old-space-size=6144
-        run: npm run build:dist
 
       - name: Build/release Electron app
         uses: samuelmeuli/action-electron-builder@v1
