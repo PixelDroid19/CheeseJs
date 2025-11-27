@@ -16,18 +16,25 @@ const ENHANCED_PATTERNS = {
     /:\s*(string|number|boolean|any|void|unknown|never|object)/,
     /interface\s+\w+/,
     /type\s+\w+\s*=/,
-    /<[A-Z]\w*>/,
+    /<\s*[A-Z]\w*(\s*,\s*[A-Z]\w*)*\s*>/, // Simple generics
+    /<\s*[A-Z]\w*\s+extends\s+/, // Generics with extends
     /as\s+(string|number|boolean|const|any)\b/,
     /(@Injectable|@Component|@Module|@Decorator)/,
     /\w+\s*:\s*\w+\s*[,)=]/,
     /\w+\?\s*:/,
-    /(public|private|protected|readonly)\s+\w+/
+    /(public|private|protected|readonly)\s+\w+/,
+    /function\s+\w+\s*</,
+    /:\s*\[/,
+    /extends\s+\w+/,
+    /:\s*[A-Z]/,
+    /\):/, // Return type annotation start
+    /\w+\[\]/ // Array types like number[]
   ],
   javascript: [
-    /^function\s+\w+/m,
-    /^const\s+\w+\s*=/m,
-    /^let\s+\w+\s*=/m,
-    /^var\s+\w+\s*=/m,
+    /^\s*function\s+\w+/m,
+    /^\s*const\s+\w+\s*=/m,
+    /^\s*let\s+\w+\s*=/m,
+    /^\s*var\s+\w+\s*=/m,
     /=>\s*{/,
     /console\.(log|error|warn|info)/,
     /require\s*\(/,
@@ -35,10 +42,10 @@ const ENHANCED_PATTERNS = {
     /export\s+(default|const|function|class)/
   ],
   python: [
-    /^def\s+\w+\s*\(/m,
-    /^class\s+\w+\s*(\(.*\))?\s*:/m,
-    /^import\s+\w+/m,
-    /^from\s+\w+\s+import/m,
+    /^\s*def\s+\w+\s*\(/m,
+    /^\s*class\s+\w+\s*(\(.*\))?\s*:/m,
+    /^\s*import\s+\w+/m,
+    /^\s*from\s+\w+\s+import/m,
     /print\s*\(/,
     /__init__\s*\(/,
     /self\.\w+/
@@ -71,21 +78,29 @@ const ENHANCED_PATTERNS = {
 // Cache for Monaco languages
 let monacoLanguages: LanguageInfo[] = []
 
-export async function initLanguageDetector (): Promise<void> {
+export function initLanguageDetector (): void {
   // Get all registered languages from Monaco
   monacoLanguages = monaco.languages.getLanguages() as LanguageInfo[]
+  
+  // Ensure basic languages are present if Monaco hasn't loaded them yet or if we are in a minimal environment
+  if (!monacoLanguages.some(l => l.id === 'typescript')) {
+      monacoLanguages.push({ id: 'typescript', extensions: ['.ts', '.tsx'], aliases: ['TypeScript', 'ts', 'typescript'] })
+  }
+  if (!monacoLanguages.some(l => l.id === 'javascript')) {
+      monacoLanguages.push({ id: 'javascript', extensions: ['.js', '.jsx'], aliases: ['JavaScript', 'js', 'javascript'] })
+  }
 }
 
 /**
  * Detect programming language using Monaco's language registry
  * Falls back to pattern matching for ambiguous cases
  */
-export async function detectLanguage (code: string): Promise<string> {
+export function detectLanguage (code: string): string {
   if (!code.trim()) return 'javascript'
 
   // Initialize if not already done
   if (monacoLanguages.length === 0) {
-    await initLanguageDetector()
+    initLanguageDetector()
   }
 
   // Score languages based on pattern matching
@@ -131,7 +146,8 @@ export async function detectLanguage (code: string): Promise<string> {
     (lang) => lang.id === bestLanguage || lang.aliases?.includes(bestLanguage)
   )
 
-  return isRegistered ? bestLanguage : 'javascript'
+  const result = isRegistered ? bestLanguage : 'javascript'
+  return result
 }
 
 /**

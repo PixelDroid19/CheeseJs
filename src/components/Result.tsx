@@ -52,7 +52,8 @@ function ResultDisplay () {
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
-    // @ts-ignore - Accessing new top-level typescript namespace
+    // @ts-expect-error - Accessing new top-level typescript namespace
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ts = (monaco as any).typescript
     ts.javascriptDefaults.setEagerModelSync(true)
   }
@@ -144,10 +145,9 @@ function ResultDisplay () {
         )}
         <Editor
           theme={themeName}
+          path="result-output.js"
           options={{
-            domReadOnly: true,
-            experimentalWhitespaceRendering: 'svg',
-            dragAndDrop: true,
+            automaticLayout: true,
             minimap: {
               enabled: false
             },
@@ -168,7 +168,7 @@ function ResultDisplay () {
             }
           }}
           defaultLanguage="javascript"
-          value={displayValue}
+          value={displayValue || '// Waiting for output...'}
           beforeMount={handleEditorWillMount}
         />
       </div>

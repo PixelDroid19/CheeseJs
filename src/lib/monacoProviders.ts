@@ -566,10 +566,10 @@ export function registerMonacoProviders (monaco: Monaco, editorInstance: editor.
   )
 
   // Store language disposables for cleanup
+  const originalHoverDispose = hoverProvider
   hoverProvider = {
-    ...hoverProvider,
     dispose: () => {
-      hoverProvider?.dispose()
+      originalHoverDispose?.dispose()
       languageDisposables.forEach(d => d.dispose())
     }
   } as IDisposable

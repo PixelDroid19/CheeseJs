@@ -30,7 +30,7 @@ export interface CodeState {
 }
 
 export const useCodeStore = create<CodeState>((set) => ({
-  code: '',
+  code: 'console.log("Hello World");',
   language: 'javascript',
   result: [],
   isExecuting: false,

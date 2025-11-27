@@ -12,7 +12,6 @@ export function useDebouncedFunction<
       }
 
       timeoutIdRef.current = setTimeout(() => {
-        // eslint-disable-next-line n/no-callback-literal
         callback(...args)
       }, delay)
     },

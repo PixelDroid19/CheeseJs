@@ -70,7 +70,7 @@ export function Tooltip({ content, children }: TooltipProps) {
 
   useEffect(() => {
     if (isVisible) {
-      updatePosition()
+      requestAnimationFrame(() => updatePosition())
       window.addEventListener('resize', updatePosition)
       window.addEventListener('scroll', updatePosition, true)
     }

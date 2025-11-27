@@ -28,7 +28,7 @@ export function getImports (code: string): string[] {
         }
       ]
     })
-  } catch (e) {
+  } catch {
     // ignore parse errors
   }
 

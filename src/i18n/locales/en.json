@@ -22,6 +22,9 @@
       "confirmLoad": "Replace current code with snippet?"
     },
     "advanced": {
+      "environment": "Environment",
+      "executionEnvironment": "Execution Environment",
+      "executionEnvironmentTooltip": "Choose between Node.js (WebContainer) for backend/server features or Browser (DOM) for frontend features.",
       "logsConfig": "Log configuration",
       "logLevel": "Detail level (GlobalScheduler, AsyncEngine)",
       "expressionEvaluation": "Expression evaluation",

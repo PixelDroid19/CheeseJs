@@ -15,6 +15,7 @@ import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
 import { setupTypeAcquisition } from '../lib/ata'
+import { detectLanguage } from '../lib/languageDetector'
 import type { languages } from 'monaco-editor'
 import { editor } from 'monaco-editor'
 
@@ -38,15 +39,19 @@ self.MonacoEnvironment = {
 
 loader.config({ monaco })
 
-export interface EditorProps {}
+// export interface EditorProps {}
 
-function CodeEditor ({}: EditorProps) {
+function CodeEditor () {
   const code = useCodeStore((state: CodeState) => state.code)
   const language = useCodeStore((state: CodeState) => state.language)
+  const setCode = useCodeStore((state: CodeState) => state.setCode)
+  const setLanguage = useCodeStore((state: CodeState) => state.setLanguage)
   const { themeName, fontSize } = useSettingsStore()
 
   const monacoRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const monacoInstanceRef = useRef<Monaco | null>(null)
   const ataDisposeRef = useRef<(() => void) | null>(null)
+  const lastCursorPositionRef = useRef<monaco.IPosition | null>(null)
 
   const { runCode } = useCodeRunner()
 
@@ -67,11 +72,56 @@ function CodeEditor ({}: EditorProps) {
     }
   }, [])
 
+  // Restore cursor position and focus when language changes (which triggers a model switch)
+  const cleanupModels = useCallback((editorInstance: editor.IStandaloneCodeEditor) => {
+    const currentModel = editorInstance.getModel()
+    const currentUri = currentModel?.uri.toString()
+    
+    if (monacoInstanceRef.current) {
+      const models = monacoInstanceRef.current.editor.getModels()
+      
+      models.forEach((m: editor.ITextModel) => {
+        const uri = m.uri.toString()
+        // Don't dispose the current model OR the result output model
+        if (uri !== currentUri && !uri.includes('result-output.js')) {
+          if (uri.startsWith('inmemory') || uri.startsWith('file:')) {
+             try {
+               m.dispose()
+             } catch (e) {
+               console.error('[Editor] Error disposing model:', e)
+             }
+          }
+        }
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (monacoRef.current) {
+      // Restore cursor position and focus
+      if (lastCursorPositionRef.current) {
+        monacoRef.current.setPosition(lastCursorPositionRef.current)
+        monacoRef.current.focus()
+      }
+
+      // Sync content if needed
+      const model = monacoRef.current.getModel()
+      if (model && model.getValue() !== code) {
+        model.setValue(code)
+      }
+      
+      cleanupModels(monacoRef.current)
+    }
+  }, [language, code, cleanupModels])
+
   const handleEditorWillMount = useCallback((monaco: Monaco) => {
+    monacoInstanceRef.current = monaco
     // Register all themes
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
+    // ... rest of handleEditorWillMount
+
 
     // Shared language configuration
     const languageConfig: languages.LanguageConfiguration = {
@@ -133,10 +183,11 @@ function CodeEditor ({}: EditorProps) {
       ]
     })
 
-    // @ts-ignore - Accessing new top-level typescript namespace
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ts = (monaco as any).typescript
 
     // Compiler options for both JS and TS
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const compilerOptions: any = {
       target: ts.ScriptTarget.ESNext,
       allowNonTsExtensions: true,
@@ -175,16 +226,22 @@ function CodeEditor ({}: EditorProps) {
       monacoRef.current = editorInstance
 
       // Expose monaco to window for E2E testing
-      // @ts-ignore
+      // @ts-expect-error - Exposing monaco to window for testing
       window.monaco = monaco
-      // @ts-ignore
+      // @ts-expect-error - Exposing editor to window for testing
       window.editor = editorInstance
+      // @ts-expect-error - Exposing store to window for testing
+      window.useCodeStore = useCodeStore
+
 
       // Setup ATA
       ataDisposeRef.current = setupTypeAcquisition(monaco)
 
       // Register hover and code action providers
       registerMonacoProviders(monaco, editorInstance)
+      
+      // Cleanup old models immediately on mount
+      cleanupModels(editorInstance)
 
       // Register custom commands for package management
       editorInstance.addAction({
@@ -234,7 +291,7 @@ function CodeEditor ({}: EditorProps) {
         }
       })
     },
-    [runCode]
+    [runCode, cleanupModels]
   )
 
   const debouncedRunner = useDebouncedFunction(runCode, 250)
@@ -242,16 +299,26 @@ function CodeEditor ({}: EditorProps) {
   const handler = useCallback(
     (value: string | undefined) => {
       if (value !== undefined) {
+        if (monacoRef.current) {
+          lastCursorPositionRef.current = monacoRef.current.getPosition()
+        }
+        setCode(value)
+        const detected = detectLanguage(value)
+        if (detected !== language) {
+          setLanguage(detected)
+        }
         debouncedRunner(value)
       }
     },
-    [debouncedRunner]
+    [debouncedRunner, language, setCode, setLanguage]
   )
 
   return (
     <div className="h-full w-full">
       <Editor
-        defaultLanguage="typescript"
+        key={language} // Force remount on language change to ensure clean model switch
+        path={language === 'typescript' ? 'index.ts' : 'index.js'}
+        defaultLanguage={language}
         language={language}
         theme={themeName}
         options={{

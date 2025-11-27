@@ -48,9 +48,9 @@ describe('runInWebContainer', () => {
     }
 
     // Mock store state
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(usePackagesStore.getState).mockReturnValue({
       packages: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
   })
 

@@ -25,6 +25,7 @@ interface SettingsState {
   internalLogLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
   npmRcContent: string;
   magicComments: boolean;
+  executionEnvironment: 'node' | 'browser';
   uiFontSize: number;
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
@@ -39,6 +40,7 @@ interface SettingsState {
   setInternalLogLevel: (level: 'none' | 'error' | 'warn' | 'info' | 'debug') => void;
   setNpmRcContent: (content: string) => void;
   setMagicComments: (enabled: boolean) => void;
+  setExecutionEnvironment: (env: 'node' | 'browser') => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -55,6 +57,7 @@ export const useSettingsStore = create<SettingsState>()(
       internalLogLevel: 'none',
       npmRcContent: 'registry=https://registry.npmjs.org/\nstrict-ssl=true',
       magicComments: true,
+      executionEnvironment: 'node',
       uiFontSize: 14,
       setLanguage: (language) => set({ language }),
       setThemeName: (themeName) => set({ themeName }),
@@ -70,7 +73,8 @@ export const useSettingsStore = create<SettingsState>()(
       setLoopProtection: (loopProtection) => set({ loopProtection }),
       setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
       setNpmRcContent: (npmRcContent) => set({ npmRcContent }),
-      setMagicComments: (magicComments) => set({ magicComments })
+      setMagicComments: (magicComments) => set({ magicComments }),
+      setExecutionEnvironment: (executionEnvironment) => set({ executionEnvironment })
     }),
     {
       name: 'settings-storage',
@@ -85,7 +89,8 @@ export const useSettingsStore = create<SettingsState>()(
         internalLogLevel: state.internalLogLevel,
         npmRcContent: state.npmRcContent,
         magicComments: state.magicComments,
-        uiFontSize: state.uiFontSize
+        uiFontSize: state.uiFontSize,
+        executionEnvironment: state.executionEnvironment
       })
     }
   )

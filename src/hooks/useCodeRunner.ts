@@ -19,7 +19,7 @@ export function useCodeRunner () {
   const setIsPendingRun = useCodeStore((state) => state.setIsPendingRun)
   const setDetectedMissingPackages = usePackagesStore((state) => state.setDetectedMissingPackages)
 
-  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments } =
+  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments, executionEnvironment } =
     useSettingsStore()
 
   const webContainer = useWebContainerStore((state) => state.webContainer)
@@ -35,7 +35,7 @@ export function useCodeRunner () {
       }
 
       // Detect language
-      const detectedLang = await detectLanguage(sourceCode)
+      const detectedLang = detectLanguage(sourceCode)
       if (detectedLang !== language) {
         setLanguage(detectedLang)
       }
@@ -57,7 +57,7 @@ export function useCodeRunner () {
       clearResult()
       setIsExecuting(true)
       try {
-        if (webContainer) {
+        if (webContainer && executionEnvironment === 'node') {
           const { kill, missingPackages } = await runInWebContainer(
             webContainer,
             sourceCode,
@@ -118,7 +118,9 @@ export function useCodeRunner () {
       showUndefined,
       internalLogLevel,
       npmRcContent,
-      magicComments
+      magicComments,
+      setDetectedMissingPackages,
+      setIsPendingRun
     ]
   )
 

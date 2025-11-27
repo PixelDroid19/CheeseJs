@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, Play, Edit2, Save, X } from 'lucide-react'
+import { Trash2, Play, Edit2, Save, X } from 'lucide-react'
 import { useSnippetsStore, Snippet } from '../../../store/useSnippetsStore'
 import { useCodeStore } from '../../../store/useCodeStore'
 import { useSettingsStore } from '../../../store/useSettingsStore'

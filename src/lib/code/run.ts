@@ -4,6 +4,15 @@ import strayExpression from '../babel/stray-expression'
 import topLevelThis from '../babel/top-level-this'
 import loopProtection from '../babel/loop-protection'
 import magicComments from '../babel/magic-comments'
+// @ts-ignore - Babel plugins don't always have types
+import pluginDoExpressions from '@babel/plugin-proposal-do-expressions'
+// @ts-ignore
+import pluginExplicitResourceManagement from '@babel/plugin-transform-explicit-resource-management'
+// @ts-ignore
+import pluginThrowExpressions from '@babel/plugin-proposal-throw-expressions'
+// @ts-ignore
+import pluginExportDefaultFrom from '@babel/plugin-proposal-export-default-from'
+
 import { Colors, stringify, type ColoredElement } from '../elementParser'
 
 const AsyncFunction = Object.getPrototypeOf(async () => { return undefined }).constructor
@@ -23,8 +32,13 @@ registerPlugins({
   'log-transform': logPlugin,
   'top-level-this': topLevelThis,
   'loop-protection': loopProtection,
-  'magic-comments': magicComments
+  'magic-comments': magicComments,
+  'proposal-do-expressions': pluginDoExpressions,
+  'transform-explicit-resource-management': pluginExplicitResourceManagement,
+  'proposal-throw-expressions': pluginThrowExpressions,
+  'proposal-export-default-from': pluginExportDefaultFrom
 })
+
 
 interface TransformOptions {
   showTopLevelResults?: boolean;
@@ -39,6 +53,11 @@ export function transformCode (
 ): string {
   const plugins: Array<string | [string, object]> = [
     ['proposal-decorators', { legacy: true }],
+    ['proposal-pipeline-operator', { proposal: 'minimal' }],
+    'proposal-do-expressions',
+    'transform-explicit-resource-management',
+    'proposal-throw-expressions',
+    'proposal-export-default-from',
     'top-level-this',
     'log-transform'
   ]

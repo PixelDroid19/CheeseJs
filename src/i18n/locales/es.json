@@ -22,6 +22,9 @@
       "confirmLoad": "¿Reemplazar el código actual con este fragmento?"
     },
     "advanced": {
+      "environment": "Entorno",
+      "executionEnvironment": "Entorno de Ejecución",
+      "executionEnvironmentTooltip": "Elige entre Node.js (WebContainer) para backend/server o Navegador (DOM) para frontend.",
       "logsConfig": "Configuración de logs",
       "logLevel": "Nivel de detalle (GlobalScheduler, AsyncEngine)",
       "expressionEvaluation": "Evaluación de expresiones",

@@ -2,7 +2,6 @@ import clsx from 'clsx'
 import { useThemeColors } from '../../../hooks/useThemeColors'
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   children?: React.ReactNode
 }
 

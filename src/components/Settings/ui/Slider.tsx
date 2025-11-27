@@ -1,8 +1,7 @@
 import clsx from 'clsx'
 import { useThemeColors } from '../../../hooks/useThemeColors'
 
-interface SliderProps extends React.InputHTMLAttributes<HTMLInputElement> {
-}
+type SliderProps = React.InputHTMLAttributes<HTMLInputElement>
 
 export function Slider({ className, ...props }: SliderProps) {
   const colors = useThemeColors()

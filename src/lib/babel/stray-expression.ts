@@ -4,6 +4,7 @@ import type * as BabelTypes from '@babel/types'
 export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj {
   return {
     visitor: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ExpressionStatement (path, state: any) {
         // Only transform top-level expressions (Program body)
         if (!t.isProgram(path.parent)) return
@@ -158,6 +159,7 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
 
         path.skip() // Don't process the new node
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       VariableDeclaration (path, state: any) {
         const { internalLogLevel = 'none' } = state.opts || {}
         if (internalLogLevel === 'none') return

@@ -59,7 +59,8 @@ async function fetchAndAddTypes (monaco: Monaco, packageName: string, version?: 
       const libPath = `file:///node_modules/${packageName}/index.d.ts`
 
       // Add to both JS and TS defaults
-      // @ts-ignore - Accessing new top-level typescript namespace
+      // @ts-expect-error - Accessing new top-level typescript namespace
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ts = (monaco as any).typescript
       ts.javascriptDefaults.addExtraLib(content, libPath)
       ts.typescriptDefaults.addExtraLib(content, libPath)
@@ -131,7 +132,8 @@ function addFallbackDeclaration (monaco: Monaco, packageName: string) {
   const content = `declare module "${packageName}" { const value: any; export default value; export = value; }`
   const libPath = `file:///node_modules/${packageName}/fallback.d.ts`
   
-  // @ts-ignore - Accessing new top-level typescript namespace
+  // @ts-expect-error - Accessing new top-level typescript namespace
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ts = (monaco as any).typescript
   ts.javascriptDefaults.addExtraLib(content, libPath)
   ts.typescriptDefaults.addExtraLib(content, libPath)

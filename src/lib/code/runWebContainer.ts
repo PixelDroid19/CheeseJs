@@ -344,7 +344,7 @@ ${transformed}
                 type: 'error'
               })
             }
-          } catch (e) {
+          } catch {
             // Non-JSON output, might be regular stdout - capture it too
             if (line.trim().length > 0) {
               onResult({

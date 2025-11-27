@@ -98,8 +98,21 @@
       </header>
       <div id="root" class="basis-full"></div>
     </main>
+    <script>
+      // Global polyfills for browser environment
+      if (typeof window !== 'undefined') {
+        if (!window.process) {
+          window.process = { env: { NODE_ENV: 'development' }, version: '', cwd: function() { return '/' } };
+        }
+        if (!window.require) {
+          window.require = function(moduleName) {
+             console.warn("[Polyfill] require('" + moduleName + "') called");
+             return {};
+          };
+        }
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
-
     <script>
       document
         .querySelector("#exit-btn")
