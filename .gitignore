@@ -12,8 +12,10 @@ dist
 dist-ssr
 dist-electron
 release
+temp_cache
 *.local
 package-lock.json.backup
+test-results
 
 # Editor directories and files
 .vscode/*

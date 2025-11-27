@@ -1,5 +1,12 @@
 import { useRef, useCallback, useEffect } from 'react'
-import Editor, { Monaco } from '@monaco-editor/react'
+import Editor, { Monaco, loader } from '@monaco-editor/react'
+import * as monaco from 'monaco-editor'
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
+import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+
 import { useCodeStore, CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
@@ -10,6 +17,26 @@ import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoPr
 import { setupTypeAcquisition } from '../lib/ata'
 import type { languages } from 'monaco-editor'
 import { editor } from 'monaco-editor'
+
+self.MonacoEnvironment = {
+  getWorker(_, label) {
+    if (label === 'json') {
+      return new jsonWorker()
+    }
+    if (label === 'css' || label === 'scss' || label === 'less') {
+      return new cssWorker()
+    }
+    if (label === 'html' || label === 'handlebars' || label === 'razor') {
+      return new htmlWorker()
+    }
+    if (label === 'typescript' || label === 'javascript') {
+      return new tsWorker()
+    }
+    return new editorWorker()
+  }
+}
+
+loader.config({ monaco })
 
 export interface EditorProps {}
 
@@ -146,6 +173,12 @@ function CodeEditor ({}: EditorProps) {
   const handleEditorDidMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
       monacoRef.current = editorInstance
+
+      // Expose monaco to window for E2E testing
+      // @ts-ignore
+      window.monaco = monaco
+      // @ts-ignore
+      window.editor = editorInstance
 
       // Setup ATA
       ataDisposeRef.current = setupTypeAcquisition(monaco)

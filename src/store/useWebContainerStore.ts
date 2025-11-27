@@ -14,7 +14,14 @@ export const useWebContainerStore = create<WebContainerState>((set) => ({
   error: null,
   bootWebContainer: async () => {
     try {
-      const instance = await WebContainer.boot()
+      // Add a timeout race to prevent infinite loading
+      const bootPromise = WebContainer.boot()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('WebContainer boot timed out')), 5000)
+      )
+
+      const instance = await Promise.race([bootPromise, timeoutPromise]) as WebContainer
+      
       await instance.fs.writeFile(
         'package.json',
         JSON.stringify({
@@ -24,6 +31,7 @@ export const useWebContainerStore = create<WebContainerState>((set) => ({
       )
       set({ webContainer: instance, isLoading: false })
     } catch (err) {
+      console.error('WebContainer boot failed:', err)
       set({ error: err as Error, isLoading: false })
     }
   }
