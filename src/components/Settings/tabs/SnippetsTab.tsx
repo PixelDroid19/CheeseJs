@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { motion } from 'framer-motion'
-import { Trash2, Play, Edit2, Save, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Trash2, Play, Edit2, Save, X, ChevronDown, ChevronUp, Copy, Plus } from 'lucide-react'
 import { useSnippetsStore, Snippet } from '../../../store/useSnippetsStore'
 import { useCodeStore } from '../../../store/useCodeStore'
 import { useSettingsStore } from '../../../store/useSettingsStore'
@@ -18,6 +18,9 @@ export function SnippetsTab() {
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [editedCode, setEditedCode] = useState('')
+  const [isEditingCode, setIsEditingCode] = useState(false)
 
   const handleSaveCurrent = () => {
     addSnippet({
@@ -33,20 +36,49 @@ export function SnippetsTab() {
     }
   }
 
-  const startEditing = (snippet: Snippet) => {
+  const handleAppend = (snippet: Snippet) => {
+    setCode(code + '\n' + snippet.code)
+    toggleSettings()
+  }
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+  }
+
+  const startEditingName = (snippet: Snippet, e: React.MouseEvent) => {
+    e.stopPropagation()
     setEditingId(snippet.id)
     setEditName(snippet.name)
   }
 
-  const saveEditing = () => {
+  const saveEditingName = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
     if (editingId && editName.trim()) {
       updateSnippet(editingId, { name: editName.trim() })
       setEditingId(null)
     }
   }
 
-  const cancelEditing = () => {
+  const cancelEditingName = (e: React.SyntheticEvent) => {
+    e.stopPropagation()
     setEditingId(null)
+  }
+
+  const toggleExpand = (id: string) => {
+    if (expandedId === id) {
+      setExpandedId(null)
+      setIsEditingCode(false)
+    } else {
+      setExpandedId(id)
+      setIsEditingCode(false)
+      const snippet = snippets.find(s => s.id === id)
+      if (snippet) setEditedCode(snippet.code)
+    }
+  }
+
+  const saveCode = (id: string) => {
+    updateSnippet(id, { code: editedCode })
+    setIsEditingCode(false)
   }
 
   return (
@@ -86,79 +118,179 @@ export function SnippetsTab() {
             <div
               key={snippet.id}
               className={clsx(
-                "flex items-center justify-between p-3 rounded-md border transition-colors",
+                "rounded-md border transition-all duration-200 overflow-hidden",
                 colors.border,
-                colors.isDark ? "bg-[#2c313a] hover:bg-[#353a45]" : "bg-white hover:bg-gray-50"
+                colors.isDark ? "bg-[#2c313a]" : "bg-white"
               )}
             >
-              <div className="flex-1 min-w-0 mr-4">
-                {editingId === snippet.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className={clsx(
-                        "flex-1 px-2 py-1 text-sm rounded border focus:outline-none focus:ring-1 focus:ring-blue-500",
-                        colors.inputBg,
-                        colors.text,
-                        colors.border
-                      )}
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveEditing()
-                        if (e.key === 'Escape') cancelEditing()
-                      }}
-                    />
-                    <button onClick={saveEditing} className="text-green-500 hover:text-green-600">
-                        <Save className="w-4 h-4" />
-                    </button>
-                    <button onClick={cancelEditing} className="text-red-500 hover:text-red-600">
-                        <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 group">
-                    <span className={clsx("text-sm font-medium truncate", colors.text)}>
-                      {snippet.name}
-                    </span>
-                    <button 
-                        onClick={() => startEditing(snippet)}
-                        className={clsx("opacity-0 group-hover:opacity-100 transition-opacity", colors.textSecondary)}
-                    >
-                        <Edit2 size={12} />
-                    </button>
-                  </div>
+              {/* Header */}
+              <div 
+                className={clsx(
+                  "flex items-center justify-between p-3 cursor-pointer select-none",
+                  colors.isDark ? "hover:bg-[#353a45]" : "hover:bg-gray-50"
                 )}
-                <div className={clsx("text-xs truncate mt-1 font-mono opacity-60", colors.textSecondary)}>
-                    {snippet.code.slice(0, 50).replace(/\n/g, ' ')}...
+                onClick={() => toggleExpand(snippet.id)}
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {expandedId === snippet.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  
+                  {editingId === snippet.id ? (
+                    <div className="flex items-center gap-2 flex-1 mr-2" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className={clsx(
+                          "flex-1 px-2 py-1 text-sm rounded border focus:outline-none focus:ring-1 focus:ring-blue-500",
+                          colors.inputBg,
+                          colors.text,
+                          colors.border
+                        )}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveEditingName()
+                          if (e.key === 'Escape') cancelEditingName(e)
+                        }}
+                      />
+                      <button onClick={saveEditingName} className="text-green-500 hover:text-green-600">
+                        <Save className="w-4 h-4" />
+                      </button>
+                      <button onClick={cancelEditingName} className="text-red-500 hover:text-red-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group flex-1">
+                      <span className={clsx("text-sm font-medium truncate", colors.text)}>
+                        {snippet.name}
+                      </span>
+                      <button 
+                        onClick={(e) => startEditingName(snippet, e)}
+                        className={clsx("opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded", colors.textSecondary)}
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAppend(snippet); }}
+                    className={clsx(
+                      "p-2 rounded-md transition-colors",
+                      colors.textSecondary,
+                      "hover:bg-green-500/10 hover:text-green-500"
+                    )}
+                    title={t('settings.snippets.append', 'Append to Editor')}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleLoad(snippet); }}
+                    className={clsx(
+                      "p-2 rounded-md transition-colors",
+                      colors.text,
+                      "hover:bg-blue-500/10 hover:text-blue-500"
+                    )}
+                    title={t('settings.snippets.load', 'Replace Editor Content')}
+                  >
+                    <Play className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeSnippet(snippet.id); }}
+                    className={clsx(
+                      "p-2 rounded-md transition-colors",
+                      colors.textSecondary,
+                      "hover:bg-red-500/10 hover:text-red-500"
+                    )}
+                    title={t('settings.snippets.delete', 'Delete')}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleLoad(snippet)}
-                  className={clsx(
-                    "p-2 rounded-md transition-colors",
-                    colors.text,
-                    "hover:bg-blue-500/10 hover:text-blue-500"
-                  )}
-                  title={t('settings.snippets.load', 'Load to Editor')}
-                >
-                  <Play className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => removeSnippet(snippet.id)}
-                  className={clsx(
-                    "p-2 rounded-md transition-colors",
-                    colors.textSecondary,
-                    "hover:bg-red-500/10 hover:text-red-500"
-                  )}
-                  title={t('settings.snippets.delete', 'Delete')}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              {/* Expanded Content */}
+              <AnimatePresence>
+                {expandedId === snippet.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className={clsx("p-3 border-t", colors.border)}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={clsx("text-xs font-mono opacity-70", colors.textSecondary)}>
+                          {snippet.code.length} chars
+                        </span>
+                        <div className="flex gap-2">
+                          {isEditingCode ? (
+                            <>
+                              <button
+                                onClick={() => saveCode(snippet.id)}
+                                className="flex items-center gap-1 text-xs text-green-500 hover:text-green-600"
+                              >
+                                <Save size={12} /> Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setIsEditingCode(false);
+                                  setEditedCode(snippet.code);
+                                }}
+                                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
+                              >
+                                <X size={12} /> Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setIsEditingCode(true);
+                                  setEditedCode(snippet.code);
+                                }}
+                                className={clsx("flex items-center gap-1 text-xs hover:text-blue-500", colors.textSecondary)}
+                              >
+                                <Edit2 size={12} /> Edit Code
+                              </button>
+                              <button
+                                onClick={() => handleCopy(snippet.code)}
+                                className={clsx("flex items-center gap-1 text-xs hover:text-blue-500", colors.textSecondary)}
+                              >
+                                <Copy size={12} /> Copy
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {isEditingCode ? (
+                        <textarea
+                          value={editedCode}
+                          onChange={(e) => setEditedCode(e.target.value)}
+                          className={clsx(
+                            "w-full h-32 p-2 text-xs font-mono rounded border focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y",
+                            colors.inputBg,
+                            colors.text,
+                            colors.border
+                          )}
+                        />
+                      ) : (
+                        <pre className={clsx(
+                          "w-full p-2 text-xs font-mono rounded border overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto",
+                          colors.isDark ? "bg-black/20" : "bg-gray-50",
+                          colors.border,
+                          colors.text
+                        )}>
+                          {snippet.code}
+                        </pre>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ))
         )}

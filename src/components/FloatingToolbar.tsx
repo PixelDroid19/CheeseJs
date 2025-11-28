@@ -4,6 +4,7 @@ import { Play, Settings, Brush } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { useSettingsStore } from '../store/useSettingsStore'
+import { SnippetsMenu } from './SnippetsMenu'
 import clsx from 'clsx'
 
 export default function FloatingToolbar () {
@@ -28,6 +29,7 @@ export default function FloatingToolbar () {
           onClick={() => runCode()}
           label={t('toolbar.run')}
         />
+        <SnippetsMenu />
         <ToolbarButton
           icon={<Brush className="w-5 h-5" />}
           onClick={handleLint}

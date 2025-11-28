@@ -52,6 +52,7 @@ function CodeEditor () {
   const monacoInstanceRef = useRef<Monaco | null>(null)
   const ataDisposeRef = useRef<(() => void) | null>(null)
   const lastCursorPositionRef = useRef<monaco.IPosition | null>(null)
+  const lastLocalCodeRef = useRef<string | null>(null)
 
   const { runCode } = useCodeRunner()
 
@@ -98,21 +99,61 @@ function CodeEditor () {
 
   useEffect(() => {
     if (monacoRef.current) {
-      // Restore cursor position and focus
-      if (lastCursorPositionRef.current) {
-        monacoRef.current.setPosition(lastCursorPositionRef.current)
-        monacoRef.current.focus()
-      }
-
       // Sync content if needed
       const model = monacoRef.current.getModel()
-      if (model && model.getValue() !== code) {
+      const currentVal = model?.getValue()
+      
+      if (model && currentVal !== code) {
+        // If the update matches what we just typed locally, ignore it
+        if (code === lastLocalCodeRef.current) {
+          return
+        }
+
+        // If the editor has focus, we prioritize local state to prevent
+        // race conditions where the store lags behind fast typing.
+        // We assume any valid external update (like loading a snippet)
+        // will come from a UI interaction that momentarily takes focus away.
+        if (monacoRef.current.hasTextFocus()) {
+          return
+        }
+
+        // If the code is different, update it
+        // Use executeEdits to preserve undo stack and potential cursor logic if possible
+        // But setValue is safer for full replacements
         model.setValue(code)
+      
+        // For external updates (like loading a snippet), move cursor to end of file
+        // instead of trying to restore previous position which might be invalid
+        const lineCount = model.getLineCount()
+        const maxCol = model.getLineMaxColumn(lineCount)
+        const pos = { lineNumber: lineCount, column: maxCol }
+        
+        monacoRef.current.setPosition(pos)
+        monacoRef.current.revealPosition(pos)
+        
+        // Delay focus to ensure UI is ready and prevent focus stealing
+        setTimeout(() => {
+          if (monacoRef.current) {
+             monacoRef.current.focus()
+          }
+        }, 250)
       }
       
-      cleanupModels(monacoRef.current)
+      // ONLY cleanup models if language changed, not on every code change
+      // cleanupModels(monacoRef.current)
     }
-  }, [language, code, cleanupModels])
+  }, [language, code]) // Removed cleanupModels from dependencies to avoid loop
+
+  // Effect to handle language changes and cleanup
+  useEffect(() => {
+    if (monacoRef.current) {
+       const model = monacoRef.current.getModel()
+       if (model) {
+         // Update the language of the existing model without replacing it
+         monaco.editor.setModelLanguage(model, language)
+       }
+    }
+  }, [language])
 
   const handleEditorWillMount = useCallback((monaco: Monaco) => {
     monacoInstanceRef.current = monaco
@@ -252,6 +293,12 @@ function CodeEditor () {
         }
       })
 
+      // Track cursor position to ensure we always have the latest position
+      // even if the user didn't type (just moved cursor)
+      editorInstance.onDidChangeCursorPosition((e) => {
+        lastCursorPositionRef.current = e.position
+      })
+
       editorInstance.addAction({
         id: 'cheeseJS.installAndRun',
         label: 'Install Package and Run',
@@ -302,6 +349,7 @@ function CodeEditor () {
         if (monacoRef.current) {
           lastCursorPositionRef.current = monacoRef.current.getPosition()
         }
+        lastLocalCodeRef.current = value
         setCode(value)
         const detected = detectLanguage(value)
         if (detected !== language) {
@@ -316,10 +364,11 @@ function CodeEditor () {
   return (
     <div className="h-full w-full">
       <Editor
-        key={language} // Force remount on language change to ensure clean model switch
-        path={language === 'typescript' ? 'index.ts' : 'index.js'}
-        defaultLanguage={language}
-        language={language}
+        // Fixed path to prevent model swapping on language change
+        path="index.ts" 
+        defaultLanguage="typescript"
+        // language prop removed to prevent automatic model recreation by the wrapper
+        // We handle language updates manually via monaco.editor.setModelLanguage in useEffect
         theme={themeName}
         options={{
           automaticLayout: true,

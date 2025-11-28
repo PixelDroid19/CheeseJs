@@ -1,0 +1,279 @@
+import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Book, Play, Plus, X, Copy, Trash2, ChevronLeft, Save } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { useSnippetsStore, Snippet } from '../store/useSnippetsStore'
+import { useCodeStore } from '../store/useCodeStore'
+import clsx from 'clsx'
+
+export function SnippetsMenu() {
+  const { t } = useTranslation()
+  const [isOpen, setIsOpen] = useState(false)
+  const [view, setView] = useState<'list' | 'add'>('list')
+  const [newSnippetName, setNewSnippetName] = useState('')
+  const { snippets, addSnippet, removeSnippet } = useSnippetsStore()
+  const { code, setCode } = useCodeStore()
+  
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({})
+
+  // Update position when opening
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const updatePosition = () => {
+        const rect = buttonRef.current!.getBoundingClientRect()
+        setMenuStyle({
+          position: 'fixed',
+          bottom: window.innerHeight - rect.top + 16, // 16px offset from top of button
+          left: rect.left + rect.width / 2,
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          maxHeight: '30rem',
+          width: '22rem',
+        })
+      }
+      
+      updatePosition()
+      window.addEventListener('resize', updatePosition)
+      window.addEventListener('scroll', updatePosition, true)
+      
+      return () => {
+        window.removeEventListener('resize', updatePosition)
+        window.removeEventListener('scroll', updatePosition, true)
+      }
+    }
+  }, [isOpen])
+
+  const toggleOpen = () => {
+    if (!isOpen) {
+      setView('list')
+      setNewSnippetName('')
+    }
+    setIsOpen(!isOpen)
+  }
+
+  const handleSave = () => {
+    if (newSnippetName.trim()) {
+      addSnippet({ name: newSnippetName.trim(), code })
+      setView('list')
+      setNewSnippetName('')
+    }
+  }
+
+  const handleLoad = (snippet: Snippet) => {
+    // Removed confirm dialog to prevent focus stealing issues
+    setCode(snippet.code)
+    setIsOpen(false)
+  }
+
+  const handleAppend = (snippet: Snippet) => {
+    setCode(code + '\n' + snippet.code)
+    setIsOpen(false)
+  }
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+    // Optional: show toast
+  }
+
+  return (
+    <>
+      <motion.button
+        ref={buttonRef}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={toggleOpen}
+        className={clsx(
+          'p-3 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors relative group',
+          isOpen && 'bg-gray-100 dark:bg-gray-600 text-blue-500 dark:text-blue-400'
+        )}
+        title={t('toolbar.snippets', 'Snippets')}
+      >
+        <Book className="w-5 h-5" />
+      </motion.button>
+
+      {createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              {/* Backdrop */}
+              <div 
+                className="fixed inset-0 z-[9998]" 
+                onClick={() => setIsOpen(false)} 
+              />
+              
+              {/* Menu */}
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                style={menuStyle}
+                className="bg-white dark:bg-[#21252b] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+              >
+                {/* Header */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-[#282c34]">
+                  {view === 'add' ? (
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setView('list')}
+                        className="p-1 -ml-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <ChevronLeft size={18} className="text-gray-600 dark:text-gray-300" />
+                      </button>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                        {t('settings.snippets.add', 'New Snippet')}
+                      </h3>
+                    </div>
+                  ) : (
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <Book size={18} className="text-blue-500" />
+                      {t('settings.categories.snippets', 'Snippets')}
+                    </h3>
+                  )}
+                  
+                  <div className="flex items-center gap-1">
+                    {view === 'list' && (
+                      <button
+                        onClick={() => setView('add')}
+                        className="p-1.5 rounded-md text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
+                        title={t('settings.snippets.add', 'Add Snippet')}
+                      >
+                        <Plus size={18} />
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setIsOpen(false)}
+                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto min-h-[200px] max-h-[400px]">
+                  {view === 'add' ? (
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">
+                          {t('settings.snippets.name', 'Name')}
+                        </label>
+                        <input
+                          type="text"
+                          value={newSnippetName}
+                          onChange={(e) => setNewSnippetName(e.target.value)}
+                          placeholder="My Awesome Snippet"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c313a] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSave()
+                            if (e.key === 'Escape') setView('list')
+                          }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">
+                          {t('common.preview', 'Code Preview')}
+                        </label>
+                        <div className="text-xs font-mono p-3 rounded-lg bg-gray-100 dark:bg-[#1e2227] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                          {code || <span className="text-gray-400 italic">No code to save</span>}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex gap-2">
+                        <button
+                          onClick={handleSave}
+                          disabled={!newSnippetName.trim() || !code}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Save size={16} />
+                          {t('common.save', 'Save Snippet')}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 space-y-2">
+                      {snippets.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500 dark:text-gray-400">
+                          <Book className="w-12 h-12 mb-3 opacity-20" />
+                          <p className="text-sm font-medium">No snippets yet</p>
+                          <p className="text-xs opacity-70 mt-1">Save your code to reuse it later</p>
+                          <button
+                            onClick={() => setView('add')}
+                            className="mt-4 px-4 py-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                          >
+                            Create your first snippet
+                          </button>
+                        </div>
+                      ) : (
+                        snippets.map((snippet) => (
+                          <div
+                            key={snippet.id}
+                            className="group p-3 rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-[#282c34] transition-all"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                                {snippet.name}
+                              </span>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleCopy(snippet.code)}
+                                  className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-600 shadow-sm"
+                                  title={t('common.copy', 'Copy')}
+                                >
+                                  <Copy size={14} />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if(confirm('Delete snippet?')) removeSnippet(snippet.id)
+                                  }}
+                                  className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-white dark:hover:bg-gray-600 shadow-sm"
+                                  title={t('common.delete', 'Delete')}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="relative">
+                              <pre className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#1e2227] p-2 rounded border border-gray-200 dark:border-gray-800 line-clamp-3 overflow-hidden">
+                                {snippet.code}
+                              </pre>
+                              {/* Overlay actions */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-gray-100 via-transparent to-transparent dark:from-[#1e2227] opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-2">
+                                <button
+                                  onClick={() => handleAppend(snippet)}
+                                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/40 dark:text-green-400 rounded shadow-sm hover:shadow hover:scale-105 transition-all"
+                                >
+                                  <Plus size={12} />
+                                  {t('settings.snippets.append', 'Append')}
+                                </button>
+                                <button
+                                  onClick={() => handleLoad(snippet)}
+                                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 rounded shadow-sm hover:shadow hover:scale-105 transition-all"
+                                >
+                                  <Play size={12} />
+                                  {t('settings.snippets.load', 'Load')}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
+  )
+}
