@@ -17,7 +17,8 @@ interface CodeResult {
   };
 }
 
-const installedPackages = new Set<string>()
+// Removed global installedPackages Set to avoid persistent state issues
+// We now rely on the storePackages as the source of truth
 
 interface RunOptions {
   showTopLevelResults?: boolean;
@@ -55,6 +56,8 @@ export async function runInWebContainer(
   // 1. Detect and Install Packages
   // Sync with store first
   const storePackages = usePackagesStore.getState().packages
+  const installedPackages = new Set<string>()
+  
   storePackages.forEach(pkg => {
     if (!pkg.error && !pkg.installing) {
       installedPackages.add(pkg.name)
@@ -202,6 +205,9 @@ function debug(line, ...args) {
   }));
 }
 
+// EXPOSE debug to global scope so it can be called from user code
+global.debug = debug;
+
 // Override console methods globally
 const consoleOverride = {
   log: (...args) => {
@@ -261,7 +267,11 @@ const consoleOverride = {
   error: (...args) => {
     const content = args.map(arg => {
         if (arg instanceof Error) {
-            return String(arg);
+            let msg = String(arg);
+            if (msg.includes('ERR_MODULE_NOT_FOUND') && msg.includes('imported from')) {
+                msg = msg.split(' imported from')[0];
+            }
+            return msg;
         }
         return customInspect(arg);
     }).join(' ');
@@ -279,8 +289,8 @@ console.error = consoleOverride.error;
 
 process.on('uncaughtException', (e) => {
     const msg = String(e);
-    if (msg.includes('Cannot find module')) {
-        const match = msg.match(/Cannot find module '([^']+)'/);
+    if (msg.includes('Cannot find module') || msg.includes('Cannot find package')) {
+        const match = msg.match(/Cannot find (?:module|package) '([^']+)'/);
         if (match) {
              originalLog(JSON.stringify({
                 __type: 'error',
@@ -289,16 +299,22 @@ process.on('uncaughtException', (e) => {
             return;
         }
     }
+    
+    let cleanMsg = String(e);
+    if (cleanMsg.includes('ERR_MODULE_NOT_FOUND') && cleanMsg.includes('imported from')) {
+        cleanMsg = cleanMsg.split(' imported from')[0];
+    }
+
     originalLog(JSON.stringify({
         __type: 'error',
-        message: String(e)
+        message: cleanMsg
     }));
 });
 
 process.on('unhandledRejection', (e) => {
     const msg = String(e);
-    if (msg.includes('Cannot find module')) {
-        const match = msg.match(/Cannot find module '([^']+)'/);
+    if (msg.includes('Cannot find module') || msg.includes('Cannot find package')) {
+        const match = msg.match(/Cannot find (?:module|package) '([^']+)'/);
         if (match) {
              originalLog(JSON.stringify({
                 __type: 'error',
@@ -307,18 +323,24 @@ process.on('unhandledRejection', (e) => {
             return;
         }
     }
+    
+    let cleanMsg = String(e);
+    if (cleanMsg.includes('ERR_MODULE_NOT_FOUND') && cleanMsg.includes('imported from')) {
+        cleanMsg = cleanMsg.split(' imported from')[0];
+    }
+
     originalLog(JSON.stringify({
         __type: 'error',
-        message: String(e)
+        message: cleanMsg
     }));
 });
 
 // Wrap user code in async IIFE and force exit after completion
 (async () => {
   try {
-    await (async () => {
-      ${transformed}
-    })();
+    // We use dynamic import for the user code to allow top-level imports
+    // We write the transformed code to a separate file
+    await import('./user-code.mjs');
   } catch (error) {
     console.error(error);
   }
@@ -332,6 +354,7 @@ process.on('unhandledRejection', (e) => {
 `
 
   await webContainer.fs.writeFile('index.mjs', script)
+  await webContainer.fs.writeFile('user-code.mjs', transformed)
 
   const process = await webContainer.spawn('node', ['index.mjs'])
 
@@ -405,6 +428,14 @@ process.on('unhandledRejection', (e) => {
   // Wait for process to exit naturally - no timeouts, no tricks
   // WebContainer will terminate the process when event loop is empty
   await process.exit
+
+  // Clean up temporary file
+  try {
+    await webContainer.fs.rm('index.mjs')
+    await webContainer.fs.rm('user-code.mjs')
+  } catch (e) {
+    // Ignore cleanup errors
+  }
 
   return {
     kill: () => {

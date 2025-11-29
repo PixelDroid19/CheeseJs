@@ -84,7 +84,7 @@ function CodeEditor () {
       models.forEach((m: editor.ITextModel) => {
         const uri = m.uri.toString()
         // Don't dispose the current model OR the result output model
-        if (uri !== currentUri && !uri.includes('result-output.js')) {
+        if (uri !== currentUri && !uri.includes('result-output.js') && !m.isDisposed()) {
           if (uri.startsWith('inmemory') || uri.startsWith('file:')) {
              try {
                m.dispose()

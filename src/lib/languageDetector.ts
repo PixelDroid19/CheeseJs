@@ -43,12 +43,16 @@ const ENHANCED_PATTERNS = {
   ],
   python: [
     /^\s*def\s+\w+\s*\(/m,
-    /^\s*class\s+\w+\s*(\(.*\))?\s*:/m,
-    /^\s*import\s+\w+/m,
-    /^\s*from\s+\w+\s+import/m,
-    /print\s*\(/,
-    /__init__\s*\(/,
-    /self\.\w+/
+    // Avoid confusing class with JS/TS class
+    /^\s*class\s+\w+(\(.*\))?\s*:/m,
+    // Make import detection stricter for Python to avoid matching ES modules
+    /^\s*import\s+[\w.]+(\s+as\s+\w+)?$/m,
+    /^\s*from\s+[\w.]+\s+import/m,
+    // Python print is a function call in Python 3, but can look like JS function call.
+    // Use boundary or check for no semicolon if possible, but it's hard.
+    // Let's rely on other python features more.
+    /if\s+__name__\s*==\s*['"]__main__['"]:/,
+    /:\s*$/m, // Block ending with colon
   ],
   html: [
     /<!DOCTYPE\s+html>/i,
