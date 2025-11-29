@@ -66,7 +66,9 @@ export const useWebContainerStore = create<WebContainerState>((set, get) => ({
       }
 
       // Log diagnostics summary
-      console.log(getDiagnosticSummary(diagnostics))
+      if (process.env.NODE_ENV === 'development') {
+        console.log(getDiagnosticSummary(diagnostics))
+      }
 
       // Add a timeout race to prevent infinite loading
       const bootPromise = WebContainer.boot()
@@ -93,7 +95,9 @@ export const useWebContainerStore = create<WebContainerState>((set, get) => ({
         retryCount: 0
       })
 
-      console.log('✅ WebContainer initialized successfully')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ WebContainer initialized successfully')
+      }
     } catch (err) {
       const error = err as Error
       console.error('WebContainer boot failed:', error)

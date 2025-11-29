@@ -259,7 +259,12 @@ const consoleOverride = {
   },
   
   error: (...args) => {
-    const content = args.map(arg => customInspect(arg)).join(' ');
+    const content = args.map(arg => {
+        if (arg instanceof Error) {
+            return String(arg);
+        }
+        return customInspect(arg);
+    }).join(' ');
     originalLog(JSON.stringify({
       __type: 'console',
       content: 'Error: ' + content

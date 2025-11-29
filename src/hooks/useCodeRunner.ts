@@ -58,16 +58,20 @@ export function useCodeRunner() {
       setIsExecuting(true)
 
       // DIAGNOSTIC: Log execution environment
-      console.log('🔍 Execution Environment:', {
-        executionEnvironment,
-        hasWebContainer: !!webContainer,
-        willUseWebContainer: !!webContainer // Changed: always use WebContainer if available
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Execution Environment:', {
+          executionEnvironment,
+          hasWebContainer: !!webContainer,
+          willUseWebContainer: !!webContainer // Changed: always use WebContainer if available
+        })
+      }
 
       try {
         // CHANGED: Always use WebContainer if available, ignore executionEnvironment setting
         if (webContainer) {
-          console.log('✅ Running code in WebContainer (Node.js environment)')
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ Running code in WebContainer (Node.js environment)')
+          }
           const { kill, missingPackages } = await runInWebContainer(
             webContainer,
             sourceCode,
@@ -91,7 +95,9 @@ export function useCodeRunner() {
 
           killProcessRef.current = kill
         } else {
-          console.warn('⚠️ WebContainer not available, falling back to browser execution')
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ WebContainer not available, falling back to browser execution')
+          }
           const transformed = transformCode(sourceCode, {
             showTopLevelResults,
             loopProtection,

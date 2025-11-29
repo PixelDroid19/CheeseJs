@@ -267,12 +267,14 @@ function CodeEditor () {
       monacoRef.current = editorInstance
 
       // Expose monaco to window for E2E testing
-      // @ts-expect-error - Exposing monaco to window for testing
-      window.monaco = monaco
-      // @ts-expect-error - Exposing editor to window for testing
-      window.editor = editorInstance
-      // @ts-expect-error - Exposing store to window for testing
-      window.useCodeStore = useCodeStore
+      if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+        // @ts-expect-error - Exposing monaco to window for testing
+        window.monaco = monaco
+        // @ts-expect-error - Exposing editor to window for testing
+        window.editor = editorInstance
+        // @ts-expect-error - Exposing store to window for testing
+        window.useCodeStore = useCodeStore
+      }
 
 
       // Setup ATA

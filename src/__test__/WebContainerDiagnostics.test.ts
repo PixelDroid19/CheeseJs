@@ -13,9 +13,18 @@ const mockCrossOriginIsolated = (value: boolean) => {
 // Mock fetch
 global.fetch = vi.fn()
 
+// Mock browser features
+const mockBrowserFeatures = () => {
+    vi.stubGlobal('SharedArrayBuffer', ArrayBuffer)
+    vi.stubGlobal('WebAssembly', {})
+    vi.stubGlobal('Worker', class {})
+    vi.stubGlobal('SharedWorker', class {})
+}
+
 describe('WebContainerDiagnostics', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mockBrowserFeatures()
     })
 
     describe('runDiagnostics', () => {

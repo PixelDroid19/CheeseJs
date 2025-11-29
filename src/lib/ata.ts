@@ -29,7 +29,9 @@ async function checkAndFetchTypes (monaco: Monaco) {
       fetchedTypes.add(pkg.name)
       const success = await fetchAndAddTypes(monaco, pkg.name, pkg.version)
       if (!success) {
-        console.warn(`[ATA] Could not find types for ${pkg.name}, adding fallback.`)
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[ATA] Could not find types for ${pkg.name}, adding fallback.`)
+        }
         addFallbackDeclaration(monaco, pkg.name)
       }
     }
@@ -65,7 +67,9 @@ async function fetchAndAddTypes (monaco: Monaco, packageName: string, version?: 
       ts.javascriptDefaults.addExtraLib(content, libPath)
       ts.typescriptDefaults.addExtraLib(content, libPath)
 
-      console.log(`[ATA] Added types for ${packageName} from ${typesUrl}`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[ATA] Added types for ${packageName} from ${typesUrl}`)
+      }
 
       // 4. Parse and fetch dependencies (basic depth handling)
       const importRegex = /(?:import|export)\s+(?:.*?\s+from\s+)?['"]([^'"]+)['"]/g
@@ -115,7 +119,9 @@ async function fetchAndAddTypes (monaco: Monaco, packageName: string, version?: 
       }
     }
   } catch (error) {
-    console.warn(`[ATA] Failed to fetch types for ${packageName}:`, error)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[ATA] Failed to fetch types for ${packageName}:`, error)
+    }
   }
   return false
 }
@@ -137,5 +143,7 @@ function addFallbackDeclaration (monaco: Monaco, packageName: string) {
   const ts = (monaco as any).typescript
   ts.javascriptDefaults.addExtraLib(content, libPath)
   ts.typescriptDefaults.addExtraLib(content, libPath)
-  console.log(`[ATA] Added fallback types for ${packageName}`)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[ATA] Added fallback types for ${packageName}`)
+  }
 }

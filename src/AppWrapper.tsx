@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useWebContainerStore } from './store/useWebContainerStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoadingIndicator from './components/LoadingIndicator'
@@ -11,9 +11,13 @@ function AppWrapper () {
     (state) => state.bootWebContainer
   )
   const isLoading = useWebContainerStore((state) => state.isLoading)
+  const initialized = useRef(false)
 
   useEffect(() => {
-    bootWebContainer()
+    if (!initialized.current) {
+      initialized.current = true
+      bootWebContainer()
+    }
   }, [bootWebContainer])
 
   if (isLoading) {
