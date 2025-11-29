@@ -5,15 +5,13 @@ import { usePackagesStore } from '../store/usePackagesStore'
 import { themes } from '../themes'
 import Editor, { Monaco } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
-import LoadingIndicator from './LoadingIndicator'
 import { Download, AlertCircle, Loader2, Package as PackageIcon, X } from 'lucide-react'
 import { fetchPackageInfo } from '../lib/npm'
 import { AnimatePresence, motion } from 'framer-motion'
 
-function ResultDisplay () {
+function ResultDisplay() {
   const elements = useCodeStore((state) => state.result)
   const code = useCodeStore((state) => state.code)
-  const isExecuting = useCodeStore((state) => state.isExecuting)
   const { themeName, fontSize, alignResults } = useSettingsStore()
   const { packages, addPackage, detectedMissingPackages } = usePackagesStore()
 
@@ -47,12 +45,11 @@ function ResultDisplay () {
     }
   }, [detectedMissingPackages, packageMetadata])
 
-  function handleEditorWillMount (monaco: Monaco) {
+  function handleEditorWillMount(monaco: Monaco) {
     // Register all themes
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
-    // @ts-expect-error - Accessing new top-level typescript namespace
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ts = (monaco as any).typescript
     ts.javascriptDefaults.setEagerModelSync(true)
@@ -138,11 +135,6 @@ function ResultDisplay () {
   return (
     <div className="h-full flex flex-col text-cyan-50 bg-[#1e1e1e] relative overflow-hidden">
       <div className="flex-1 relative min-h-0">
-        {isExecuting && (
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm z-10 flex items-center justify-center">
-            <LoadingIndicator message="Executing code..." size="md" />
-          </div>
-        )}
         <Editor
           theme={themeName}
           path="result-output.js"
@@ -230,46 +222,46 @@ function ResultDisplay () {
                   <div className="flex items-center justify-end gap-2 pt-1">
                     {pkgInfo?.installing
                       ? (
-                      <span className="text-blue-400 text-xs flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-md border border-blue-500/20 w-full justify-center">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Installing...
-                      </span>
-                        )
+                        <span className="text-blue-400 text-xs flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-md border border-blue-500/20 w-full justify-center">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Installing...
+                        </span>
+                      )
                       : pkgInfo?.error
                         ? (
-                      <div className="flex flex-col gap-2 w-full">
-                         <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 p-2 rounded border border-red-500/20">
-                           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                           <span className="truncate">{pkgInfo.error}</span>
-                         </span>
-                         <button
-                           onClick={() => pkgName && addPackage(pkgName)}
-                           className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
-                         >
-                           <Download className="w-3.5 h-3.5" /> Retry
-                         </button>
-                      </div>
-                          )
+                          <div className="flex flex-col gap-2 w-full">
+                            <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 p-2 rounded border border-red-500/20">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{pkgInfo.error}</span>
+                            </span>
+                            <button
+                              onClick={() => pkgName && addPackage(pkgName)}
+                              className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Retry
+                            </button>
+                          </div>
+                        )
                         : doesNotExist
                           ? (
-                      <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-md border border-red-500/20 w-full justify-center">
-                        <AlertCircle className="w-3.5 h-3.5" /> Package not found
-                      </span>
-                            )
+                            <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-md border border-red-500/20 w-full justify-center">
+                              <AlertCircle className="w-3.5 h-3.5" /> Package not found
+                            </span>
+                          )
                           : isUnknown
                             ? (
-                      <span className="text-gray-400 text-xs flex items-center gap-2 w-full justify-center py-1.5">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...
-                      </span>
-                              )
+                              <span className="text-gray-400 text-xs flex items-center gap-2 w-full justify-center py-1.5">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...
+                              </span>
+                            )
                             : (
-                      <button
-                        onClick={() => pkgName && addPackage(pkgName)}
-                        className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
-                      >
-                        <Download className="w-3.5 h-3.5" /> Install Package
-                      </button>
-                              )}
+                              <button
+                                onClick={() => pkgName && addPackage(pkgName)}
+                                className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                              >
+                                <Download className="w-3.5 h-3.5" /> Install Package
+                              </button>
+                            )}
                   </div>
                 </div>
               </motion.div>

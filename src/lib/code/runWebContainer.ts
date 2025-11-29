@@ -28,7 +28,7 @@ interface RunOptions {
   magicComments?: boolean;
 }
 
-export async function runInWebContainer (
+export async function runInWebContainer(
   webContainer: WebContainer,
   code: string,
   onResult: (result: CodeResult) => void,
@@ -267,7 +267,10 @@ const consoleOverride = {
   }
 };
 
-Object.assign(console, consoleOverride);
+console.log = consoleOverride.log;
+console.table = consoleOverride.table;
+console.warn = consoleOverride.warn;
+console.error = consoleOverride.error;
 
 process.on('uncaughtException', (e) => {
     const msg = String(e);
@@ -305,18 +308,37 @@ process.on('unhandledRejection', (e) => {
     }));
 });
 
-// User code
-${transformed}
+// Wrap user code in async IIFE and force exit after completion
+(async () => {
+  try {
+    await (async () => {
+      ${transformed}
+    })();
+  } catch (error) {
+    console.error(error);
+  }
+  
+  // Wait a bit for any lingering async operations
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Force process exit
+  process.exit(0);
+})();
 `
 
-  await webContainer.fs.writeFile('index.js', script)
+  await webContainer.fs.writeFile('index.mjs', script)
 
-  const process = await webContainer.spawn('node', ['index.js'])
+  const process = await webContainer.spawn('node', ['index.mjs'])
 
+  let buffer = ''
   process.output.pipeTo(
     new WritableStream({
-      write (data) {
-        const lines = data.split('\n')
+      write(data) {
+        buffer += data
+        const lines = buffer.split('\n')
+        // Keep the last part in the buffer as it might be incomplete
+        buffer = lines.pop() || ''
+
         for (const line of lines) {
           if (!line.trim()) continue
           try {
@@ -354,9 +376,30 @@ ${transformed}
             }
           }
         }
+      },
+      close() {
+        if (buffer.trim()) {
+          try {
+            const json = JSON.parse(buffer)
+            // reuse the logic? or just simple processing
+            if (json.__type === 'console') {
+              onResult({ element: { content: json.content, color: Colors.STRING }, type: 'execution' })
+            } else if (json.__type === 'error') {
+              onResult({ element: { content: json.message, color: Colors.ERROR }, type: 'error' })
+            } else {
+              onResult({ element: { content: json.content || buffer, color: Colors.GRAY }, type: 'execution' })
+            }
+          } catch {
+            onResult({ element: { content: buffer, color: Colors.GRAY }, type: 'execution' })
+          }
+        }
       }
     })
   )
+
+  // Wait for process to exit naturally - no timeouts, no tricks
+  // WebContainer will terminate the process when event loop is empty
+  await process.exit
 
   return {
     kill: () => {
@@ -366,7 +409,7 @@ ${transformed}
   }
 }
 
-function getColor (type: string, content?: string) {
+function getColor(type: string, content?: string) {
   switch (type) {
     case 'string':
       return Colors.STRING

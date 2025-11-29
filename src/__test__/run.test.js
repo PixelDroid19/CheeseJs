@@ -56,15 +56,17 @@ describe('transformCode fn', () => {
 describe('run fn', () => {
   // Tests that an empty string returns an empty array
   it('test_empty_string', async () => {
-    const result = await run('');
-    expect(result).toEqual([]);
+    const results = [];
+    await run('', (res) => results.push(res));
+    expect(results).toEqual([]);
   });
 
   // Tests that a string containing a single line of code returns an array with one execution result
   it('test_single_line_of_code', async () => {
-    const result = await run('const a = 1;debug(2, a);');
+    const results = [];
+    await run('const a = 1;debug(2, a);', (res) => results.push(res));
 
-    expect(result).toEqual([
+    expect(results).toEqual([
       {
         lineNumber: 2,
         element: { content: '1', color: Colors.NUMBER },
@@ -75,9 +77,10 @@ describe('run fn', () => {
 
   // Tests that a string containing a syntax error returns an array with one error result
   it('test_syntax_error', async () => {
-    const result = await run('const a = 1;\nconst b = ;');
+    const results = [];
+    await run('const a = 1;\nconst b = ;', (res) => results.push(res));
 
-    expect(result).toEqual([
+    expect(results).toEqual([
       {
         element: { content: "Unexpected token ';'", color: Colors.ERROR },
         type: 'error',

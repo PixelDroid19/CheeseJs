@@ -1,6 +1,11 @@
-import { Minus, Maximize, X } from 'lucide-react'
+import { Minus, Maximize, X, Wifi, WifiOff } from 'lucide-react'
+import { useWebContainerStore } from '../store/useWebContainerStore'
 
 export function TitleBar() {
+  const webContainer = useWebContainerStore((state) => state.webContainer)
+  const isLoading = useWebContainerStore((state) => state.isLoading)
+  const error = useWebContainerStore((state) => state.error)
+
   const handleMinimize = () => {
     window.electronAPI.minimizeApp()
   }
@@ -17,8 +22,23 @@ export function TitleBar() {
   return (
     <header className="titlebar select-none">
       <nav className="flex items-center justify-between w-full bg-[#282a36] text-white border-b border-[#414457] h-[40px]">
-        <div className="flex items-center pl-4 text-zinc-400">
+        <div className="flex items-center pl-4 text-zinc-400 gap-3">
           {/* Menu button removed as requested */}
+           <div className="flex items-center gap-2 text-xs">
+            {isLoading ? (
+              <span className="text-yellow-500 animate-pulse">Booting...</span>
+            ) : error ? (
+               <div className="flex items-center gap-1 text-red-400" title={error.message}>
+                 <WifiOff size={14} />
+                 <span>Offline</span>
+               </div>
+            ) : webContainer ? (
+               <div className="flex items-center gap-1 text-green-400">
+                 <Wifi size={14} />
+                 <span>Online</span>
+               </div>
+            ) : null}
+          </div>
         </div>
         <div className="flex items-center h-full text-zinc-400">
            <button 

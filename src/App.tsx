@@ -3,12 +3,13 @@ import CodeEditor from './components/Editor'
 import ResultDisplay from './components/Result'
 import Settings from './components/Settings/Settings'
 import FloatingToolbar from './components/FloatingToolbar'
+import { WebContainerStatus } from './components/WebContainerStatus'
 import Split from 'react-split'
 import { useSettingsStore } from './store/useSettingsStore'
 
-function App () {
+function App() {
   const { uiFontSize, setMagicComments } = useSettingsStore()
-  
+
   useEffect(() => {
     document.documentElement.style.fontSize = `${uiFontSize}px`
   }, [uiFontSize])
@@ -34,7 +35,7 @@ function App () {
     return [50, 50]
   })
 
-  function handleDragEnd (e: number[]) {
+  function handleDragEnd(e: number[]) {
     const [left, right] = e
     setSizes([left, right])
     window.localStorage.setItem('split-sizes', JSON.stringify([left, right]))
@@ -44,6 +45,7 @@ function App () {
     <>
       <Settings />
       <FloatingToolbar />
+      <WebContainerStatus />
       <Split
         className={`flex ${direction} h-full overflow-hidden`}
         sizes={sizes}

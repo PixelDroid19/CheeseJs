@@ -53,7 +53,98 @@ export function flattenColoredElement (
     })
     .flat()
 }
+// Helper to safely inspect global objects like Window without freezing
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatGlobalObject (obj: any, name: string): string {
+  const props: string[] = []
+  
+  // Get all properties (own and inherited) safely
+  // We use a Set to avoid duplicates if we traverse prototype chain manually
+  const keys = new Set<string>()
+  
+  // Add own keys
+  try {
+    Object.getOwnPropertyNames(obj).forEach(k => keys.add(k))
+  } catch {
+    // Ignore access errors
+  }
+  
+  // Add prototype keys (one level up is usually enough for Window/Document)
+  try {
+    const proto = Object.getPrototypeOf(obj)
+    if (proto) {
+      Object.getOwnPropertyNames(proto).forEach(k => keys.add(k))
+    }
+  } catch {
+    // Ignore access errors
+  }
+
+  // Convert to array and sort
+  const sortedKeys = Array.from(keys).sort()
+
+  for (const key of sortedKeys) {
+    try {
+      // Check descriptor first to identify getters/setters without triggering them
+      let desc: PropertyDescriptor | undefined
+      try {
+        desc = Object.getOwnPropertyDescriptor(obj, key) || 
+               (Object.getPrototypeOf(obj) ? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(obj), key) : undefined)
+      } catch {
+        // ignore
+      }
+
+      if (desc && (desc.get || desc.set)) {
+        props.push(`  ${key}: [Getter/Setter]`)
+        continue
+      }
+      
+      const value = obj[key]
+      
+      if (value === obj) {
+        props.push(`  ${key}: [Circular]`)
+      } else if (typeof value === 'function') {
+        // Format: alert: ƒ alert()
+        props.push(`  ${key}: ƒ ${value.name || key}()`)
+      } else if (typeof value === 'object' && value !== null) {
+        // Format: location: Location { ... } or just type
+        const typeName = value.constructor?.name || 'Object'
+        props.push(`  ${key}: [${typeName}]`)
+      } else if (typeof value === 'string') {
+        props.push(`  ${key}: "${value}"`)
+      } else {
+        props.push(`  ${key}: ${String(value)}`)
+      }
+    } catch {
+      props.push(`  ${key}: [Restricted]`)
+    }
+  }
+
+  return `<ref *1> ${name} {\n${props.join(',\n')}\n}`
+}
+
 export async function stringify (element: unknown): Promise<ColoredElement> {
+  // Prevent freezing when inspecting global objects
+  if (typeof window !== 'undefined' && element === window) {
+    return {
+      content: formatGlobalObject(window, 'Window [global]'),
+      color: Colors.GRAY
+    }
+  }
+
+  if (typeof document !== 'undefined' && element === document) {
+    return {
+      content: formatGlobalObject(document, 'Document'),
+      color: Colors.GRAY
+    }
+  }
+
+  if (typeof globalThis !== 'undefined' && element === globalThis) {
+    return {
+      content: formatGlobalObject(globalThis, 'Global'),
+      color: Colors.GRAY
+    }
+  }
+
   if (Array.isArray(element)) {
     return {
       content: ObjetToString(jc.decycle(element), {
@@ -65,34 +156,9 @@ export async function stringify (element: unknown): Promise<ColoredElement> {
   }
 
   if (isPromise(element)) {
-    try {
-      // Use Promise.resolve for reliable promise handling
-      const resolvedValue = await Promise.resolve(element)
-
-      // Check if the resolved value is a Response object
-      const isResponseObject = resolvedValue &&
-        typeof resolvedValue === 'object' &&
-        'status' in resolvedValue &&
-        'headers' in resolvedValue &&
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        typeof (resolvedValue as any).text === 'function'
-
-      if (isResponseObject) {
-        return {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          content: `Response { status: ${(resolvedValue as any).status} }`,
-          color: Colors.STRING
-        }
-      }
-
-      return await stringify(resolvedValue)
-    } catch (error) {
-      // Handle rejected promises
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      return {
-        content: `Promise { <rejected>: ${errorMessage} }`,
-        color: Colors.ERROR
-      }
+    return {
+      content: 'Promise { <pending> }',
+      color: Colors.GRAY
     }
   }
 

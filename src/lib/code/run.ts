@@ -110,53 +110,39 @@ interface RunOptions {
 
 export async function run (
   string: string,
+  onResult: (result: Result) => void,
   options: RunOptions = {}
-): Promise<Result[] | Error> {
-  if (string === '') return []
+): Promise<void> {
+  if (string === '') return
   try {
-    let unparsedResults: unparsedResult[] = []
-
     const asyncFunction = AsyncFunction('debug', string)
 
-    await asyncFunction((lineNumber: number, ...args: unknown[]) => {
+    await asyncFunction(async (lineNumber: number, ...args: unknown[]) => {
       // Check showUndefined setting
       if (!options.showUndefined && args.length === 1 && args[0] === undefined) {
         return
       }
       const content = args.length > 1 ? args : args[0]
-      unparsedResults = [...unparsedResults, { lineNumber, content }]
-    })
-
-    if (unparsedResults.length === 0) return []
-
-    const promises = unparsedResults.map(async (result) => {
-      // Filter undefined if needed
-      if (options.showUndefined === false && result.content === undefined) {
-        return null
-      }
-
-      const stringifiedContent = await stringify(result.content)
-      if (!stringifiedContent) throw new Error('Unable to stringify content')
-      return {
-        lineNumber: result.lineNumber,
-        element: stringifiedContent,
-        type: 'execution'
+      
+      try {
+        const stringifiedContent = await stringify(content)
+        if (stringifiedContent) {
+          onResult({
+            lineNumber,
+            element: stringifiedContent,
+            type: 'execution'
+          })
+        }
+      } catch (err) {
+        // Ignore stringify errors
       }
     })
-
-    const parsedResults = (await Promise.all(promises)).filter(
-      (result) => result !== null
-    ) as Result[]
-
-    return parsedResults
   } catch (e: unknown) {
     const errorMessage =
       e instanceof Error ? e.message : 'Unknown error occurred'
-    return [
-      {
-        element: { content: errorMessage, color: Colors.ERROR },
-        type: 'error'
-      }
-    ]
+    onResult({
+      element: { content: errorMessage, color: Colors.ERROR },
+      type: 'error'
+    })
   }
 }

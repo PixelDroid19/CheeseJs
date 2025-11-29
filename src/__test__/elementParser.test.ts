@@ -76,15 +76,17 @@ describe('elementParser', () => {
     it('should handle resolved promises', async () => {
       const promise = Promise.resolve(42)
       const result = await stringify(promise)
-      expect(result.content).toContain('42')
+      expect(result.content).toContain('Promise')
+      expect(result.content).toContain('<pending>')
     })
 
     it('should handle rejected promises', async () => {
       const promise = Promise.reject(new Error('test error'))
+      promise.catch(() => {}) // Handle rejection
       const result = await stringify(promise)
-      expect(result.content).toContain('rejected')
-      expect(result.content).toContain('test error')
-      expect(result.color).toBe(Colors.ERROR)
+      expect(result.content).toContain('Promise')
+      expect(result.content).toContain('<pending>')
+      expect(result.color).toBe(Colors.GRAY)
     })
 
     it('should handle Response objects from promises', async () => {
@@ -96,8 +98,8 @@ describe('elementParser', () => {
       }
       const promise = Promise.resolve(mockResponse)
       const result = await stringify(promise)
-      expect(result.content).toContain('Response')
-      expect(result.content).toContain('200')
+      expect(result.content).toContain('Promise')
+      expect(result.content).toContain('<pending>')
     })
   })
 

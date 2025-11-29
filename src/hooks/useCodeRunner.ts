@@ -7,7 +7,7 @@ import { run, transformCode } from '../lib/code/run'
 import { runInWebContainer } from '../lib/code/runWebContainer'
 import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
 
-export function useCodeRunner () {
+export function useCodeRunner() {
   const code = useCodeStore((state) => state.code)
   const setCode = useCodeStore((state) => state.setCode)
   const setResult = useCodeStore((state) => state.setResult)
@@ -56,8 +56,18 @@ export function useCodeRunner () {
 
       clearResult()
       setIsExecuting(true)
+
+      // DIAGNOSTIC: Log execution environment
+      console.log('🔍 Execution Environment:', {
+        executionEnvironment,
+        hasWebContainer: !!webContainer,
+        willUseWebContainer: !!webContainer // Changed: always use WebContainer if available
+      })
+
       try {
-        if (webContainer && executionEnvironment === 'node') {
+        // CHANGED: Always use WebContainer if available, ignore executionEnvironment setting
+        if (webContainer) {
+          console.log('✅ Running code in WebContainer (Node.js environment)')
           const { kill, missingPackages } = await runInWebContainer(
             webContainer,
             sourceCode,
@@ -73,7 +83,7 @@ export function useCodeRunner () {
               magicComments
             }
           )
-          
+
           if (missingPackages.length > 0) {
             setIsPendingRun(true)
             setDetectedMissingPackages(missingPackages)
@@ -81,16 +91,22 @@ export function useCodeRunner () {
 
           killProcessRef.current = kill
         } else {
+          console.warn('⚠️ WebContainer not available, falling back to browser execution')
           const transformed = transformCode(sourceCode, {
             showTopLevelResults,
             loopProtection,
             internalLogLevel,
             magicComments
           })
-          const element = await run(transformed, {
-            showUndefined
-          })
-          setResult(Array.isArray(element) ? element : [])
+          await run(
+            transformed,
+            (result) => {
+              appendResult(result)
+            },
+            {
+              showUndefined
+            }
+          )
         }
       } catch (error: unknown) {
         const message =

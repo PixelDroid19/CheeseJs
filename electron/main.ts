@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage, Menu, MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, Menu, MenuItemConstructorOptions, session } from 'electron'
 import path from 'node:path'
 
 process.env.DIST = path.join(__dirname, '../dist')
@@ -8,7 +8,34 @@ let win: BrowserWindow | null
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
-function createWindow () {
+// Ignore certificate errors for local.webcontainer.io
+app.commandLine.appendSwitch('ignore-certificate-errors')
+app.commandLine.appendSwitch('allow-insecure-localhost')
+
+function createWindow() {
+  // Set CSP and COOP/COEP headers for WebContainers
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...details.responseHeaders }
+
+    // Remove conflicting headers to ensure our strict/permissive combo works
+    delete responseHeaders['content-security-policy']
+    delete responseHeaders['Content-Security-Policy']
+    delete responseHeaders['X-Content-Security-Policy']
+    delete responseHeaders['cross-origin-embedder-policy']
+    delete responseHeaders['Cross-Origin-Embedder-Policy']
+    delete responseHeaders['cross-origin-opener-policy']
+    delete responseHeaders['Cross-Origin-Opener-Policy']
+
+    callback({
+      responseHeaders: {
+        ...responseHeaders,
+        'Content-Security-Policy': ["default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; child-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; worker-src 'self' blob: https://*.staticblitz.com https://*.webcontainer.io https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io;"],
+        'Cross-Origin-Embedder-Policy': ['credentialless'],
+        'Cross-Origin-Opener-Policy': ['same-origin']
+      }
+    })
+  })
+
   win = new BrowserWindow({
     icon: path.join(process.env.PUBLIC, 'cheesejs.png'),
     frame: false,
@@ -19,11 +46,13 @@ function createWindow () {
       devTools: true,
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false
+      sandbox: false,
+      webSecurity: true, // Enable webSecurity to support crossOriginIsolated
+      allowRunningInsecureContent: false
     }
 
   })
-  
+
   win.once('ready-to-show', () => {
     win?.show()
   })
