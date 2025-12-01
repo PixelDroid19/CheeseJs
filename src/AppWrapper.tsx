@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useWebContainerStore } from './store/useWebContainerStore'
+import { useSettingsStore } from './store/useSettingsStore'
+import { themesConfig } from './themes'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoadingIndicator from './components/LoadingIndicator'
 import { PackageInstaller } from './components/PackageInstaller'
@@ -11,7 +13,23 @@ function AppWrapper () {
     (state) => state.bootWebContainer
   )
   const isLoading = useWebContainerStore((state) => state.isLoading)
+  const { themeName, uiFontSize } = useSettingsStore()
   const initialized = useRef(false)
+
+  // Apply theme and font size globally
+  useEffect(() => {
+    const theme = themesConfig[themeName]
+    const isDark = theme?.type === 'dark'
+    
+    document.documentElement.classList.toggle('dark', isDark)
+    if (theme) {
+      document.documentElement.setAttribute('data-theme', theme.name)
+    }
+  }, [themeName])
+
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${uiFontSize}px`
+  }, [uiFontSize])
 
   useEffect(() => {
     if (!initialized.current) {
@@ -22,7 +40,7 @@ function AppWrapper () {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-screen bg-[#1e1e1e]">
+      <div className="flex flex-col h-screen bg-background">
         <TitleBar />
         <div className="flex-1 flex items-center justify-center">
           <LoadingIndicator message="Initializing WebContainer..." size="lg" />
@@ -32,7 +50,7 @@ function AppWrapper () {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#1e1e1e]">
+    <div className="flex flex-col h-screen bg-background">
       <TitleBar />
       <div className="flex-1 overflow-hidden relative">
         <ErrorBoundary>

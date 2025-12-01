@@ -2,7 +2,6 @@ import { useState, useRef, useId, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
-import { useThemeColors } from '../../../hooks/useThemeColors'
 
 interface TooltipProps {
   content: string
@@ -15,7 +14,6 @@ export function Tooltip({ content, children }: TooltipProps) {
   const [position, setPosition] = useState<'left' | 'right' | 'top' | 'bottom'>('left')
   const triggerRef = useRef<HTMLDivElement>(null)
   const tooltipId = useId()
-  const colors = useThemeColors()
 
   const updatePosition = () => {
     if (triggerRef.current) {
@@ -111,7 +109,7 @@ export function Tooltip({ content, children }: TooltipProps) {
               }}
               className={clsx(
                 "z-[200] p-3 text-xs rounded-lg shadow-xl w-64 whitespace-normal pointer-events-none border",
-                colors.isDark ? "bg-gray-800 border-gray-700 text-gray-200" : "bg-white border-gray-200 text-gray-700",
+                "bg-popover text-popover-foreground border-border",
                 position === 'left' ? '-translate-y-1/2 -translate-x-full' : '',
                 position === 'right' ? '-translate-y-1/2' : '',
                 position === 'top' ? '-translate-x-1/2 -translate-y-full' : '',

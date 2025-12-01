@@ -1,31 +1,202 @@
 @import "tailwindcss";
 
-.horizontal .gutter {
-  height: 100%;
-  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeMwF+yNnOs5KSvgAAAABJRU5ErkJggg==');
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 142.1 76.2% 36.3%;
+  --success-foreground: 355.7 100% 97.3%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 48 96% 89%;
+  --info: 221.2 83.2% 53.3%;
+  --info-foreground: 210 40% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 10% 3.9%;
+  --radius: 0.5rem;
+}
+
+/* Split Gutter Styles */
+.gutter {
+  background-color: hsl(var(--border));
+  background-repeat: no-repeat;
+  background-position: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.gutter:hover {
+  background-color: hsl(var(--primary));
+}
+
+.gutter.gutter-horizontal {
   cursor: col-resize;
 }
 
-.gutter {
-  background-color: #5e5d5d;
-  background-repeat: no-repeat;
-  background-position: 50%;
-  min-height: 100%;
-}
-
-.vertical .gutter {
-  width: 100%;
-  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII=');
+.gutter.gutter-vertical {
   cursor: row-resize;
 }
 
-.titlebar {
-  -webkit-app-region: drag;
-  position: sticky;
-  top: 0;
-  z-index: 9999;
+/* Theme Configuration
+  -------------------
+  Themes are applied via the 'dark' class (for dark mode) and 'data-theme' attribute (for specific theme overrides).
+  
+  To add a new theme:
+  1. Define it in src/themes/index.ts
+  2. If it's a dark theme, set type: 'dark' (this applies the .dark class)
+  3. Add specific overrides here using [data-theme="your-theme-name"]
+*/
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
 }
 
-button {
+/* Window Dragging */
+.titlebar {
+  -webkit-app-region: drag;
+}
+
+.titlebar button,
+.titlebar .no-drag {
   -webkit-app-region: no-drag;
+}
+
+/* One Dark Theme Override */
+[data-theme="onedark"] {
+  --background: 220 13% 18%; /* #282c34 */
+  --foreground: 220 13% 71%; /* #abb2bf */
+  
+  --card: 220 13% 18%;
+  --card-foreground: 220 13% 71%;
+  
+  --popover: 220 13% 18%;
+  --popover-foreground: 220 13% 71%;
+  
+  --primary: 207 82% 66%; /* #61afef Blue */
+  --primary-foreground: 220 13% 18%;
+  
+  --secondary: 286 60% 67%; /* #c678dd Purple */
+  --secondary-foreground: 220 13% 18%;
+  
+  --muted: 219 14% 23%; /* #333842 */
+  --muted-foreground: 220 13% 55%;
+  
+  --accent: 219 14% 23%;
+  --accent-foreground: 220 13% 71%;
+  
+  --destructive: 355 65% 65%; /* #e06c75 Red */
+  --destructive-foreground: 220 13% 18%;
+  
+  --success: 95 38% 62%; /* #98c379 Green */
+  --success-foreground: 220 13% 18%;
+  
+  --warning: 29 54% 61%; /* #d19a66 Orange */
+  --warning-foreground: 220 13% 18%;
+  
+  --info: 187 47% 55%; /* #56b6c2 Cyan */
+  --info-foreground: 220 13% 18%;
+  
+  --border: 220 13% 23%; /* #3e4451 */
+  --input: 220 13% 23%;
+  --ring: 207 82% 66%;
+}
+
+/* Midnight Theme Override */
+[data-theme="midnight"] {
+  --background: 222 47% 11%; /* Slate 900 */
+  --foreground: 214 32% 91%; /* Slate 200 */
+  
+  --card: 215 28% 17%; /* Slate 800 */
+  --card-foreground: 214 32% 91%;
+  
+  --popover: 215 28% 17%;
+  --popover-foreground: 214 32% 91%;
+  
+  --primary: 199 89% 48%; /* Sky 400 */
+  --primary-foreground: 222 47% 11%;
+  
+  --secondary: 215 25% 27%; /* Slate 700 */
+  --secondary-foreground: 214 32% 91%;
+  
+  --muted: 215 25% 27%;
+  --muted-foreground: 215 16% 47%; /* Slate 500 */
+  
+  --accent: 215 25% 27%;
+  --accent-foreground: 214 32% 91%;
+  
+  --border: 215 25% 27%;
+  --input: 215 25% 27%;
+  --ring: 199 89% 48%;
 }

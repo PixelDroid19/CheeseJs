@@ -2,13 +2,11 @@ import React, { useState } from 'react'
 import { usePackagesStore } from '../store/usePackagesStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { useTranslation } from 'react-i18next'
-import { useThemeColors } from '../hooks/useThemeColors'
 import clsx from 'clsx'
 import { Plus, Trash2 } from 'lucide-react'
 
 export function PackageManager () {
   const { t } = useTranslation()
-  const colors = useThemeColors()
   const [packageName, setPackageName] = useState('')
   const packages = usePackagesStore((state) => state.packages)
   const { npmRcContent, setNpmRcContent } = useSettingsStore()
@@ -35,25 +33,22 @@ export function PackageManager () {
     <div className="flex flex-col h-full space-y-6">
       {/* Header */}
       <div>
-        <p className={clsx("text-sm", colors.textSecondary)}>
+        <p className="text-sm text-muted-foreground">
           {t('settings.npm.description', 'Manage npm packages for your code. Packages are automatically installed when detected in imports.')}
         </p>
       </div>
 
       {/* Configuration Section (.npmrc) */}
       <div>
-        <h3 className={clsx("text-sm font-semibold mb-3", colors.text)}>
+        <h3 className="text-sm font-semibold mb-3 text-foreground">
           {t('settings.npm.configuration', 'Configuration (.npmrc)')}
         </h3>
         <textarea
           value={npmRcContent}
           onChange={(e) => setNpmRcContent(e.target.value)}
           className={clsx(
-            "w-full h-32 px-3 py-2 text-sm rounded-md font-mono resize-none focus:outline-none focus:ring-1 focus:ring-blue-500",
-            colors.inputBg,
-            colors.text,
-            colors.border,
-            "border"
+            "w-full h-32 px-3 py-2 text-sm rounded-md font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring",
+            "bg-background text-foreground border-border border"
           )}
           placeholder={t('settings.npm.registryPlaceholder', 'registry=https://registry.npmjs.org/')}
           spellCheck={false}
@@ -62,7 +57,7 @@ export function PackageManager () {
 
       {/* Packages Section */}
       <div className="flex-1 flex flex-col min-h-0">
-        <h3 className={clsx("text-sm font-semibold mb-3", colors.text)}>
+        <h3 className="text-sm font-semibold mb-3 text-foreground">
           {t('settings.npm.installedPackages', 'Installed Packages')}
         </h3>
 
@@ -75,10 +70,8 @@ export function PackageManager () {
             onKeyDown={handleKeyDown}
             placeholder={t('settings.npm.placeholder', 'Package name (e.g., lodash)')}
             className={clsx(
-              "flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500",
-              colors.inputBg,
-              colors.text,
-              colors.border
+              "flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring",
+              "bg-background text-foreground border-border"
             )}
           />
           <button
@@ -87,8 +80,8 @@ export function PackageManager () {
             className={clsx(
               "px-3 py-2 rounded-md transition-colors flex items-center justify-center",
               packageName.trim() 
-                ? "bg-blue-500 hover:bg-blue-600 text-white" 
-                : clsx(colors.active, colors.textSecondary, "cursor-not-allowed")
+                ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
+                : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
             title={t('settings.npm.add', 'Add')}
           >
@@ -99,35 +92,31 @@ export function PackageManager () {
         {/* Packages List */}
         <div className={clsx(
           "flex-1 overflow-auto border rounded-md",
-          colors.border,
-          colors.bg
+          "border-border bg-background"
         )}>
           {packages.length === 0 ? (
-            <div className={clsx("flex items-center justify-center h-full", colors.textSecondary)}>
+            <div className="flex items-center justify-center h-full text-muted-foreground">
               {t('settings.npm.empty', 'No packages installed yet')}
             </div>
           ) : (
-            <div className={clsx("divide-y", colors.divider)}>
+            <div className="divide-y divide-border">
               {packages.map((pkg) => (
                 <div
                   key={pkg.name}
-                  className={clsx(
-                    "flex items-center justify-between p-3 transition-colors",
-                    colors.hover
-                  )}
+                  className="flex items-center justify-between p-3 transition-colors hover:bg-accent/50"
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <div className="flex-1">
-                      <div className={clsx("font-medium", colors.text)}>
+                      <div className="font-medium text-foreground">
                         {pkg.name}
                       </div>
                       {pkg.version && (
-                        <div className={clsx("text-xs", colors.textSecondary)}>
+                        <div className="text-xs text-muted-foreground">
                           v{pkg.version}
                         </div>
                       )}
                       {pkg.error && (
-                        <div className="text-xs text-red-500">
+                        <div className="text-xs text-destructive">
                           Error: {pkg.error}
                         </div>
                       )}
@@ -136,16 +125,16 @@ export function PackageManager () {
                     {/* Status Indicator */}
                     <div className="flex items-center">
                       {pkg.installing ? (
-                        <div className="flex items-center gap-2 text-blue-500">
-                          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="flex items-center gap-2 text-info">
+                          <div className="w-4 h-4 border-2 border-info border-t-transparent rounded-full animate-spin"></div>
                           <span className="text-xs">Installing...</span>
                         </div>
                       ) : pkg.error ? (
-                        <div className="text-red-500" title={pkg.error}>
+                        <div className="text-destructive" title={pkg.error}>
                           ⚠
                         </div>
                       ) : (
-                        <div className="text-green-500">
+                        <div className="text-success">
                           ✓
                         </div>
                       )}
@@ -154,9 +143,7 @@ export function PackageManager () {
 
                   <button
                     onClick={() => handleRemovePackage(pkg.name)}
-                    className={clsx(
-                      "p-2 ml-2 rounded-md transition-colors text-red-500 hover:bg-red-500/10",
-                    )}
+                    className="p-2 ml-2 rounded-md transition-colors text-destructive hover:bg-destructive/10"
                     title={t('settings.npm.remove', 'Remove package')}
                   >
                     <Trash2 className="w-4 h-4" />

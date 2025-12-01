@@ -8,11 +8,7 @@ import { Layout } from './components/Layout'
 import { useSettingsStore } from './store/useSettingsStore'
 
 function App() {
-  const { uiFontSize, setMagicComments } = useSettingsStore()
-
-  useEffect(() => {
-    document.documentElement.style.fontSize = `${uiFontSize}px`
-  }, [uiFontSize])
+  const { setMagicComments } = useSettingsStore()
 
   useEffect(() => {
     if (window.electronAPI?.onToggleMagicComments) {

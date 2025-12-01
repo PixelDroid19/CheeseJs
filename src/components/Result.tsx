@@ -109,7 +109,7 @@ function ResultDisplay() {
   }
 
   return (
-    <div className="h-full flex flex-col text-cyan-50 bg-[#1e1e1e] relative overflow-hidden">
+    <div className="h-full flex flex-col text-foreground bg-background relative overflow-hidden">
       <div className="flex-1 relative min-h-0">
         <Editor
           theme={themeName}
@@ -162,25 +162,25 @@ function ResultDisplay() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 50, scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className="pointer-events-auto bg-[#252526]/95 backdrop-blur-md border border-[#3e3e42] shadow-xl rounded-lg overflow-hidden"
+                className="pointer-events-auto bg-popover/95 backdrop-blur-md border border-border shadow-xl rounded-lg overflow-hidden"
               >
                 <div className="p-3 flex flex-col gap-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="p-2 bg-[#3e3e42]/50 rounded-md">
-                        <PackageIcon className="w-[1.125rem] h-[1.125rem] text-blue-400" />
+                      <div className="p-2 bg-muted rounded-md">
+                        <PackageIcon className="w-[1.125rem] h-[1.125rem] text-primary" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-100 text-sm font-semibold truncate">{pkgName}</span>
+                          <span className="text-foreground text-sm font-semibold truncate">{pkgName}</span>
                           {version && (
-                            <span className="text-[10px] bg-[#3e3e42] text-gray-400 px-1.5 py-0.5 rounded border border-[#4e4e52]">
+                            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded border border-border">
                               v{version}
                             </span>
                           )}
                         </div>
                         {metadata?.description && (
-                          <span className="text-gray-500 text-xs truncate max-w-[200px]">
+                          <span className="text-muted-foreground text-xs truncate max-w-[200px]">
                             {metadata.description}
                           </span>
                         )}
@@ -189,7 +189,7 @@ function ResultDisplay() {
 
                     <button
                       onClick={() => handleDismiss(pkgName)}
-                      className="text-gray-500 hover:text-gray-300 transition-colors p-1 hover:bg-[#3e3e42] rounded"
+                      className="text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-muted rounded"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -198,7 +198,7 @@ function ResultDisplay() {
                   <div className="flex items-center justify-end gap-2 pt-1">
                     {pkgInfo?.installing
                       ? (
-                        <span className="text-blue-400 text-xs flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-md border border-blue-500/20 w-full justify-center">
+                        <span className="text-info text-xs flex items-center gap-2 bg-info/10 px-3 py-1.5 rounded-md border border-info/20 w-full justify-center">
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           {t('packages.installing', 'Installing...')}
                         </span>
@@ -206,13 +206,13 @@ function ResultDisplay() {
                       : pkgInfo?.error
                         ? (
                           <div className="flex flex-col gap-2 w-full">
-                            <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 p-2 rounded border border-red-500/20">
+                            <span className="text-destructive text-xs flex items-center gap-2 bg-destructive/10 p-2 rounded border border-destructive/20">
                               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                               <span className="truncate">{pkgInfo.error}</span>
                             </span>
                             <button
                               onClick={() => pkgName && addPackage(pkgName)}
-                              className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                              className="w-full px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                             >
                               <Download className="w-3.5 h-3.5" /> {t('packages.retry', 'Retry')}
                             </button>
@@ -220,20 +220,20 @@ function ResultDisplay() {
                         )
                         : doesNotExist
                           ? (
-                            <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-md border border-red-500/20 w-full justify-center">
+                            <span className="text-destructive text-xs flex items-center gap-2 bg-destructive/10 px-3 py-1.5 rounded-md border border-destructive/20 w-full justify-center">
                               <AlertCircle className="w-3.5 h-3.5" /> {t('packages.notFound', 'Package not found')}
                             </span>
                           )
                           : isUnknown
                             ? (
-                              <span className="text-gray-400 text-xs flex items-center gap-2 w-full justify-center py-1.5">
+                              <span className="text-muted-foreground text-xs flex items-center gap-2 w-full justify-center py-1.5">
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('packages.checking', 'Checking...')}
                               </span>
                             )
                             : (
                               <button
                                 onClick={() => pkgName && addPackage(pkgName)}
-                                className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                                className="w-full px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                               >
                                 <Download className="w-3.5 h-3.5" /> {t('packages.install', 'Install Package')}
                               </button>

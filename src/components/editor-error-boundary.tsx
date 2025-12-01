@@ -32,8 +32,8 @@ export class EditorErrorBoundary extends Component<Props, State> {
   public render () {
     if (this.state.hasError) {
       return (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-zinc-950 p-4 text-zinc-400">
-          <div className="flex items-center gap-2 text-red-400">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-background p-4 text-muted-foreground">
+          <div className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-6 w-6" />
             <h2 className="text-lg font-semibold">Editor crashed</h2>
           </div>
@@ -41,13 +41,13 @@ export class EditorErrorBoundary extends Component<Props, State> {
             Something went wrong with the code editor. This might be due to a complex operation or an internal error.
           </p>
           {this.state.error && (
-            <pre className="max-w-md overflow-auto rounded bg-zinc-900 p-2 text-xs text-red-300">
+            <pre className="max-w-md overflow-auto rounded bg-muted p-2 text-xs text-destructive">
               {this.state.error.message}
             </pre>
           )}
           <button
             onClick={this.handleRetry}
-            className="flex items-center gap-2 rounded-md bg-zinc-800 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
             Reload Page

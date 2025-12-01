@@ -15,7 +15,7 @@ export default function LoadingIndicator ({ message, size = 'md' }: LoadingIndic
   return (
     <div className="flex flex-col items-center justify-center gap-3">
       <motion.div
-        className={`border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full ${sizeClasses[size]}`}
+        className={`border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full ${sizeClasses[size]}`}
         animate={{ rotate: 360 }}
         transition={{
           duration: 1,
@@ -25,7 +25,7 @@ export default function LoadingIndicator ({ message, size = 'md' }: LoadingIndic
       />
       {message && (
         <motion.p
-          className="text-sm text-gray-500 dark:text-gray-400"
+          className="text-sm text-muted-foreground"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}

@@ -5,13 +5,11 @@ import { Trash2, Play, Edit2, Save, X, ChevronDown, ChevronUp, Copy, Plus } from
 import { useSnippetsStore, Snippet } from '../../../store/useSnippetsStore'
 import { useCodeStore } from '../../../store/useCodeStore'
 import { useSettingsStore } from '../../../store/useSettingsStore'
-import { useThemeColors } from '../../../hooks/useThemeColors'
 import { SectionHeader } from '../ui/SectionHeader'
 import clsx from 'clsx'
 
 export function SnippetsTab() {
   const { t } = useTranslation()
-  const colors = useThemeColors()
   const { snippets, addSnippet, removeSnippet, updateSnippet } = useSnippetsStore()
   const { code, setCode } = useCodeStore()
   const { toggleSettings } = useSettingsStore()
@@ -89,7 +87,7 @@ export function SnippetsTab() {
     >
       <div>
         <SectionHeader title={t('settings.categories.snippets', 'Snippets')} />
-        <p className={clsx("text-sm mt-2", colors.textSecondary)}>
+        <p className={clsx("text-sm mt-2", "text-muted-foreground")}>
           {t('settings.snippets.description', 'Save frequently used code snippets for quick access.')}
         </p>
       </div>
@@ -97,7 +95,7 @@ export function SnippetsTab() {
       <div className="flex justify-end">
         <button
           onClick={handleSaveCurrent}
-          className="flex items-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md transition-colors text-sm font-medium"
         >
           <Save size={16} />
           {t('settings.snippets.saveCurrent', 'Save Current Code')}
@@ -106,11 +104,11 @@ export function SnippetsTab() {
 
       <div className={clsx(
         "flex-1 overflow-y-auto rounded-md border p-2 space-y-2",
-        colors.inputBg,
-        colors.border
+        "bg-background",
+        "border-border"
       )}>
         {snippets.length === 0 ? (
-          <div className={clsx("h-full flex flex-col items-center justify-center text-center p-4", colors.textSecondary)}>
+          <div className={clsx("h-full flex flex-col items-center justify-center text-center p-4", "text-muted-foreground")}>
             <p>{t('settings.snippets.empty', 'No snippets saved yet.')}</p>
           </div>
         ) : (
@@ -119,15 +117,15 @@ export function SnippetsTab() {
               key={snippet.id}
               className={clsx(
                 "rounded-md border transition-all duration-200 overflow-hidden",
-                colors.border,
-                colors.isDark ? "bg-[#2c313a]" : "bg-white"
+                "border-border",
+                "bg-card"
               )}
             >
               {/* Header */}
               <div 
                 className={clsx(
                   "flex items-center justify-between p-3 cursor-pointer select-none",
-                  colors.isDark ? "hover:bg-[#353a45]" : "hover:bg-gray-50"
+                  "hover:bg-muted/50"
                 )}
                 onClick={() => toggleExpand(snippet.id)}
               >
@@ -141,10 +139,10 @@ export function SnippetsTab() {
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         className={clsx(
-                          "flex-1 px-2 py-1 text-sm rounded border focus:outline-none focus:ring-1 focus:ring-blue-500",
-                          colors.inputBg,
-                          colors.text,
-                          colors.border
+                          "flex-1 px-2 py-1 text-sm rounded border focus:outline-none focus:ring-1 focus:ring-ring",
+                          "bg-background",
+                          "text-foreground",
+                          "border-border"
                         )}
                         autoFocus
                         onKeyDown={(e) => {
@@ -152,21 +150,21 @@ export function SnippetsTab() {
                           if (e.key === 'Escape') cancelEditingName(e)
                         }}
                       />
-                      <button onClick={saveEditingName} className="text-green-500 hover:text-green-600">
+                      <button onClick={saveEditingName} className="text-success hover:text-success/90">
                         <Save className="w-4 h-4" />
                       </button>
-                      <button onClick={cancelEditingName} className="text-red-500 hover:text-red-600">
+                      <button onClick={cancelEditingName} className="text-destructive hover:text-destructive/90">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 group flex-1">
-                      <span className={clsx("text-sm font-medium truncate", colors.text)}>
+                      <span className={clsx("text-sm font-medium truncate", "text-foreground")}>
                         {snippet.name}
                       </span>
                       <button 
                         onClick={(e) => startEditingName(snippet, e)}
-                        className={clsx("opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded", colors.textSecondary)}
+                        className={clsx("opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded", "text-muted-foreground")}
                       >
                         <Edit2 size={12} />
                       </button>
@@ -179,8 +177,8 @@ export function SnippetsTab() {
                     onClick={(e) => { e.stopPropagation(); handleAppend(snippet); }}
                     className={clsx(
                       "p-2 rounded-md transition-colors",
-                      colors.textSecondary,
-                      "hover:bg-green-500/10 hover:text-green-500"
+                      "text-muted-foreground",
+                      "hover:bg-success/10 hover:text-success"
                     )}
                     title={t('settings.snippets.append', 'Append to Editor')}
                   >
@@ -190,8 +188,8 @@ export function SnippetsTab() {
                     onClick={(e) => { e.stopPropagation(); handleLoad(snippet); }}
                     className={clsx(
                       "p-2 rounded-md transition-colors",
-                      colors.text,
-                      "hover:bg-blue-500/10 hover:text-blue-500"
+                      "text-foreground",
+                      "hover:bg-info/10 hover:text-info"
                     )}
                     title={t('settings.snippets.load', 'Replace Editor Content')}
                   >
@@ -201,8 +199,8 @@ export function SnippetsTab() {
                     onClick={(e) => { e.stopPropagation(); removeSnippet(snippet.id); }}
                     className={clsx(
                       "p-2 rounded-md transition-colors",
-                      colors.textSecondary,
-                      "hover:bg-red-500/10 hover:text-red-500"
+                      "text-muted-foreground",
+                      "hover:bg-destructive/10 hover:text-destructive"
                     )}
                     title={t('settings.snippets.delete', 'Delete')}
                   >
@@ -220,9 +218,9 @@ export function SnippetsTab() {
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className={clsx("p-3 border-t", colors.border)}>
+                    <div className={clsx("p-3 border-t", "border-border")}>
                       <div className="flex justify-between items-center mb-2">
-                        <span className={clsx("text-xs font-mono opacity-70", colors.textSecondary)}>
+                        <span className={clsx("text-xs font-mono opacity-70", "text-muted-foreground")}>
                           {snippet.code.length} chars
                         </span>
                         <div className="flex gap-2">
@@ -239,7 +237,7 @@ export function SnippetsTab() {
                                   setIsEditingCode(false);
                                   setEditedCode(snippet.code);
                                 }}
-                                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
+                                className="flex items-center gap-1 text-xs text-destructive hover:text-destructive/90"
                               >
                                 <X size={12} /> Cancel
                               </button>
@@ -251,13 +249,13 @@ export function SnippetsTab() {
                                   setIsEditingCode(true);
                                   setEditedCode(snippet.code);
                                 }}
-                                className={clsx("flex items-center gap-1 text-xs hover:text-blue-500", colors.textSecondary)}
+                                className={clsx("flex items-center gap-1 text-xs hover:text-blue-500", "text-muted-foreground")}
                               >
                                 <Edit2 size={12} /> Edit Code
                               </button>
                               <button
                                 onClick={() => handleCopy(snippet.code)}
-                                className={clsx("flex items-center gap-1 text-xs hover:text-blue-500", colors.textSecondary)}
+                                className={clsx("flex items-center gap-1 text-xs hover:text-blue-500", "text-muted-foreground")}
                               >
                                 <Copy size={12} /> Copy
                               </button>
@@ -271,18 +269,18 @@ export function SnippetsTab() {
                           value={editedCode}
                           onChange={(e) => setEditedCode(e.target.value)}
                           className={clsx(
-                            "w-full h-32 p-2 text-xs font-mono rounded border focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y",
-                            colors.inputBg,
-                            colors.text,
-                            colors.border
+                            "w-full h-32 p-2 text-xs font-mono rounded border focus:outline-none focus:ring-1 focus:ring-ring resize-y",
+                            "bg-background",
+                            "text-foreground",
+                            "border-border"
                           )}
                         />
                       ) : (
                         <pre className={clsx(
                           "w-full p-2 text-xs font-mono rounded border overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto",
-                          colors.isDark ? "bg-black/20" : "bg-gray-50",
-                          colors.border,
-                          colors.text
+                          "bg-muted",
+                          "border-border",
+                          "text-foreground"
                         )}>
                           {snippet.code}
                         </pre>
@@ -298,3 +296,4 @@ export function SnippetsTab() {
     </motion.div>
   )
 }
+

@@ -2,7 +2,6 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '../../../store/useSettingsStore'
 import { themeOptions } from '../../../themes'
-import { useThemeColors } from '../../../hooks/useThemeColors'
 import { Select } from '../ui/Select'
 import { Slider } from '../ui/Slider'
 import { SectionHeader } from '../ui/SectionHeader'
@@ -11,7 +10,6 @@ import clsx from 'clsx'
 export function AppearanceTab () {
   const { t } = useTranslation()
   const { themeName, setThemeName, fontSize, setFontSize, uiFontSize, setUiFontSize } = useSettingsStore()
-  const colors = useThemeColors()
 
   return (
     <motion.div
@@ -24,7 +22,7 @@ export function AppearanceTab () {
         
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <label className={clsx("text-sm font-medium", colors.text)}>
+                <label className={clsx("text-sm font-medium", "text-foreground")}>
                 {t('settings.theme')}
                 </label>
                 <Select
@@ -42,10 +40,10 @@ export function AppearanceTab () {
 
             <div className="space-y-3">
                  <div className="flex items-center justify-between">
-                    <label className={clsx("text-sm font-medium", colors.text)}>
+                    <label className={clsx("text-sm font-medium", "text-foreground")}>
                     {t('settings.fontSize')} (Editor)
                     </label>
-                    <span className={clsx("text-sm", colors.textSecondary)}>
+                    <span className={clsx("text-sm", "text-muted-foreground")}>
                         {fontSize}px
                     </span>
                  </div>
@@ -60,10 +58,10 @@ export function AppearanceTab () {
 
             <div className="space-y-3">
                  <div className="flex items-center justify-between">
-                    <label className={clsx("text-sm font-medium", colors.text)}>
+                    <label className={clsx("text-sm font-medium", "text-foreground")}>
                     {t('settings.uiFontSize') || "Tamaño de fuente (UI)"}
                     </label>
-                    <span className={clsx("text-sm", colors.textSecondary)}>
+                    <span className={clsx("text-sm", "text-muted-foreground")}>
                         {uiFontSize}px
                     </span>
                  </div>
@@ -80,3 +78,4 @@ export function AppearanceTab () {
     </motion.div>
   )
 }
+

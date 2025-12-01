@@ -22,7 +22,7 @@ export default function FloatingToolbar() {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        className="flex items-center gap-1 px-2 py-2 bg-white dark:bg-[#2c313a] rounded-full shadow-2xl border border-gray-200 dark:border-gray-700"
+        className="flex items-center gap-1 px-2 py-2 bg-card rounded-full shadow-2xl border border-border"
       >
         <ToolbarButton
           icon={<Play className="w-5 h-5" />}
@@ -60,7 +60,7 @@ function ToolbarButton({
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
       className={clsx(
-        'p-3 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors relative group'
+        'p-3 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group'
       )}
       title={label}
     >

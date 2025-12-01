@@ -2,17 +2,15 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { HelpCircle } from 'lucide-react'
 import { useSettingsStore } from '../../../store/useSettingsStore'
-import { useThemeColors } from '../../../hooks/useThemeColors'
 import clsx from 'clsx'
 import { Toggle } from '../ui/Toggle'
 import { Tooltip } from '../ui/Tooltip'
 import { Select } from '../ui/Select'
 
 const HelpIcon = ({ content }: { content: string }) => {
-  const colors = useThemeColors()
   return (
     <Tooltip content={content}>
-      <HelpCircle size={15} className={clsx("transition-colors", colors.textSecondary, "hover:text-gray-300")} />
+      <HelpCircle size={15} className={clsx("transition-colors text-muted-foreground hover:text-foreground")} />
     </Tooltip>
   )
 }
@@ -28,12 +26,11 @@ const AdvancedRow = ({
   children: React.ReactNode, 
   className?: string 
 }) => {
-  const colors = useThemeColors()
   return (
     <div className={clsx("flex items-center justify-between min-h-[40px]", className)}>
       <div className="flex items-center gap-2">
         {label && (
-          <span className={clsx("text-sm", colors.isDark ? "text-gray-200" : "text-gray-700")}>
+          <span className="text-sm text-foreground">
             {label}
           </span>
         )}
@@ -48,7 +45,6 @@ const AdvancedRow = ({
 
 export function AdvancedTab () {
   const { t } = useTranslation()
-  const colors = useThemeColors()
   const {
     showTopLevelResults,
     setShowTopLevelResults,
@@ -78,7 +74,7 @@ export function AdvancedTab () {
     >
       {/* Sección: Entorno de ejecución */}
       <div>
-        <h4 className={clsx("text-sm font-semibold mb-6", colors.textSecondary)}>
+        <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
           {t('settings.advanced.environment')}
         </h4>
 
@@ -97,121 +93,111 @@ export function AdvancedTab () {
               <option value="browser">Browser (DOM)</option>
             </Select>
           </AdvancedRow>
+
+          <AdvancedRow
+            label={t('settings.advanced.loopProtection')}
+            helpContent={t('settings.advanced.loopProtectionTooltip')}
+          >
+            <Toggle
+              checked={loopProtection}
+              onChange={setLoopProtection}
+            />
+          </AdvancedRow>
+
+          <AdvancedRow
+            label={t('settings.advanced.magicComments')}
+            helpContent={t('settings.advanced.magicCommentsTooltip')}
+          >
+            <Toggle
+              checked={magicComments}
+              onChange={setMagicComments}
+            />
+          </AdvancedRow>
         </div>
       </div>
 
-      {/* Sección: Configuración de logs */}
+      {/* Sección: Resultados */}
       <div>
-        <h4 className={clsx("text-sm font-semibold mb-6", colors.textSecondary)}>
-          {t('settings.advanced.logsConfig')}
+        <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
+          {t('settings.advanced.results')}
         </h4>
 
         <div className="space-y-6">
-          {/* Nivel de detalle */}
-          <AdvancedRow 
-            label={t('settings.advanced.logLevel')} 
-            helpContent={t('settings.advanced.logLevelTooltip')}
+           <AdvancedRow
+            label={t('settings.advanced.showTopLevelResults')}
+            helpContent={t('settings.advanced.showTopLevelResultsTooltip')}
+          >
+            <Toggle
+              checked={showTopLevelResults}
+              onChange={setShowTopLevelResults}
+            />
+          </AdvancedRow>
+
+          <AdvancedRow
+            label={t('settings.advanced.alignResults')}
+            helpContent={t('settings.advanced.alignResultsTooltip')}
+          >
+            <Toggle
+              checked={alignResults}
+              onChange={setAlignResults}
+            />
+          </AdvancedRow>
+
+          <AdvancedRow
+            label={t('settings.advanced.showUndefined')}
+            helpContent={t('settings.advanced.showUndefinedTooltip')}
+          >
+            <Toggle
+              checked={showUndefined}
+              onChange={setShowUndefined}
+            />
+          </AdvancedRow>
+
+           <AdvancedRow
+            label={t('settings.advanced.internalLogLevel')}
+            helpContent={t('settings.advanced.internalLogLevelTooltip')}
           >
             <Select
               value={internalLogLevel}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               onChange={(e) => setInternalLogLevel(e.target.value as any)}
-              className="w-48"
+              className="w-32"
             >
-              <option value="none">Oculto (Default)</option>
+              <option value="none">None</option>
               <option value="info">Info</option>
               <option value="debug">Debug</option>
             </Select>
           </AdvancedRow>
-
-          {/* Evaluación de expresiones */}
-          <AdvancedRow 
-            label={t('settings.advanced.expressionEvaluation')}
-            helpContent={t('settings.advanced.showTopLevelTooltip')}
-          >
-            <Toggle 
-              checked={showTopLevelResults} 
-              onChange={setShowTopLevelResults} 
-            />
-          </AdvancedRow>
-
-          {/* Formato de salida */}
-          <div>
-            <div className={clsx("text-sm mb-4", colors.isDark ? "text-gray-200" : "text-gray-700")}>
-              {t('settings.advanced.outputFormat')}
-            </div>
-            <div className="space-y-4">
-              <AdvancedRow 
-                label={t('settings.advanced.alignWithSource') || "Alinear resultado con fuente"}
-                helpContent={t('settings.advanced.alignTooltip')}
-              >
-                <Toggle 
-                  checked={alignResults} 
-                  onChange={setAlignResults} 
-                />
-              </AdvancedRow>
-              <AdvancedRow 
-                label={t('settings.advanced.showUndefined') || "Mostrar valores undefined"}
-                helpContent={t('settings.advanced.showUndefinedTooltip')}
-              >
-                <Toggle 
-                  checked={showUndefined} 
-                  onChange={setShowUndefined} 
-                />
-              </AdvancedRow>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Divider */}
-      <div className={clsx("border-t my-6", colors.isDark ? "border-[#2B2D31]" : "border-gray-200")} />
-
-      {/* Sección: Ejecución */}
+      {/* Sección: Paquetes NPM */}
       <div>
-        <h4 className={clsx("text-sm font-semibold mb-6", colors.textSecondary)}>
-          {t('settings.advanced.execution')}
+        <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
+          {t('settings.categories.npm')}
         </h4>
-        
-        <AdvancedRow 
-          label={t('settings.advanced.loopProtection') || "Límite de ejecución para bucles"}
-          helpContent={t('settings.advanced.loopProtectionTooltip')}
-        >
-          <Toggle 
-            checked={loopProtection} 
-            onChange={setLoopProtection} 
-          />
-        </AdvancedRow>
 
-        <AdvancedRow 
-          label={t('settings.advanced.magicComments') || "Comentarios mágicos"}
-          helpContent={t('settings.advanced.magicCommentsTooltip') || "Habilita comentarios especiales como //? para depuración"}
-        >
-          <Toggle 
-            checked={magicComments} 
-            onChange={setMagicComments} 
-          />
-        </AdvancedRow>
+        <div className="space-y-6">
+          <AdvancedRow
+            label={t('settings.advanced.autoInstallPackages')}
+            helpContent={t('settings.advanced.autoInstallPackagesTooltip')}
+          >
+            <Toggle
+              checked={autoInstallPackages}
+              onChange={setAutoInstallPackages}
+            />
+          </AdvancedRow>
 
-        <AdvancedRow 
-          label={t('settings.advanced.autoRunAfterInstall') || "Auto-ejecutar después de instalar paquetes"}
-          helpContent={t('settings.advanced.autoRunAfterInstallTooltip') || "Ejecuta automáticamente el código después de que los paquetes faltantes sean instalados"}
-        >
-          <Toggle 
-            checked={autoRunAfterInstall} 
-            onChange={setAutoRunAfterInstall} 
-          />
-        </AdvancedRow>
-
-        <AdvancedRow 
-          label={t('settings.advanced.autoInstallPackages') || "Instalar paquetes automáticamente"}
-          helpContent={t('settings.advanced.autoInstallPackagesTooltip') || "Instala automáticamente los paquetes detectados en los imports. Si está desactivado, deberás instalarlos manualmente."}
-        >
-          <Toggle 
-            checked={autoInstallPackages} 
-            onChange={setAutoInstallPackages} 
-          />
-        </AdvancedRow>
+           <AdvancedRow
+            label={t('settings.advanced.autoRunAfterInstall')}
+            helpContent={t('settings.advanced.autoRunAfterInstallTooltip')}
+          >
+            <Toggle
+              checked={autoRunAfterInstall}
+              onChange={setAutoRunAfterInstall}
+            />
+          </AdvancedRow>
+        </div>
       </div>
     </motion.div>
   )

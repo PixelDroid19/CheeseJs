@@ -12,7 +12,6 @@ import {
   FileCode
 } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
-import { useThemeColors } from '../../hooks/useThemeColors'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
@@ -35,7 +34,6 @@ export default function Settings () {
   const { t } = useTranslation()
   const { isSettingsOpen, setIsSettingsOpen } = useSettingsStore()
   const [activeTab, setActiveTab] = useState<Tab>('advanced')
-  const colors = useThemeColors()
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'general', label: t('settings.categories.general'), icon: Sliders },
@@ -71,18 +69,15 @@ export default function Settings () {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className={clsx(
               "max-w-4xl w-full mx-4 h-[600px] max-h-[90vh] flex rounded-xl shadow-2xl overflow-hidden border",
-              colors.bg,
-              colors.text,
-              colors.border
+              "bg-background text-foreground border-border"
             )}
           >
             {/* Sidebar */}
             <div className={clsx(
               "w-72 flex flex-col py-6 border-r",
-              colors.sidebarBg,
-              colors.border
+              "bg-muted/30 border-border"
             )}>
-              <h2 className={clsx("px-6 mb-8 text-xl font-bold", colors.text)}>
+              <h2 className={clsx("px-6 mb-8 text-xl font-bold text-foreground")}>
                 {t('settings.title')}
               </h2>
               
@@ -97,11 +92,11 @@ export default function Settings () {
                       className={clsx(
                         'w-full px-4 py-3 text-sm font-medium rounded-md transition-all flex items-center gap-3',
                         isActive
-                          ? clsx(colors.isDark ? "bg-[#2B2D31] text-blue-400" : "bg-gray-100 text-blue-600")
-                          : clsx(colors.textSecondary, "hover:bg-opacity-50", colors.hover)
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
                       )}
                     >
-                      <Icon className={clsx("w-5 h-5", isActive ? "text-blue-400" : "opacity-70")} />
+                      <Icon className={clsx("w-5 h-5", isActive ? "text-primary" : "opacity-70")} />
                       {tab.label}
                     </button>
                   )
@@ -111,48 +106,39 @@ export default function Settings () {
 
             {/* Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
-              {/* Header */}
-              <div className={clsx(
-                "flex items-center justify-between px-8 py-6 border-b",
-                colors.border,
-                colors.bg
-              )}>
-                <h3 className={clsx("text-lg font-semibold", colors.text)}>
-                  {tabs.find(t => t.id === activeTab)?.label}
-                </h3>
+              <div className={clsx("flex items-center justify-between px-8 py-6 border-b", "border-border")}>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {tabs.find(t => t.id === activeTab)?.label}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t(`settings.descriptions.${activeTab}`)}
+                  </p>
+                </div>
                 <button
                   onClick={() => setIsSettingsOpen(false)}
-                  className={clsx(
-                    "p-1 rounded-md transition-colors",
-                    colors.hover,
-                    colors.textSecondary
-                  )}
+                  className={clsx("p-2 rounded-full transition-colors", "hover:bg-accent hover:text-accent-foreground text-muted-foreground")}
                 >
-                  <X size={20} />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Scrollable Content */}
-              <div className={clsx("flex-1 overflow-y-auto p-8 custom-scrollbar", colors.bg)}>
-                {activeTab === 'general' && <GeneralTab />}
-                {activeTab === 'appearance' && <AppearanceTab />}
-                {activeTab === 'advanced' && <AdvancedTab />}
-                {activeTab === 'snippets' && <SnippetsTab />}
-
-                {/* Placeholder for other tabs */}
-                {['compilation', 'formatting', 'ai'].includes(activeTab) && (
-                  <div className={clsx("flex flex-col items-center justify-center h-64 opacity-50", colors.textSecondary)}>
-                    <Package size={48} className="mb-4 opacity-20" />
-                    <p>Coming soon...</p>
-                  </div>
-                )}
-
-                {/* NPM Package Manager */}
-                {activeTab === 'npm' && (
-                  <div className="h-full">
-                    <PackageManager />
-                  </div>
-                )}
+              <div className="flex-1 overflow-y-auto p-8">
+                <div className="max-w-2xl space-y-8">
+                  {activeTab === 'general' && <GeneralTab />}
+                  {activeTab === 'appearance' && <AppearanceTab />}
+                  {activeTab === 'npm' && <PackageManager />}
+                  {activeTab === 'advanced' && <AdvancedTab />}
+                  {activeTab === 'snippets' && <SnippetsTab />}
+                  
+                  {/* Placeholders for other tabs */}
+                  {['compilation', 'formatting', 'ai'].includes(activeTab) && (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <Wrench className="w-12 h-12 mb-4 opacity-20" />
+                      <p>{t('common.comingSoon')}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -161,4 +147,3 @@ export default function Settings () {
     </AnimatePresence>
   )
 }
-
