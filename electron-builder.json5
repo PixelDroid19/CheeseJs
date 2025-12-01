@@ -10,8 +10,25 @@
   },
   files: ["dist-electron", "dist"],
   mac: {
+    icon: "public/cheesejs.png",
     artifactName: "${productName}_${version}.${ext}",
     target: ["dmg", "pkg"],
+    identity: null, // Evita errores de firma si no hay certificados configurados
+  },
+  dmg: {
+    sign: false, // No intentar firmar el DMG si no hay identidad
+    contents: [
+      {
+        x: 130,
+        y: 220
+      },
+      {
+        x: 410,
+        y: 220,
+        type: "link",
+        path: "/Applications"
+      }
+    ]
   },
   win: {
     target: [
