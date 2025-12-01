@@ -39,8 +39,6 @@ self.MonacoEnvironment = {
 
 loader.config({ monaco })
 
-// export interface EditorProps {}
-
 function CodeEditor () {
   const code = useCodeStore((state: CodeState) => state.code)
   const language = useCodeStore((state: CodeState) => state.language)
@@ -161,7 +159,6 @@ function CodeEditor () {
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
-    // ... rest of handleEditorWillMount
 
 
     // Shared language configuration
@@ -224,12 +221,11 @@ function CodeEditor () {
       ]
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ts = (monaco as any).typescript
+    const ts = monaco.languages.typescript
+    if (!ts) return
 
     // Compiler options for both JS and TS
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const compilerOptions: any = {
+    const compilerOptions = {
       target: ts.ScriptTarget.ESNext,
       allowNonTsExtensions: true,
       moduleResolution: ts.ModuleResolutionKind.NodeJs,

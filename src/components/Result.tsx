@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import { useCodeStore } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
@@ -6,9 +6,9 @@ import { themes } from '../themes'
 import Editor, { Monaco } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { Download, AlertCircle, Loader2, Package as PackageIcon, X } from 'lucide-react'
-import { fetchPackageInfo } from '../lib/npm'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
+import { usePackageMetadata } from '../hooks/usePackageMetadata'
 
 function ResultDisplay() {
   const elements = useCodeStore((state) => state.result)
@@ -17,44 +17,19 @@ function ResultDisplay() {
   const { packages, addPackage, detectedMissingPackages } = usePackagesStore()
   const { t } = useTranslation()
 
-  // Local state to store fetched package metadata
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [packageMetadata, setPackageMetadata] = useState<Record<string, any>>({})
-
-  // Local state for dismissed packages (toasts)
-  const [dismissedPackages, setDismissedPackages] = useState<string[]>([])
-
-  // Fetch metadata for missing packages
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      for (const pkgName of detectedMissingPackages) {
-        if (!packageMetadata[pkgName]) {
-          // Set a loading state or placeholder first
-          setPackageMetadata(prev => ({ ...prev, [pkgName]: { loading: true } }))
-
-          const info = await fetchPackageInfo(pkgName)
-
-          setPackageMetadata(prev => ({
-            ...prev,
-            [pkgName]: info || { error: 'Failed to fetch info' }
-          }))
-        }
-      }
-    }
-
-    if (detectedMissingPackages.length > 0) {
-      fetchMetadata()
-    }
-  }, [detectedMissingPackages, packageMetadata])
+  const { packageMetadata, dismissedPackages, setDismissedPackages } = usePackageMetadata(detectedMissingPackages)
 
   function handleEditorWillMount(monaco: Monaco) {
     // Register all themes
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ts = (monaco as any).typescript
-    ts.javascriptDefaults.setEagerModelSync(true)
+    
+    // Access typescript defaults safely
+    const ts = monaco.languages.typescript
+    if (ts) {
+      ts.javascriptDefaults.setEagerModelSync(true)
+    }
   }
 
   const displayValue = useMemo(() => {
@@ -100,8 +75,7 @@ function ResultDisplay() {
     // 1. Action results from code execution
     ...actionResults.map(r => ({
       pkgName: r.action?.payload as string,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      message: (r.element as any).content || '',
+      message: r.element?.content || '',
       isActionResult: true
     })),
     // 2. Packages already managed (installing/error) - FILTER OUT INSTALLED
