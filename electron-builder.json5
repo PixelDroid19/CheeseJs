@@ -13,7 +13,9 @@
     icon: "public/cheesejs.png",
     artifactName: "${productName}_${version}.${ext}",
     target: ["dmg", "pkg"],
-    identity: null, // Evita errores de firma si no hay certificados configurados
+    // Usar identidad ad-hoc ("-") es necesario para Apple Silicon. 
+    // 'null' deshabilita la firma y causa que la app se rompa en M1/M2/M3.
+    identity: "-",
   },
   dmg: {
     sign: false, // No intentar firmar el DMG si no hay identidad

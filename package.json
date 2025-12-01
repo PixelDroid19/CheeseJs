@@ -1,7 +1,6 @@
 {
   "name": "cheesejs",
   "private": true,
-  "type": "module",
   "version": "1.0.4",
   "productName": "CheeseJS",
   "description": "A modern JavaScript/TypeScript playground",
