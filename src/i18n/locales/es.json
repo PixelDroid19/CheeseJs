@@ -79,5 +79,55 @@
     "run": "Ejecutar Código",
     "format": "Formatear Código",
     "settings": "Abrir Configuración"
+  },
+  "diagnostics": {
+    "title": "Diagnóstico de WebContainer",
+    "overallPass": "APTO",
+    "overallFail": "REQUIERE ATENCIÓN",
+    "solution": "Solución",
+    "crossOriginIsolated": {
+      "fail": "La aplicación no está aislada de origen cruzado (crossOriginIsolated = false)",
+      "failSolution": "WebContainer requiere que los headers COOP y COEP estén configurados correctamente. Verifica que el servidor esté enviando:\n- Cross-Origin-Embedder-Policy: require-corp\n- Cross-Origin-Opener-Policy: same-origin",
+      "pass": "Aislamiento de origen cruzado habilitado correctamente"
+    },
+    "browserSupport": {
+      "fail": "Características del navegador no soportadas: {{features}}",
+      "failSolution": "WebContainer requiere un navegador moderno con soporte para SharedArrayBuffer, WebAssembly y Workers. Actualiza tu navegador o usa Chrome/Edge/Firefox recientes.",
+      "pass": "Todas las características del navegador requeridas están disponibles"
+    },
+    "headers": {
+      "fail": "Headers COOP/COEP no configurados correctamente",
+      "failSolution": "Asegúrate de que vite.config.ts incluya:\nserver.headers[\"Cross-Origin-Embedder-Policy\"] = \"require-corp\"\nserver.headers[\"Cross-Origin-Opener-Policy\"] = \"same-origin\"",
+      "pass": "Headers HTTP configurados correctamente"
+    },
+    "network": {
+      "timeout": "Timeout al conectar con WebContainer CDN",
+      "timeoutSolution": "Verifica tu conexión a internet. WebContainer requiere acceso a sus servidores para cargar recursos necesarios. Si estás detrás de un firewall o proxy, asegúrate de que los dominios *.webcontainer.io estén permitidos.",
+      "fail": "Error de conectividad de red: {{error}}",
+      "failSolution": "Verifica tu conexión a internet y que no haya bloqueos de firewall para los dominios de WebContainer (*.webcontainer.io, *.stackblitz.com)",
+      "pass": "Conectividad de red a WebContainer CDN verificada"
+    }
+  },
+  "webcontainer": {
+    "initError": "Error al inicializar WebContainer",
+    "viewDiagnostics": "Ver diagnósticos detallados",
+    "retry": "Reintentar",
+    "initializing": "Inicializando WebContainer...",
+    "notAvailable": "WebContainer no disponible",
+    "ready": "WebContainer listo"
+  },
+  "errors": {
+    "title": "Algo salió mal",
+    "description": "Ocurrió un error inesperado en la aplicación. Por favor intenta recargar.",
+    "reload": "Recargar Aplicación",
+    "details": "Detalles del Error",
+    "unsupportedLanguage": "Lenguaje no soportado: {{language}}\n\nEste editor solo puede ejecutar código JavaScript y TypeScript.\n\nLenguaje detectado: {{language}}\nLenguajes soportados: javascript, typescript"
+  },
+  "packages": {
+    "installing": "Instalando...",
+    "checking": "Verificando...",
+    "notFound": "Paquete no encontrado",
+    "install": "Instalar Paquete",
+    "retry": "Reintentar"
   }
 }

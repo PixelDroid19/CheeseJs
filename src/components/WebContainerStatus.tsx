@@ -1,6 +1,7 @@
 import { useWebContainerStore } from '../store/useWebContainerStore'
 import { AlertCircle, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
 import { getDiagnosticSummary } from '../lib/webcontainer/WebContainerDiagnostics'
+import { useTranslation } from 'react-i18next'
 
 /**
  * WebContainerStatus Component
@@ -8,6 +9,7 @@ import { getDiagnosticSummary } from '../lib/webcontainer/WebContainerDiagnostic
  */
 export function WebContainerStatus() {
     const { isLoading, error, diagnosticReport, retryBoot } = useWebContainerStore()
+    const { t } = useTranslation()
 
     // Don't show anything if loading successfully
     if (isLoading && !error) {
@@ -27,7 +29,7 @@ export function WebContainerStatus() {
                     <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-semibold text-red-100 mb-1">
-                            Error al inicializar WebContainer
+                            {t('webcontainer.initError', 'Error initializing WebContainer')}
                         </h3>
                         <p className="text-xs text-red-200 mb-3">
                             {error.message}
@@ -36,7 +38,7 @@ export function WebContainerStatus() {
                         {diagnosticReport && (
                             <details className="mb-3">
                                 <summary className="text-xs text-red-300 cursor-pointer hover:text-red-200 mb-2">
-                                    Ver diagnósticos detallados
+                                    {t('webcontainer.viewDiagnostics', 'View detailed diagnostics')}
                                 </summary>
                                 <pre className="text-xs text-red-200 bg-red-950/50 p-2 rounded overflow-x-auto whitespace-pre-wrap">
                                     {getDiagnosticSummary(diagnosticReport)}
@@ -49,7 +51,7 @@ export function WebContainerStatus() {
                             className="flex items-center gap-2 px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs rounded transition-colors"
                         >
                             <RefreshCw className="w-3 h-3" />
-                            Reintentar
+                            {t('webcontainer.retry', 'Retry')}
                         </button>
                     </div>
                 </div>
@@ -66,12 +68,13 @@ export function WebContainerStatus() {
  */
 export function WebContainerStatusIndicator() {
     const { isLoading, error, webContainer } = useWebContainerStore()
+    const { t } = useTranslation()
 
     if (isLoading) {
         return (
             <div className="flex items-center gap-2 text-xs text-gray-400">
                 <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                <span>Inicializando WebContainer...</span>
+                <span>{t('webcontainer.initializing', 'Initializing WebContainer...')}</span>
             </div>
         )
     }
@@ -80,7 +83,7 @@ export function WebContainerStatusIndicator() {
         return (
             <div className="flex items-center gap-2 text-xs text-red-400">
                 <AlertCircle className="w-3 h-3" />
-                <span>WebContainer no disponible</span>
+                <span>{t('webcontainer.notAvailable', 'WebContainer not available')}</span>
             </div>
         )
     }
@@ -89,7 +92,7 @@ export function WebContainerStatusIndicator() {
         return (
             <div className="flex items-center gap-2 text-xs text-green-400">
                 <CheckCircle className="w-3 h-3" />
-                <span>WebContainer listo</span>
+                <span>{t('webcontainer.ready', 'WebContainer ready')}</span>
             </div>
         )
     }

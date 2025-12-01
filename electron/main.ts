@@ -8,9 +8,12 @@ let win: BrowserWindow | null
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
-// Ignore certificate errors for local.webcontainer.io
-app.commandLine.appendSwitch('ignore-certificate-errors')
-app.commandLine.appendSwitch('allow-insecure-localhost')
+// Only ignore certificate errors in development
+// Production should use valid certificates
+if (!app.isPackaged) {
+  app.commandLine.appendSwitch('ignore-certificate-errors')
+  app.commandLine.appendSwitch('allow-insecure-localhost')
+}
 
 function createWindow() {
   // Set CSP and COOP/COEP headers for WebContainers
@@ -43,7 +46,7 @@ function createWindow() {
     backgroundColor: '#1e1e1e', // Set a dark background color
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      devTools: true,
+      devTools: !app.isPackaged, // Disable devTools in production
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,

@@ -77,5 +77,55 @@
     "run": "Run Code",
     "format": "Format Code",
     "settings": "Open Settings"
+  },
+  "diagnostics": {
+    "title": "WebContainer Diagnostics",
+    "overallPass": "READY",
+    "overallFail": "REQUIRES ATTENTION",
+    "solution": "Solution",
+    "crossOriginIsolated": {
+      "fail": "Application is not cross-origin isolated (crossOriginIsolated = false)",
+      "failSolution": "WebContainer requires COOP and COEP headers to be configured correctly. Verify the server is sending:\n- Cross-Origin-Embedder-Policy: require-corp\n- Cross-Origin-Opener-Policy: same-origin",
+      "pass": "Cross-origin isolation enabled correctly"
+    },
+    "browserSupport": {
+      "fail": "Unsupported browser features: {{features}}",
+      "failSolution": "WebContainer requires a modern browser with SharedArrayBuffer, WebAssembly and Workers support. Update your browser or use recent Chrome/Edge/Firefox.",
+      "pass": "All required browser features are available"
+    },
+    "headers": {
+      "fail": "COOP/COEP headers not configured correctly",
+      "failSolution": "Make sure vite.config.ts includes:\nserver.headers[\"Cross-Origin-Embedder-Policy\"] = \"require-corp\"\nserver.headers[\"Cross-Origin-Opener-Policy\"] = \"same-origin\"",
+      "pass": "HTTP headers configured correctly"
+    },
+    "network": {
+      "timeout": "Timeout connecting to WebContainer CDN",
+      "timeoutSolution": "Check your internet connection. WebContainer requires access to its servers to load necessary resources. If behind a firewall or proxy, ensure *.webcontainer.io domains are allowed.",
+      "fail": "Network connectivity error: {{error}}",
+      "failSolution": "Check your internet connection and that there are no firewall blocks for WebContainer domains (*.webcontainer.io, *.stackblitz.com)",
+      "pass": "Network connectivity to WebContainer CDN verified"
+    }
+  },
+  "webcontainer": {
+    "initError": "Error initializing WebContainer",
+    "viewDiagnostics": "View detailed diagnostics",
+    "retry": "Retry",
+    "initializing": "Initializing WebContainer...",
+    "notAvailable": "WebContainer not available",
+    "ready": "WebContainer ready"
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred in the application. Please try reloading.",
+    "reload": "Reload Application",
+    "details": "Error Details",
+    "unsupportedLanguage": "Unsupported Language: {{language}}\n\nThis editor can only execute JavaScript and TypeScript code.\n\nDetected language: {{language}}\nSupported languages: javascript, typescript"
+  },
+  "packages": {
+    "installing": "Installing...",
+    "checking": "Checking...",
+    "notFound": "Package not found",
+    "install": "Install Package",
+    "retry": "Retry"
   }
 }

@@ -8,12 +8,14 @@ import type { editor } from 'monaco-editor'
 import { Download, AlertCircle, Loader2, Package as PackageIcon, X } from 'lucide-react'
 import { fetchPackageInfo } from '../lib/npm'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 function ResultDisplay() {
   const elements = useCodeStore((state) => state.result)
   const code = useCodeStore((state) => state.code)
   const { themeName, fontSize, alignResults } = useSettingsStore()
   const { packages, addPackage, detectedMissingPackages } = usePackagesStore()
+  const { t } = useTranslation()
 
   // Local state to store fetched package metadata
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -224,7 +226,7 @@ function ResultDisplay() {
                       ? (
                         <span className="text-blue-400 text-xs flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-md border border-blue-500/20 w-full justify-center">
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Installing...
+                          {t('packages.installing', 'Installing...')}
                         </span>
                       )
                       : pkgInfo?.error
@@ -238,20 +240,20 @@ function ResultDisplay() {
                               onClick={() => pkgName && addPackage(pkgName)}
                               className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                             >
-                              <Download className="w-3.5 h-3.5" /> Retry
+                              <Download className="w-3.5 h-3.5" /> {t('packages.retry', 'Retry')}
                             </button>
                           </div>
                         )
                         : doesNotExist
                           ? (
                             <span className="text-red-400 text-xs flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-md border border-red-500/20 w-full justify-center">
-                              <AlertCircle className="w-3.5 h-3.5" /> Package not found
+                              <AlertCircle className="w-3.5 h-3.5" /> {t('packages.notFound', 'Package not found')}
                             </span>
                           )
                           : isUnknown
                             ? (
                               <span className="text-gray-400 text-xs flex items-center gap-2 w-full justify-center py-1.5">
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('packages.checking', 'Checking...')}
                               </span>
                             )
                             : (
@@ -259,7 +261,7 @@ function ResultDisplay() {
                                 onClick={() => pkgName && addPackage(pkgName)}
                                 className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                               >
-                                <Download className="w-3.5 h-3.5" /> Install Package
+                                <Download className="w-3.5 h-3.5" /> {t('packages.install', 'Install Package')}
                               </button>
                             )}
                   </div>
