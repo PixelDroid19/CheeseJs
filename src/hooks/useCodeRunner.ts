@@ -28,102 +28,109 @@ export function useCodeRunner() {
 
   const webContainer = useWebContainerStore((state) => state.webContainer)
   const killProcessRef = useRef<(() => void) | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const runCode = useCallback(
     async (codeToRun?: string) => {
-      const sourceCode = codeToRun ?? code
-
-      if (killProcessRef.current) {
-        killProcessRef.current()
-        killProcessRef.current = null
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
       }
 
-      // Detect language
-      const detectedLang = detectLanguage(sourceCode)
-      if (detectedLang !== language) {
-        setLanguage(detectedLang)
-      }
+      debounceRef.current = setTimeout(async () => {
+        const sourceCode = codeToRun ?? code
 
-      // Validate that language is executable
-      if (!isLanguageExecutable(detectedLang)) {
-        setIsExecuting(false)
-        setResult([
-          {
-            element: {
-              content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can only execute JavaScript and TypeScript code.\n\nDetected language: ${detectedLang}\nSupported languages: javascript, typescript`
-            },
-            type: 'error'
-          }
-        ])
-        return
-      }
+        if (killProcessRef.current) {
+          killProcessRef.current()
+          killProcessRef.current = null
+        }
 
-      clearResult()
-      setIsExecuting(true)
+        // Detect language
+        const detectedLang = detectLanguage(sourceCode)
+        if (detectedLang !== language) {
+          setLanguage(detectedLang)
+        }
 
-      try {
-        // Always use WebContainer if available
-        if (webContainer) {
-          const { kill, missingPackages } = await runInWebContainer(
-            webContainer,
-            sourceCode,
-            (result) => {
-              appendResult(result)
-            },
+        // Validate that language is executable
+        if (!isLanguageExecutable(detectedLang)) {
+          setIsExecuting(false)
+          setResult([
             {
+              element: {
+                content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can only execute JavaScript and TypeScript code.\n\nDetected language: ${detectedLang}\nSupported languages: javascript, typescript`
+              },
+              type: 'error'
+            }
+          ])
+          return
+        }
+
+        clearResult()
+        setIsExecuting(true)
+
+        try {
+          // Always use WebContainer if available
+          if (webContainer) {
+            const { kill, missingPackages } = await runInWebContainer(
+              webContainer,
+              sourceCode,
+              (result) => {
+                appendResult(result)
+              },
+              {
+                showTopLevelResults,
+                loopProtection,
+                showUndefined,
+                internalLogLevel,
+                npmRcContent,
+                magicComments
+              }
+            )
+
+            if (missingPackages.length > 0) {
+              setIsPendingRun(true)
+              setDetectedMissingPackages(missingPackages)
+              
+              // Only auto-add packages to store if autoInstallPackages is enabled
+              // Read directly from store to get the current value (not stale closure)
+              const currentAutoInstall = useSettingsStore.getState().autoInstallPackages
+              if (currentAutoInstall) {
+                const { addPackage } = usePackagesStore.getState()
+                missingPackages.forEach(pkg => addPackage(pkg))
+              }
+            }
+
+            killProcessRef.current = kill
+          } else {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ WebContainer not available, falling back to browser execution')
+            }
+            const transformed = transformCode(sourceCode, {
               showTopLevelResults,
               loopProtection,
-              showUndefined,
               internalLogLevel,
-              npmRcContent,
               magicComments
-            }
-          )
-
-          if (missingPackages.length > 0) {
-            setIsPendingRun(true)
-            setDetectedMissingPackages(missingPackages)
-            
-            // Only auto-add packages to store if autoInstallPackages is enabled
-            // Read directly from store to get the current value (not stale closure)
-            const currentAutoInstall = useSettingsStore.getState().autoInstallPackages
-            if (currentAutoInstall) {
-              const { addPackage } = usePackagesStore.getState()
-              missingPackages.forEach(pkg => addPackage(pkg))
-            }
+            })
+            await run(
+              transformed,
+              (result) => {
+                appendResult(result)
+              },
+              {
+                showUndefined
+              }
+            )
           }
-
-          killProcessRef.current = kill
-        } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('⚠️ WebContainer not available, falling back to browser execution')
-          }
-          const transformed = transformCode(sourceCode, {
-            showTopLevelResults,
-            loopProtection,
-            internalLogLevel,
-            magicComments
-          })
-          await run(
-            transformed,
-            (result) => {
-              appendResult(result)
-            },
-            {
-              showUndefined
-            }
-          )
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'An unknown error occurred'
+          setResult([{ element: { content: message }, type: 'error' }])
+        } finally {
+          setIsExecuting(false)
         }
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : 'An unknown error occurred'
-        setResult([{ element: { content: message }, type: 'error' }])
-      } finally {
-        setIsExecuting(false)
-      }
-      if (codeToRun !== undefined) {
-        setCode(codeToRun)
-      }
+        if (codeToRun !== undefined) {
+          setCode(codeToRun)
+        }
+      }, 300)
     },
     [
       webContainer,

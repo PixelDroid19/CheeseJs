@@ -112,6 +112,11 @@ export async function runInWebContainer(
     }
   }
 
+  // Generate unique IDs for files to prevent race conditions with rapid execution
+  const runId = Date.now().toString(36) + Math.random().toString(36).substring(2)
+  const entryPoint = `index-${runId}.mjs`
+  const userModule = `user-code-${runId}.mjs`
+
   const script = `
 import util from 'util';
 import { EventEmitter } from 'events';
@@ -341,7 +346,7 @@ process.on('unhandledRejection', (e) => {
   try {
     // We use dynamic import for the user code to allow top-level imports
     // We write the transformed code to a separate file
-    await import('./user-code.mjs');
+    await import('./${userModule}');
   } catch (error) {
     console.error(error);
   }
@@ -354,10 +359,10 @@ process.on('unhandledRejection', (e) => {
 })();
 `
 
-  await webContainer.fs.writeFile('index.mjs', script)
-  await webContainer.fs.writeFile('user-code.mjs', transformed)
+  await webContainer.fs.writeFile(entryPoint, script)
+  await webContainer.fs.writeFile(userModule, transformed)
 
-  const process = await webContainer.spawn('node', ['index.mjs'])
+  const process = await webContainer.spawn('node', [entryPoint])
 
   let buffer = ''
   process.output.pipeTo(
@@ -432,8 +437,8 @@ process.on('unhandledRejection', (e) => {
 
   // Clean up temporary file
   try {
-    await webContainer.fs.rm('index.mjs')
-    await webContainer.fs.rm('user-code.mjs')
+    await webContainer.fs.rm(entryPoint)
+    await webContainer.fs.rm(userModule)
   } catch (e) {
     // Ignore cleanup errors
   }
