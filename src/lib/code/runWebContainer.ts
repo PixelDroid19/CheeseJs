@@ -59,7 +59,8 @@ export async function runInWebContainer(
   const installedPackages = new Set<string>()
   
   storePackages.forEach(pkg => {
-    if (!pkg.error && !pkg.installing) {
+    // Only consider a package as installed if it's actually marked as installed
+    if (pkg.isInstalled && !pkg.error) {
       installedPackages.add(pkg.name)
     }
   })

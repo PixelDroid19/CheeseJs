@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       path: 'path-browserify',
@@ -31,6 +31,10 @@ export default defineConfig({
     ]),
     renderer(),
   ],
+  // Remove console.log in production builds
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+  },
   server: {
     headers: {
       'Cross-Origin-Embedder-Policy': 'credentialless',
@@ -43,4 +47,4 @@ export default defineConfig({
       NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
     },
   },
-})
+}))

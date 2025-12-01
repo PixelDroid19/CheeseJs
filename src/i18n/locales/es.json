@@ -47,7 +47,11 @@
       "internalLogs": "Registros internos",
       "internalLogsDesc": "Configurar nivel de detalle para logs internos",
       "magicComments": "Comentarios mágicos",
-      "magicCommentsTooltip": "Habilita el uso de comentarios como //? para mostrar valores en línea."
+      "magicCommentsTooltip": "Habilita el uso de comentarios como //? para mostrar valores en línea.",
+      "autoRunAfterInstall": "Auto-ejecutar después de instalar paquetes",
+      "autoRunAfterInstallTooltip": "Ejecuta automáticamente el código después de que los paquetes faltantes sean instalados.",
+      "autoInstallPackages": "Auto-instalar paquetes",
+      "autoInstallPackagesTooltip": "Instala automáticamente los paquetes faltantes cuando se detectan en imports. Desactiva para instalar paquetes manualmente."
     },
     "npm": {
       "description": "Administra paquetes npm para tu código. Los paquetes se instalan automáticamente cuando se detectan en los imports.",

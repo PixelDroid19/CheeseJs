@@ -26,6 +26,8 @@ interface SettingsState {
   npmRcContent: string;
   magicComments: boolean;
   executionEnvironment: 'node' | 'browser';
+  autoRunAfterInstall: boolean;
+  autoInstallPackages: boolean;
   uiFontSize: number;
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
@@ -41,6 +43,8 @@ interface SettingsState {
   setNpmRcContent: (content: string) => void;
   setMagicComments: (enabled: boolean) => void;
   setExecutionEnvironment: (env: 'node' | 'browser') => void;
+  setAutoRunAfterInstall: (autoRun: boolean) => void;
+  setAutoInstallPackages: (autoInstall: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -58,6 +62,8 @@ export const useSettingsStore = create<SettingsState>()(
       npmRcContent: 'registry=https://registry.npmjs.org/\nstrict-ssl=true',
       magicComments: true,
       executionEnvironment: 'node',
+      autoRunAfterInstall: true,
+      autoInstallPackages: true, // Default to auto-install
       uiFontSize: 14,
       setLanguage: (language) => set({ language }),
       setThemeName: (themeName) => set({ themeName }),
@@ -74,7 +80,9 @@ export const useSettingsStore = create<SettingsState>()(
       setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
       setNpmRcContent: (npmRcContent) => set({ npmRcContent }),
       setMagicComments: (magicComments) => set({ magicComments }),
-      setExecutionEnvironment: (executionEnvironment) => set({ executionEnvironment })
+      setExecutionEnvironment: (executionEnvironment) => set({ executionEnvironment }),
+      setAutoRunAfterInstall: (autoRunAfterInstall) => set({ autoRunAfterInstall }),
+      setAutoInstallPackages: (autoInstallPackages) => set({ autoInstallPackages }),
     }),
     {
       name: 'settings-storage',
@@ -90,7 +98,9 @@ export const useSettingsStore = create<SettingsState>()(
         npmRcContent: state.npmRcContent,
         magicComments: state.magicComments,
         uiFontSize: state.uiFontSize,
-        executionEnvironment: state.executionEnvironment
+        executionEnvironment: state.executionEnvironment,
+        autoRunAfterInstall: state.autoRunAfterInstall,
+        autoInstallPackages: state.autoInstallPackages
       })
     }
   )

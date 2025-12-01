@@ -2,11 +2,35 @@ import { transform } from '@babel/standalone'
 import type { NodePath } from '@babel/traverse'
 import type * as t from '@babel/types'
 
+// Fallback function using regex when Babel fails
+function extractImportsWithRegex(code: string): string[] {
+  const imports: Set<string> = new Set()
+  
+  // Match ES6 imports: import ... from "package" or import "package"
+  const importRegex = /import\s+(?:[\w\s{},*]+\s+from\s+)?['"]([^'"]+)['"]/g
+  let match
+  while ((match = importRegex.exec(code)) !== null) {
+    imports.add(match[1])
+  }
+  
+  // Match require(): require("package")
+  const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+  while ((match = requireRegex.exec(code)) !== null) {
+    imports.add(match[1])
+  }
+  
+  // Filter out relative imports
+  return Array.from(imports).filter(
+    (pkg) => !pkg.startsWith('.') && !pkg.startsWith('/')
+  )
+}
+
 export function getImports (code: string): string[] {
   const imports: Set<string> = new Set()
 
   try {
     transform(code, {
+      filename: 'file.tsx', // Required for TypeScript preset
       presets: ['typescript'],
       plugins: [
         {
@@ -28,14 +52,12 @@ export function getImports (code: string): string[] {
         }
       ]
     })
-  } catch {
-    // ignore parse errors
+  } catch (e) {
+    console.warn('📦 [getImports] Babel parse error, using regex fallback')
+    return extractImportsWithRegex(code)
   }
 
-  // Filter out relative imports and built-in modules (simple check)
-  // We can't easily know all built-ins, but we can filter '.' and '/'
-  // Also 'util' is built-in, but npm install util works too (polyfill).
-  // Let's just filter relative paths for now.
+  // Filter out relative imports
   return Array.from(imports).filter(
     (pkg) => !pkg.startsWith('.') && !pkg.startsWith('/')
   )

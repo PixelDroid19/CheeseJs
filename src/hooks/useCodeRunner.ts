@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import { useCodeStore } from '../store/useCodeStore'
 import { useWebContainerStore } from '../store/useWebContainerStore'
 import { useSettingsStore } from '../store/useSettingsStore'
@@ -6,6 +6,9 @@ import { usePackagesStore } from '../store/usePackagesStore'
 import { run, transformCode } from '../lib/code/run'
 import { runInWebContainer } from '../lib/code/runWebContainer'
 import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
+import { 
+  logAutoRunSkipped
+} from '../lib/logging/packageLogger'
 
 export function useCodeRunner() {
   const code = useCodeStore((state) => state.code)
@@ -17,9 +20,10 @@ export function useCodeRunner() {
   const setLanguage = useCodeStore((state) => state.setLanguage)
   const setIsExecuting = useCodeStore((state) => state.setIsExecuting)
   const setIsPendingRun = useCodeStore((state) => state.setIsPendingRun)
+  const isPendingRun = useCodeStore((state) => state.isPendingRun)
   const setDetectedMissingPackages = usePackagesStore((state) => state.setDetectedMissingPackages)
 
-  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments, executionEnvironment } =
+  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments, executionEnvironment, autoRunAfterInstall } =
     useSettingsStore()
 
   const webContainer = useWebContainerStore((state) => state.webContainer)
@@ -57,21 +61,9 @@ export function useCodeRunner() {
       clearResult()
       setIsExecuting(true)
 
-      // DIAGNOSTIC: Log execution environment
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 Execution Environment:', {
-          executionEnvironment,
-          hasWebContainer: !!webContainer,
-          willUseWebContainer: !!webContainer // Changed: always use WebContainer if available
-        })
-      }
-
       try {
-        // CHANGED: Always use WebContainer if available, ignore executionEnvironment setting
+        // Always use WebContainer if available
         if (webContainer) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('✅ Running code in WebContainer (Node.js environment)')
-          }
           const { kill, missingPackages } = await runInWebContainer(
             webContainer,
             sourceCode,
@@ -91,6 +83,14 @@ export function useCodeRunner() {
           if (missingPackages.length > 0) {
             setIsPendingRun(true)
             setDetectedMissingPackages(missingPackages)
+            
+            // Only auto-add packages to store if autoInstallPackages is enabled
+            // Read directly from store to get the current value (not stale closure)
+            const currentAutoInstall = useSettingsStore.getState().autoInstallPackages
+            if (currentAutoInstall) {
+              const { addPackage } = usePackagesStore.getState()
+              missingPackages.forEach(pkg => addPackage(pkg))
+            }
           }
 
           killProcessRef.current = kill
@@ -147,5 +147,23 @@ export function useCodeRunner() {
     ]
   )
 
-  return { runCode }
+  // Effect to auto-run after package installation
+  // This effect is DISABLED here - the auto-run logic is handled in PackageInstaller.tsx
+  // to avoid race conditions between two competing effects
+  useEffect(() => {
+    if (!isPendingRun) return
+    
+    if (!autoRunAfterInstall) {
+      logAutoRunSkipped('Auto-run after install is disabled in settings')
+      setIsPendingRun(false)
+      return
+    }
+    
+    // The actual auto-run is triggered by PackageInstaller.tsx when packages finish installing
+  }, [isPendingRun, autoRunAfterInstall, setIsPendingRun])
+
+  return {
+    runCode,
+    webContainer
+  }
 }

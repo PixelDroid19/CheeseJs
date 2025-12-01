@@ -63,7 +63,11 @@ export function AdvancedTab () {
     magicComments,
     setMagicComments,
     executionEnvironment,
-    setExecutionEnvironment
+    setExecutionEnvironment,
+    autoRunAfterInstall,
+    setAutoRunAfterInstall,
+    autoInstallPackages,
+    setAutoInstallPackages
   } = useSettingsStore()
 
   return (
@@ -186,6 +190,26 @@ export function AdvancedTab () {
           <Toggle 
             checked={magicComments} 
             onChange={setMagicComments} 
+          />
+        </AdvancedRow>
+
+        <AdvancedRow 
+          label={t('settings.advanced.autoRunAfterInstall') || "Auto-ejecutar después de instalar paquetes"}
+          helpContent={t('settings.advanced.autoRunAfterInstallTooltip') || "Ejecuta automáticamente el código después de que los paquetes faltantes sean instalados"}
+        >
+          <Toggle 
+            checked={autoRunAfterInstall} 
+            onChange={setAutoRunAfterInstall} 
+          />
+        </AdvancedRow>
+
+        <AdvancedRow 
+          label={t('settings.advanced.autoInstallPackages') || "Instalar paquetes automáticamente"}
+          helpContent={t('settings.advanced.autoInstallPackagesTooltip') || "Instala automáticamente los paquetes detectados en los imports. Si está desactivado, deberás instalarlos manualmente."}
+        >
+          <Toggle 
+            checked={autoInstallPackages} 
+            onChange={setAutoInstallPackages} 
           />
         </AdvancedRow>
       </div>

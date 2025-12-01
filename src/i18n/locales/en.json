@@ -45,7 +45,11 @@
       "loopProtectionLabel": "Protect against long-running execution scripts",
       "protectLongRunning": "Protect against long-running execution scripts",
       "magicComments": "Magic Comments",
-      "magicCommentsTooltip": "Enable special comments like //? for inline debugging."
+      "magicCommentsTooltip": "Enable special comments like //? for inline debugging.",
+      "autoRunAfterInstall": "Auto-run after package install",
+      "autoRunAfterInstallTooltip": "Automatically re-run code after missing packages are installed.",
+      "autoInstallPackages": "Auto-install packages",
+      "autoInstallPackagesTooltip": "Automatically install missing packages when detected in imports. Disable to install packages manually."
     },
     "npm": {
       "description": "Manage npm packages for your code. Packages are automatically installed when detected in imports.",
