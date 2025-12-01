@@ -15,6 +15,16 @@
       "snippets": "Fragmentos (Snippets)",
       "advanced": "Opciones Avanzadas"
     },
+    "descriptions": {
+      "general": "Configura el comportamiento general del editor",
+      "compilation": "Opciones del compilador y transformaciones de código",
+      "formatting": "Personaliza cómo se muestra la salida del código",
+      "appearance": "Personaliza la apariencia y el tema del editor",
+      "ai": "Configuración de las características de Inteligencia Artificial",
+      "npm": "Gestiona los paquetes y la configuración de NPM",
+      "snippets": "Administra tus fragmentos de código reutilizables",
+      "advanced": "Configuraciones avanzadas y opciones de desarrollador"
+    },
     "snippets": {
       "description": "Guarda fragmentos de código utilizados frecuentemente para un acceso rápido.",
       "saveCurrent": "Guardar código actual",
@@ -26,16 +36,22 @@
       "executionEnvironment": "Entorno de Ejecución",
       "executionEnvironmentTooltip": "Elige entre Node.js (WebContainer) para backend/server o Navegador (DOM) para frontend.",
       "logsConfig": "Configuración de logs",
-      "logLevel": "Nivel de detalle (GlobalScheduler, AsyncEngine)",
+      "internalLogLevel": "Nivel de log interno",
       "expressionEvaluation": "Evaluación de expresiones",
       "outputFormat": "Formato de salida",
       "execution": "Ejecución",
+      "results": "Resultados",
       "expressionResults": "Mostrar evaluación de expresiones",
       "showTopLevel": "Mostrar el resultado de cada expresión de nivel superior",
+      "showTopLevelResults": "Mostrar resultados de nivel superior",
       "align": "Alinear resultados con código fuente",
+      "alignResults": "Alinear resultados",
       "alignWithSource": "Alinear resultado con fuente",
+      "alignResultsTooltip": "Los resultados de salida se colocarán en la misma línea que su fuente.\nDeshabilite esto para mostrar los resultados de salida en su orden natural de ejecución.",
       "alignTooltip": "Los resultados de salida se colocarán en la misma línea que su fuente.\nDeshabilite esto para mostrar los resultados de salida en su orden natural de ejecución.",
+      "internalLogLevelTooltip": "Define el nivel de detalle de los registros internos del sistema para depuración (GlobalScheduler, AsyncEngine).",
       "logLevelTooltip": "Define el nivel de detalle de los registros internos del sistema para depuración (GlobalScheduler, AsyncEngine).",
+      "showTopLevelResultsTooltip": "Muestra resultados de expresiones de nivel superior para ver valores intermedios.",
       "showTopLevelTooltip": "Muestra resultados de expresiones de nivel superior para ver valores intermedios.",
       "showUndefinedTooltip": "Si se activa, los valores 'undefined' se mostrarán explícitamente en la salida. Si se desactiva, se ocultarán para limpiar la vista.",
       "loopProtectionTooltip": "Detiene la ejecución si detecta bucles infinitos o scripts muy largos.",
@@ -52,6 +68,9 @@
       "autoRunAfterInstallTooltip": "Ejecuta automáticamente el código después de que los paquetes faltantes sean instalados.",
       "autoInstallPackages": "Auto-instalar paquetes",
       "autoInstallPackagesTooltip": "Instala automáticamente los paquetes faltantes cuando se detectan en imports. Desactiva para instalar paquetes manualmente."
+    },
+    "common": {
+      "comingSoon": "Próximamente..."
     },
     "npm": {
       "description": "Administra paquetes npm para tu código. Los paquetes se instalan automáticamente cuando se detectan en los imports.",
@@ -129,5 +148,8 @@
     "notFound": "Paquete no encontrado",
     "install": "Instalar Paquete",
     "retry": "Reintentar"
+  },
+  "common": {
+    "comingSoon": "Próximamente..."
   }
 }

@@ -127,5 +127,8 @@
     "notFound": "Package not found",
     "install": "Install Package",
     "retry": "Retry"
+  },
+  "common": {
+    "comingSoon": "Coming soon"
   }
 }

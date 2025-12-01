@@ -80,21 +80,6 @@ export function AdvancedTab () {
 
         <div className="space-y-6">
           <AdvancedRow
-            label={t('settings.advanced.executionEnvironment')}
-            helpContent={t('settings.advanced.executionEnvironmentTooltip')}
-          >
-            <Select
-              value={executionEnvironment}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onChange={(e) => setExecutionEnvironment(e.target.value as any)}
-              className="w-48"
-            >
-              <option value="node">Node.js (WebContainer)</option>
-              <option value="browser">Browser (DOM)</option>
-            </Select>
-          </AdvancedRow>
-
-          <AdvancedRow
             label={t('settings.advanced.loopProtection')}
             helpContent={t('settings.advanced.loopProtectionTooltip')}
           >
