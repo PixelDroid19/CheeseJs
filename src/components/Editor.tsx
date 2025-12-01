@@ -10,14 +10,14 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { useCodeStore, CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
-import { themes } from '../themes'
 import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
 import { setupTypeAcquisition } from '../lib/ata'
 import { detectLanguage } from '../lib/languageDetector'
-import type { languages } from 'monaco-editor'
 import { editor } from 'monaco-editor'
+import { configureMonaco } from '../utils/monaco-config'
+import { EditorErrorBoundary } from './editor-error-boundary'
 
 self.MonacoEnvironment = {
   getWorker(_, label) {
@@ -155,107 +155,7 @@ function CodeEditor () {
 
   const handleEditorWillMount = useCallback((monaco: Monaco) => {
     monacoInstanceRef.current = monaco
-    // Register all themes
-    Object.entries(themes).forEach(([name, themeData]) => {
-      monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
-    })
-
-
-    // Shared language configuration
-    const languageConfig: languages.LanguageConfiguration = {
-      comments: {
-        lineComment: '//',
-        blockComment: ['/*', '*/']
-      },
-      brackets: [
-        ['{', '}'],
-        ['[', ']'],
-        ['(', ')']
-      ],
-      autoClosingPairs: [
-        { open: '{', close: '}' },
-        { open: '[', close: ']' },
-        { open: '(', close: ')' },
-        { open: '"', close: '"', notIn: ['string'] },
-        { open: "'", close: "'", notIn: ['string', 'comment'] },
-        { open: '`', close: '`', notIn: ['string', 'comment'] }
-      ],
-      surroundingPairs: [
-        { open: '{', close: '}' },
-        { open: '[', close: ']' },
-        { open: '(', close: ')' },
-        { open: '"', close: '"' },
-        { open: "'", close: "'" },
-        { open: '`', close: '`' }
-      ],
-      folding: {
-        markers: {
-          start: /^\s*\/\/#region\b/,
-          end: /^\s*\/\/#endregion\b/
-        }
-      },
-      wordPattern: /(-?\d*\.\d\w*)|([^`~!@#%^&*()\-=[{\]}\\|;:'",.<>/?\s]+)/g,
-      indentationRules: {
-        increaseIndentPattern: /^((?!\/\/).)*(\{[^}"'`]*|\([^)"'`]*|\[[^\]"'`]*)$/,
-        decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[}\])].*$/
-      }
-    }
-
-    // Configure language features for JavaScript
-    monaco.languages.setLanguageConfiguration('javascript', languageConfig)
-
-    // Configure language features for TypeScript
-    monaco.languages.setLanguageConfiguration('typescript', {
-      ...languageConfig,
-      brackets: [
-        ...(languageConfig.brackets || []),
-        ['<', '>']
-      ],
-      autoClosingPairs: [
-        ...(languageConfig.autoClosingPairs || []),
-        { open: '<', close: '>', notIn: ['string', 'comment'] }
-      ],
-      surroundingPairs: [
-        ...(languageConfig.surroundingPairs || []),
-        { open: '<', close: '>' }
-      ]
-    })
-
-    const ts = monaco.languages.typescript
-    if (!ts) return
-
-    // Compiler options for both JS and TS
-    const compilerOptions = {
-      target: ts.ScriptTarget.ESNext,
-      allowNonTsExtensions: true,
-      moduleResolution: ts.ModuleResolutionKind.NodeJs,
-      module: ts.ModuleKind.ESNext,
-      allowJs: true,
-      checkJs: true,
-      noEmit: true,
-      esModuleInterop: true,
-      jsx: ts.JsxEmit.React,
-      reactNamespace: 'React',
-      allowSyntheticDefaultImports: true,
-      // Disable unused warnings as per user request
-      noUnusedLocals: false,
-      noUnusedParameters: false
-    }
-
-    ts.javascriptDefaults.setCompilerOptions(compilerOptions)
-    ts.typescriptDefaults.setCompilerOptions(compilerOptions)
-
-    // Eager sync for better performance in small files
-    ts.javascriptDefaults.setEagerModelSync(true)
-    ts.typescriptDefaults.setEagerModelSync(true)
-
-    // Diagnostics options
-    const diagnosticsOptions = {
-      noSemanticValidation: false,
-      noSyntaxValidation: false
-    }
-    ts.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
-    ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
+    configureMonaco(monaco)
   }, [])
 
   const handleEditorDidMount = useCallback(
@@ -425,4 +325,10 @@ function CodeEditor () {
   )
 }
 
-export default CodeEditor
+export default function WrappedCodeEditor() {
+  return (
+    <EditorErrorBoundary>
+      <CodeEditor />
+    </EditorErrorBoundary>
+  )
+}

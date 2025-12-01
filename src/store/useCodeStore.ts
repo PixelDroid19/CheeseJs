@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface CodeResultElement {
   content: string | number | boolean | object | null;
@@ -29,21 +30,29 @@ export interface CodeState {
   setIsPendingRun: (isPendingRun: boolean) => void;
 }
 
-export const useCodeStore = create<CodeState>((set) => ({
-  code: 'console.log("Hello World");',
-  language: 'javascript',
-  result: [],
-  isExecuting: false,
-  isPendingRun: false,
-  setCode: (code) => set({ code }),
-  setLanguage: (language) => set({ language }),
-  setResult: (result) => set({ result }),
-  appendResult: (resultItem) =>
-    set((state) => ({ result: [...state.result, resultItem] })),
-  clearResult: () => set({ result: [] }),
-  setIsExecuting: (isExecuting) => set({ isExecuting }),
-  setIsPendingRun: (isPendingRun) => set({ isPendingRun })
-}))
+export const useCodeStore = create<CodeState>()(
+  persist(
+    (set) => ({
+      code: 'console.log("Hello World");',
+      language: 'javascript',
+      result: [],
+      isExecuting: false,
+      isPendingRun: false,
+      setCode: (code) => set({ code }),
+      setLanguage: (language) => set({ language }),
+      setResult: (result) => set({ result }),
+      appendResult: (resultItem) =>
+        set((state) => ({ result: [...state.result, resultItem] })),
+      clearResult: () => set({ result: [] }),
+      setIsExecuting: (isExecuting) => set({ isExecuting }),
+      setIsPendingRun: (isPendingRun) => set({ isPendingRun })
+    }),
+    {
+      name: 'code-storage', // name of the item in the storage (must be unique)
+      partialize: (state) => ({ code: state.code, language: state.language }), // Only persist code and language
+    }
+  )
+)
 
 /**
  * Helper function to check if a language is executable in this runtime
