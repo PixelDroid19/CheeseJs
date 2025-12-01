@@ -52,7 +52,7 @@ export function getImports (code: string): string[] {
         }
       ]
     })
-  } catch (e) {
+  } catch (_e) {
     console.warn('📦 [getImports] Babel parse error, using regex fallback')
     return extractImportsWithRegex(code)
   }

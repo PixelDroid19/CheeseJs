@@ -144,7 +144,7 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
-    if (process.platform === 'darwin') {
+    if (process.platform === 'darwin' && app.dock) {
       app.dock.setIcon(
         nativeImage.createFromPath(path.join(process.env.PUBLIC, 'cheesejs.png'))
       )

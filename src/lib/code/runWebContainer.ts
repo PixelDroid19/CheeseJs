@@ -439,7 +439,7 @@ process.on('unhandledRejection', (e) => {
   try {
     await webContainer.fs.rm(entryPoint)
     await webContainer.fs.rm(userModule)
-  } catch (e) {
+  } catch (_e) {
     // Ignore cleanup errors
   }
 

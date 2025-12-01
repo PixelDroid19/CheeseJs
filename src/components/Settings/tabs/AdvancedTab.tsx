@@ -58,8 +58,6 @@ export function AdvancedTab () {
     setInternalLogLevel,
     magicComments,
     setMagicComments,
-    executionEnvironment,
-    setExecutionEnvironment,
     autoRunAfterInstall,
     setAutoRunAfterInstall,
     autoInstallPackages,

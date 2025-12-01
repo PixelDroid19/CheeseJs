@@ -17,10 +17,6 @@ import { Colors, stringify, type ColoredElement } from '../elementParser'
 
 const AsyncFunction = Object.getPrototypeOf(async () => { return undefined }).constructor
 
-interface unparsedResult {
-  lineNumber?: number;
-  content: unknown;
-}
 interface Result {
   lineNumber?: number;
   element: ColoredElement;
@@ -133,7 +129,7 @@ export async function run (
             type: 'execution'
           })
         }
-      } catch (err) {
+      } catch (_err) {
         // Ignore stringify errors
       }
     })

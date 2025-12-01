@@ -1,4 +1,4 @@
-import type { PluginObj } from '@babel/core'
+import type { NodePath, PluginObj } from '@babel/core'
 import type * as BabelTypes from '@babel/types'
 
 export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj {
@@ -34,11 +34,15 @@ export default function ({ types: t }: { types: typeof BabelTypes }): PluginObj 
 
         // Insert the check inside the loop body
         const body = path.get('body')
+        
+        if (Array.isArray(body)) return
+
         if (body.isBlockStatement()) {
-          body.unshiftContainer('body', checkStatement)
+          (body as NodePath<BabelTypes.BlockStatement>).unshiftContainer('body', checkStatement)
         } else {
           // If the body is a single statement, wrap it in a block
-          path.node.body = t.blockStatement([checkStatement, path.node.body])
+          const node = path.node as BabelTypes.WhileStatement | BabelTypes.DoWhileStatement | BabelTypes.ForStatement
+          node.body = t.blockStatement([checkStatement, node.body as BabelTypes.Statement])
         }
       }
     }

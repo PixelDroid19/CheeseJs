@@ -23,7 +23,7 @@ export function useCodeRunner() {
   const isPendingRun = useCodeStore((state) => state.isPendingRun)
   const setDetectedMissingPackages = usePackagesStore((state) => state.setDetectedMissingPackages)
 
-  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments, executionEnvironment, autoRunAfterInstall } =
+  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments, autoRunAfterInstall } =
     useSettingsStore()
 
   const webContainer = useWebContainerStore((state) => state.webContainer)
@@ -149,8 +149,7 @@ export function useCodeRunner() {
       npmRcContent,
       magicComments,
       setDetectedMissingPackages,
-      setIsPendingRun,
-      executionEnvironment
+      setIsPendingRun
     ]
   )
 

@@ -27,7 +27,7 @@ export function usePackageMetadata(detectedMissingPackages: string[]) {
               ...prev,
               [pkgName]: (info as PackageMetadata) || { error: 'Failed to fetch info' },
             }))
-          } catch (error) {
+          } catch (_error) {
              setPackageMetadata((prev) => ({
               ...prev,
               [pkgName]: { error: 'Failed to fetch info' },
