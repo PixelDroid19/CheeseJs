@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; child-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; worker-src 'self' blob: https://*.staticblitz.com https://*.webcontainer.io https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; child-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; worker-src 'self' blob: https://*.staticblitz.com https://*.webcontainer.io https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io;"/>
     <link rel="icon" type="image/svg+xml" href="/cheesejs.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CheeseJS</title>
@@ -17,18 +17,69 @@
   <body>
     <div id="root" class="h-screen w-screen overflow-hidden"></div>
     <script>
-      // Global polyfills for browser environment
-      if (typeof window !== 'undefined') {
+      // Global polyfills for browser environment - completely silent for known modules
+      (function() {
+        if (typeof window === 'undefined') return;
+        
+        // Process shim
         if (!window.process) {
-          window.process = { env: { NODE_ENV: 'development' }, version: '', cwd: function() { return '/' } };
-        }
-        if (!window.require) {
-          window.require = function(moduleName) {
-             console.warn("[Polyfill] require('" + moduleName + "') called");
-             return {};
+          window.process = { 
+            env: { NODE_ENV: 'production' }, 
+            version: 'v18.0.0', 
+            cwd: function() { return '/'; },
+            platform: 'browser'
           };
         }
-      }
+        
+        // CommonJS require shim for modules that use dynamic require
+        if (!window.require) {
+          var isPropValid = function(prop) {
+            if (typeof prop !== 'string') return false;
+            if (prop.indexOf('data-') === 0 || prop.indexOf('aria-') === 0) return true;
+            return /^(on[A-Z]|children|dangerouslySetInnerHTML|key|ref|autoFocus|defaultValue|defaultChecked|innerHTML|suppressContentEditableWarning|suppressHydrationWarning|style|className|id|tabIndex|role|title|hidden|disabled|readOnly|required|placeholder|value|checked|selected|multiple|name|type|href|src|alt|width|height|min|max|step|pattern|form|action|method|target|rel|download|media|accept|autoComplete|list|maxLength|minLength|size|cols|rows|wrap|dir|lang|translate|spellCheck|contentEditable|draggable|dropzone|accessKey|contextMenu|slot|is|itemProp|itemScope|itemType|itemID|itemRef|about|datatype|inlist|prefix|property|resource|typeof|vocab)$/.test(prop);
+          };
+          isPropValid.default = isPropValid;
+          
+          var pathShim = {
+            join: function() { return Array.prototype.slice.call(arguments).filter(Boolean).join('/').replace(/\/+/g, '/'); },
+            resolve: function() { return '/' + Array.prototype.slice.call(arguments).filter(Boolean).join('/').replace(/\/+/g, '/'); },
+            dirname: function(p) { return p ? p.replace(/\/[^\/]*$/, '') || '/' : '.'; },
+            basename: function(p, ext) { var b = p ? p.replace(/^.*[\/]/, '') : ''; return ext && b.endsWith(ext) ? b.slice(0, -ext.length) : b; },
+            extname: function(p) { var m = p ? p.match(/\.[^.\/]*$/) : null; return m ? m[0] : ''; },
+            normalize: function(p) { return p ? p.replace(/\/+/g, '/').replace(/\/$/, '') || '/' : '.'; },
+            isAbsolute: function(p) { return p ? p.charAt(0) === '/' : false; },
+            relative: function(from, to) { return to; },
+            parse: function(p) { return { root: '/', dir: pathShim.dirname(p), base: pathShim.basename(p), ext: pathShim.extname(p), name: pathShim.basename(p, pathShim.extname(p)) }; },
+            format: function(obj) { return (obj.dir || obj.root || '') + '/' + (obj.base || obj.name + (obj.ext || '')); },
+            sep: '/',
+            delimiter: ':',
+            posix: null,
+            win32: null
+          };
+          pathShim.posix = pathShim;
+          pathShim.win32 = pathShim;
+          
+          // Silent module registry - no console output for known modules
+          var knownModules = {
+            '@emotion/is-prop-valid': isPropValid,
+            'path': pathShim,
+            'path-browserify': pathShim
+          };
+          
+          window.require = function(moduleName) {
+            if (knownModules.hasOwnProperty(moduleName)) {
+              return knownModules[moduleName];
+            }
+            // Return empty object silently for any unknown module
+            // This prevents console noise in production
+            return {};
+          };
+          
+          // Also provide module and exports for some edge cases
+          window.module = { exports: {} };
+          window.exports = window.module.exports;
+        }
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -38,6 +38,10 @@
       },
     ],
     artifactName: "${productName}_${version}.${ext}",
+    // Ensure we don't try to sign when not configured (local build)
+    forceCodeSigning: false,
+    // Set a Windows icon to avoid default icon warning
+    icon: "public/cheesejs.png",
   },
   linux: {
     target: ["AppImage", "deb"],

@@ -1,17 +1,61 @@
 import { useWebContainerStore } from '../store/useWebContainerStore'
-import { AlertCircle, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+import { AlertCircle, RefreshCw, CheckCircle, XCircle, Download, Loader2 } from 'lucide-react'
 import { getDiagnosticSummary } from '../lib/webcontainer/WebContainerDiagnostics'
 import { useTranslation } from 'react-i18next'
+import { motion, AnimatePresence } from 'framer-motion'
 
 /**
  * WebContainerStatus Component
  * Displays the initialization status of WebContainer and provides retry functionality
+ * Shows a non-blocking progress indicator during first-time download
  */
 export function WebContainerStatus() {
-    const { isLoading, error, diagnosticReport, retryBoot } = useWebContainerStore()
+    const { isLoading, isBootingInBackground, error, diagnosticReport, retryBoot, bootProgress, bootPercentage } = useWebContainerStore()
     const { t } = useTranslation()
 
-    // Don't show anything if loading successfully
+    // Show progress indicator during background boot (non-blocking)
+    if (isBootingInBackground && isLoading && !error) {
+        return (
+            <AnimatePresence>
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    className="fixed bottom-4 right-4 max-w-sm bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-50"
+                >
+                    <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                            <Download className="w-5 h-5 text-primary animate-bounce" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-foreground mb-1">
+                                {t('webcontainer.downloading', 'Setting up runtime environment')}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mb-2">
+                                {bootProgress}
+                            </p>
+                            
+                            {/* Progress bar */}
+                            <div className="w-full bg-muted rounded-full h-1.5 mb-2">
+                                <motion.div 
+                                    className="bg-primary h-1.5 rounded-full"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${bootPercentage}%` }}
+                                    transition={{ duration: 0.5, ease: "easeOut" }}
+                                />
+                            </div>
+                            
+                            <p className="text-xs text-muted-foreground/70">
+                                {t('webcontainer.canUseEditor', 'You can start writing code while this completes')}
+                            </p>
+                        </div>
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+        )
+    }
+
+    // Don't show anything if loading successfully (after background phase)
     if (isLoading && !error) {
         return null
     }
@@ -67,14 +111,23 @@ export function WebContainerStatus() {
  * Can be used in the UI to show current status
  */
 export function WebContainerStatusIndicator() {
-    const { isLoading, error, webContainer } = useWebContainerStore()
+    const { isLoading, error, webContainer, bootPercentage, isBootingInBackground } = useWebContainerStore()
     const { t } = useTranslation()
 
     if (isLoading) {
         return (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="w-2 h-2 bg-warning rounded-full animate-pulse" />
-                <span>{t('webcontainer.initializing', 'Initializing WebContainer...')}</span>
+                {isBootingInBackground ? (
+                    <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>{t('webcontainer.downloading', 'Downloading')} ({bootPercentage}%)</span>
+                    </>
+                ) : (
+                    <>
+                        <div className="w-2 h-2 bg-warning rounded-full animate-pulse" />
+                        <span>{t('webcontainer.initializing', 'Initializing WebContainer...')}</span>
+                    </>
+                )}
             </div>
         )
     }

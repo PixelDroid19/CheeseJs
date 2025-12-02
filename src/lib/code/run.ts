@@ -4,14 +4,6 @@ import strayExpression from '../babel/stray-expression'
 import topLevelThis from '../babel/top-level-this'
 import loopProtection from '../babel/loop-protection'
 import magicComments from '../babel/magic-comments'
-// @ts-expect-error - Babel plugins don't always have types
-import pluginDoExpressions from '@babel/plugin-proposal-do-expressions'
-// @ts-expect-error - Babel plugins don't always have types
-import pluginExplicitResourceManagement from '@babel/plugin-transform-explicit-resource-management'
-// @ts-expect-error - Babel plugins don't always have types
-import pluginThrowExpressions from '@babel/plugin-proposal-throw-expressions'
-// @ts-expect-error - Babel plugins don't always have types
-import pluginExportDefaultFrom from '@babel/plugin-proposal-export-default-from'
 
 import { Colors, stringify, type ColoredElement } from '../elementParser'
 
@@ -23,16 +15,16 @@ interface Result {
   type: 'execution' | 'error';
 }
 
+// Register ONLY custom plugins that are NOT already in @babel/standalone
+// Built-in plugins like proposal-do-expressions, transform-explicit-resource-management,
+// proposal-throw-expressions, and proposal-export-default-from are already included
+// in @babel/standalone and should be used by their original names directly
 registerPlugins({
   'stray-expression-babel': strayExpression,
   'log-transform': logPlugin,
   'top-level-this': topLevelThis,
   'loop-protection': loopProtection,
   'magic-comments': magicComments,
-  'proposal-do-expressions': pluginDoExpressions,
-  'transform-explicit-resource-management': pluginExplicitResourceManagement,
-  'proposal-throw-expressions': pluginThrowExpressions,
-  'proposal-export-default-from': pluginExportDefaultFrom
 })
 
 
@@ -50,6 +42,7 @@ export function transformCode (
   const plugins: Array<string | [string, object]> = [
     ['proposal-decorators', { legacy: true }],
     ['proposal-pipeline-operator', { proposal: 'minimal' }],
+    // Use @babel/standalone built-in plugins by their original names
     'proposal-do-expressions',
     'transform-explicit-resource-management',
     'proposal-throw-expressions',

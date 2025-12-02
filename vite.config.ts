@@ -3,12 +3,12 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
+      // Use path-browserify for browser environment
       path: 'path-browserify',
     },
   },
@@ -31,20 +31,40 @@ export default defineConfig(({ mode }) => ({
     ]),
     renderer(),
   ],
-  // Remove console.log in production builds
+  // Note: We don't drop console.log in production because WebContainer 
+  // may rely on console functionality internally
   esbuild: {
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    drop: mode === 'production' ? ['debugger'] : [],
   },
   server: {
     headers: {
       'Cross-Origin-Embedder-Policy': 'credentialless',
       'Cross-Origin-Opener-Policy': 'same-origin',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; child-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; worker-src 'self' blob: https://*.staticblitz.com https://*.webcontainer.io https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io;",
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; child-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; worker-src 'self' blob: https://*.staticblitz.com https://*.webcontainer.io https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io;",
     },
   },
   define: {
     'process.env': {
       NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+    },
+  },
+  optimizeDeps: {
+    include: ['framer-motion'],
+    esbuildOptions: {
+      target: 'esnext',
+    },
+  },
+  build: {
+    target: 'esnext',
+    // Disable modulepreload entirely to avoid preload warnings in Electron
+    modulePreload: false,
+    rollupOptions: {
+      output: {
+        // Ensure framer-motion is properly chunked
+        manualChunks: {
+          'framer-motion': ['framer-motion'],
+        },
+      },
     },
   },
 }))

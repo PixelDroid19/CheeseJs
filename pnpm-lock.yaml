@@ -17,6 +17,9 @@ importers:
       '@babel/plugin-transform-async-generator-functions':
         specifier: ^7.24.7
         version: 7.28.0(@babel/core@7.28.5)
+      '@emotion/is-prop-valid':
+        specifier: ^1.4.0
+        version: 1.4.0
       '@webcontainer/api':
         specifier: ^1.6.1
         version: 1.6.1
@@ -25,7 +28,7 @@ importers:
         version: 2.1.1
       framer-motion:
         specifier: ^12.23.24
-        version: 12.23.24(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 12.23.24(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       i18next:
         specifier: ^25.6.3
         version: 25.6.3(typescript@5.9.3)
@@ -41,6 +44,9 @@ importers:
       luna-object-viewer:
         specifier: ^0.3.2
         version: 0.3.2
+      path-browserify:
+        specifier: ^1.0.1
+        version: 1.0.1
       react:
         specifier: ^19.2.0
         version: 19.2.0
@@ -56,6 +62,9 @@ importers:
       react-split:
         specifier: 2.0.14
         version: 2.0.14(react@19.2.0)
+      rollup:
+        specifier: ^4.53.3
+        version: 4.53.3
       stringify-object:
         specifier: ^6.0.0
         version: 6.0.0
@@ -87,6 +96,9 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@playwright/test':
+        specifier: ^1.57.0
+        version: 1.57.0
       '@tailwindcss/postcss':
         specifier: ^4.1.17
         version: 4.1.17
@@ -141,12 +153,18 @@ importers:
       eslint-plugin-react-refresh:
         specifier: ^0.4.24
         version: 0.4.24(eslint@9.39.1(jiti@2.6.1))
+      globals:
+        specifier: ^16.5.0
+        version: 16.5.0
       jsdom:
         specifier: ^27.2.0
         version: 27.2.0
       monaco-editor:
         specifier: ^0.55.1
         version: 0.55.1
+      playwright:
+        specifier: ^1.57.0
+        version: 1.57.0
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -437,6 +455,12 @@ packages:
     resolution: {integrity: sha512-dfZeox66AvdPtb2lD8OsIIQh12Tp0GNCRUDfBHIKGpbmopZto2/A8nSpYYLoedPIHpqkeblZ/k8OV0Gy7PYuyQ==}
     engines: {node: '>=14.14'}
     hasBin: true
+
+  '@emotion/is-prop-valid@1.4.0':
+    resolution: {integrity: sha512-QgD4fyscGcbbKwJmqNvUMSE02OsHUa+lAWKdEUIJKgqe5IwRSKd7+KhibEWdaKwgjLj0DRSHA9biAIqGBk05lw==}
+
+  '@emotion/memoize@0.9.0':
+    resolution: {integrity: sha512-30FAj7/EoJ5mwVPOWhAyCX+FPfMDrVecJAM+Iw9NRoSl4BBAQeqj4cApHHUXOVvIPgLVDsCFoz/hGD+5QQD1GQ==}
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -738,6 +762,11 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
+
+  '@playwright/test@1.57.0':
+    resolution: {integrity: sha512-6TyEnHgd6SArQO8UO2OMTxshln3QMWBtPGrOCgs3wVEmQmwyuNtB10IZMfmYDE0riwNR1cu4q+pPcxMVtaG3TA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -2038,6 +2067,11 @@ packages:
   fs.realpath@1.0.0:
     resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -2120,6 +2154,10 @@ packages:
 
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
+    engines: {node: '>=18'}
+
+  globals@16.5.0:
+    resolution: {integrity: sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ==}
     engines: {node: '>=18'}
 
   globalthis@1.0.4:
@@ -2924,6 +2962,9 @@ packages:
   parse5@8.0.0:
     resolution: {integrity: sha512-9m4m5GSgXjL4AjumKzq1Fgfp3Z8rsvjRNbnkVwfu2ImRqE5D0LnY2QfDen18FSY9C573YU5XxSapdHZTZ2WolA==}
 
+  path-browserify@1.0.1:
+    resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
+
   path-exists@3.0.0:
     resolution: {integrity: sha512-bpC7GYwiDYQ4wYLe+FA8lhRjhQCMcQGuSgGGqDkg/QerRWw9CmGRT0iSOVRSZJ29NMLZgIzqaljJ63oaL4NIJQ==}
     engines: {node: '>=4'}
@@ -2971,6 +3012,16 @@ packages:
   pkg-conf@3.1.0:
     resolution: {integrity: sha512-m0OTbR/5VPNPqO1ph6Fqbj7Hv6QU7gR/tQW40ZqrL1rjgCU85W6C1bJn0BItuJqnR98PWzw7Z8hHeChD1WrgdQ==}
     engines: {node: '>=6'}
+
+  playwright-core@1.57.0:
+    resolution: {integrity: sha512-agTcKlMw/mjBWOnD6kFZttAAGHgi/Nw0CZ2o6JqWSbMlI219lAFLZZCyqByTsvVAJq5XA5H8cA6PrvBRpBWEuQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.57.0:
+    resolution: {integrity: sha512-ilYQj1s8sr2ppEJ2YVadYBN0Mb3mdo9J0wQ+UuDhzYqURwSoW4n1Xs5vs7ORwgDGmyEh33tRMeS8KhdkMoLXQw==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   plist@3.1.0:
     resolution: {integrity: sha512-uysumyrvkUX0rX/dEVqt8gC3sTBzd4zoWfLeS29nb53imdaXVvLINYXTI2GNqzaMuvacNx4uJQ8+b3zXR0pkgQ==}
@@ -4257,6 +4308,12 @@ snapshots:
       - supports-color
     optional: true
 
+  '@emotion/is-prop-valid@1.4.0':
+    dependencies:
+      '@emotion/memoize': 0.9.0
+
+  '@emotion/memoize@0.9.0': {}
+
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
 
@@ -4507,6 +4564,10 @@ snapshots:
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
+
+  '@playwright/test@1.57.0':
+    dependencies:
+      playwright: 1.57.0
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -6102,12 +6163,13 @@ snapshots:
 
   fraction.js@5.3.4: {}
 
-  framer-motion@12.23.24(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  framer-motion@12.23.24(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       motion-dom: 12.23.23
       motion-utils: 12.23.6
       tslib: 2.8.1
     optionalDependencies:
+      '@emotion/is-prop-valid': 1.4.0
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
 
@@ -6147,6 +6209,9 @@ snapshots:
       minipass: 3.3.6
 
   fs.realpath@1.0.0: {}
+
+  fsevents@2.3.2:
+    optional: true
 
   fsevents@2.3.3:
     optional: true
@@ -6249,6 +6314,8 @@ snapshots:
       type-fest: 0.20.2
 
   globals@14.0.0: {}
+
+  globals@16.5.0: {}
 
   globalthis@1.0.4:
     dependencies:
@@ -7052,6 +7119,8 @@ snapshots:
     dependencies:
       entities: 6.0.1
 
+  path-browserify@1.0.1: {}
+
   path-exists@3.0.0: {}
 
   path-exists@4.0.0: {}
@@ -7083,6 +7152,14 @@ snapshots:
     dependencies:
       find-up: 3.0.0
       load-json-file: 5.3.0
+
+  playwright-core@1.57.0: {}
+
+  playwright@1.57.0:
+    dependencies:
+      playwright-core: 1.57.0
+    optionalDependencies:
+      fsevents: 2.3.2
 
   plist@3.1.0:
     dependencies:

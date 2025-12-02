@@ -14,6 +14,7 @@ dist-electron
 release
 temp_cache
 *.local
+*.cache
 package-lock.json.backup
 test-results
 

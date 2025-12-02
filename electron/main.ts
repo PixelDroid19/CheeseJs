@@ -16,8 +16,16 @@ if (!app.isPackaged) {
 }
 
 function createWindow() {
+  // Get the session for WebContainer partition
+  const webContainerSession = session.fromPartition('persist:webcontainer')
+
+  // Configure session for WebContainers - allow third-party cookies
+  webContainerSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    callback({ requestHeaders: details.requestHeaders })
+  })
+
   // Set CSP and COOP/COEP headers for WebContainers
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+  webContainerSession.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders }
 
     // Remove conflicting headers to ensure our strict/permissive combo works
@@ -28,13 +36,27 @@ function createWindow() {
     delete responseHeaders['Cross-Origin-Embedder-Policy']
     delete responseHeaders['cross-origin-opener-policy']
     delete responseHeaders['Cross-Origin-Opener-Policy']
+    delete responseHeaders['cross-origin-resource-policy']
+    delete responseHeaders['Cross-Origin-Resource-Policy']
 
     callback({
       responseHeaders: {
         ...responseHeaders,
-        'Content-Security-Policy': ["default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; child-src 'self' https://stackblitz.com https://*.stackblitz.com https://*.webcontainer.io https://*.staticblitz.com https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io; worker-src 'self' blob: https://*.staticblitz.com https://*.webcontainer.io https://w-corp-staticblitz.com https://*.w-corp-staticblitz.com https://local.webcontainer.io https://*.webcontainer-api.io https://*.stackblitz.io;"],
+        // Permissive CSP that allows all necessary WebContainer resources
+        'Content-Security-Policy': [
+          "default-src * 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' data: blob:; " +
+          "script-src * 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; " +
+          "style-src * 'self' 'unsafe-inline'; " +
+          "font-src * 'self' data:; " +
+          "img-src * 'self' data: blob:; " +
+          "connect-src * 'self' ws: wss:; " +
+          "frame-src * 'self' blob:; " +
+          "child-src * 'self' blob:; " +
+          "worker-src * 'self' blob:;"
+        ],
         'Cross-Origin-Embedder-Policy': ['credentialless'],
-        'Cross-Origin-Opener-Policy': ['same-origin']
+        'Cross-Origin-Opener-Policy': ['same-origin'],
+        'Cross-Origin-Resource-Policy': ['cross-origin']
       }
     })
   })
@@ -46,12 +68,18 @@ function createWindow() {
     backgroundColor: '#1e1e1e', // Set a dark background color
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      devTools: !app.isPackaged, // Disable devTools in production
+      devTools: true, // Enable devTools for debugging
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
       webSecurity: true, // Enable webSecurity to support crossOriginIsolated
-      allowRunningInsecureContent: false
+      allowRunningInsecureContent: false,
+      // Enable features needed for WebContainers
+      experimentalFeatures: true,
+      // Allow service workers and shared workers
+      nodeIntegrationInWorker: false,
+      // Partition for session to enable third-party cookies
+      partition: 'persist:webcontainer'
     }
 
   })

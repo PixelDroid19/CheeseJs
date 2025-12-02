@@ -13,6 +13,7 @@ function AppWrapper () {
     (state) => state.bootWebContainer
   )
   const isLoading = useWebContainerStore((state) => state.isLoading)
+  const bootProgress = useWebContainerStore((state) => state.bootProgress)
   const { themeName, uiFontSize } = useSettingsStore()
   const initialized = useRef(false)
 
@@ -43,7 +44,7 @@ function AppWrapper () {
       <div className="flex flex-col h-screen bg-background">
         <TitleBar />
         <div className="flex-1 flex items-center justify-center">
-          <LoadingIndicator message="Initializing WebContainer..." size="lg" />
+          <LoadingIndicator message={bootProgress || "Initializing WebContainer..."} size="lg" />
         </div>
       </div>
     )
