@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { useCodeStore, type CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
+import { detectLanguageSync, isLanguageExecutable } from '../lib/languageDetection'
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -89,8 +89,9 @@ export function useCodeRunner() {
           unsubscribeRef.current = null
         }
 
-        // Detect language
-        const detectedLang = detectLanguage(sourceCode)
+        // Detect language using ML-based detector
+        const detected = detectLanguageSync(sourceCode)
+        const detectedLang = detected.monacoId
         if (detectedLang !== language) {
           setLanguage(detectedLang)
         }
@@ -101,7 +102,7 @@ export function useCodeRunner() {
           setResult([
             {
               element: {
-                content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${detectedLang}\nSupported languages: javascript, typescript, python`
+                content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${detectedLang} (confidence: ${(detected.confidence * 100).toFixed(0)}%)\nSupported languages: javascript, typescript, python`
               },
               type: 'error'
             }

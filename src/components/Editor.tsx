@@ -14,7 +14,10 @@ import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
 import { setupTypeAcquisition } from '../lib/ata'
-import { detectLanguage, setEditorLanguage, initLanguageDetector } from '../lib/languageDetector'
+import { 
+  detectLanguageSync, 
+  initializeLanguageDetection
+} from '../lib/languageDetection'
 import { registerPythonLanguage } from '../lib/python'
 import { editor } from 'monaco-editor'
 import { configureMonaco } from '../utils/monaco-config'
@@ -183,8 +186,8 @@ function CodeEditor () {
     // Register Python language with syntax highlighting
     registerPythonLanguage(monaco)
     
-    // Initialize language detector with Monaco instance
-    initLanguageDetector()
+    // Pre-initialize ML language detection model
+    initializeLanguageDetection().catch(console.error)
   }, [])
 
   const handleEditorDidMount = useCallback(
@@ -204,12 +207,12 @@ function CodeEditor () {
       // Detect language from initial code and set it
       const initialCode = editorInstance.getValue()
       if (initialCode) {
-        const detected = detectLanguage(initialCode)
+        const detected = detectLanguageSync(initialCode)
         const model = editorInstance.getModel()
-        if (model && detected !== model.getLanguageId()) {
-          console.log(`[Editor] Initial language detection: ${detected}`)
-          monaco.editor.setModelLanguage(model, detected)
-          setLanguage(detected)
+        if (model && detected.monacoId !== model.getLanguageId()) {
+          console.log(`[Editor] Initial language detection: ${detected.monacoId} (confidence: ${detected.confidence.toFixed(2)})`)
+          monaco.editor.setModelLanguage(model, detected.monacoId)
+          setLanguage(detected.monacoId)
         }
       }
 
@@ -310,11 +313,11 @@ function CodeEditor () {
   const lastDetectedRef = useRef<string>('typescript')
   
   const debouncedLanguageDetection = useDebouncedFunction((value: string) => {
-    const detected = detectLanguage(value)
-    lastDetectedRef.current = detected
-    if (detected !== language) {
-      console.log(`[Editor] Language detected: ${detected} (was ${language})`)
-      setLanguage(detected)
+    const detected = detectLanguageSync(value)
+    lastDetectedRef.current = detected.monacoId
+    if (detected.monacoId !== language) {
+      console.log(`[Editor] Language detected: ${detected.monacoId} (confidence: ${detected.confidence.toFixed(2)}, was ${language})`)
+      setLanguage(detected.monacoId)
     }
   }, 300) // Reduced debounce for faster response
 
