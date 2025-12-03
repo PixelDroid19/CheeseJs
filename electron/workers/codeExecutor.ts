@@ -31,7 +31,12 @@ interface CancelMessage {
   id: string
 }
 
-type WorkerMessage = ExecuteMessage | CancelMessage
+interface ClearCacheMessage {
+  type: 'clear-cache'
+  packageName?: string
+}
+
+type WorkerMessage = ExecuteMessage | CancelMessage | ClearCacheMessage
 
 interface ExecuteOptions {
   timeout?: number
@@ -219,10 +224,32 @@ function createRequireFunction() {
     try {
       return customRequire(moduleName)
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`Cannot find module '${moduleName}'. Please install it first.\n${message}`)
+      // SECURITY: Don't expose system paths in error messages
+      throw new Error(`Cannot find module '${moduleName}'. Please install it first.`)
     }
   }
+}
+
+/**
+ * Clear require cache for a specific package or all packages
+ * This is needed when packages are uninstalled to ensure
+ * the next require() call fails properly
+ */
+function clearRequireCache(packageName?: string): void {
+  if (!nodeModulesPath) return
+  
+  const cacheKeys = Object.keys(require.cache)
+  
+  for (const key of cacheKeys) {
+    // Clear cache entries that are in our packages node_modules
+    if (key.includes(nodeModulesPath)) {
+      if (!packageName || key.includes(`node_modules${path.sep}${packageName}`)) {
+        delete require.cache[key]
+      }
+    }
+  }
+  
+  console.log(`[CodeExecutor] Cleared require cache${packageName ? ` for ${packageName}` : ''}`)
 }
 
 /**
@@ -269,7 +296,7 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     EvalError,
     Float32Array,
     Float64Array,
-    Function,
+    // Function,  // SECURITY: Removed - can be used for sandbox escape
     Int8Array,
     Int16Array,
     Int32Array,
@@ -433,6 +460,8 @@ parentPort?.on('message', async (message: WorkerMessage) => {
         data: { name: 'CancelError', message: 'Execution cancelled by user' }
       } as ResultMessage)
     }
+  } else if (message.type === 'clear-cache') {
+    clearRequireCache(message.packageName)
   }
 })
 

@@ -27,6 +27,35 @@ export interface InstalledPackage {
 let packagesDir: string
 
 /**
+ * SECURITY: Validate package name to prevent command injection
+ * Based on npm naming rules: https://github.com/npm/validate-npm-package-name
+ */
+function isValidPackageName(name: string): boolean {
+  // Handle scoped packages like @scope/package
+  const scopedPattern = /^@[a-z0-9-~][a-z0-9-._~]*\/[a-z0-9-~][a-z0-9-._~]*$/
+  const normalPattern = /^[a-z0-9-~][a-z0-9-._~]*$/
+  
+  // Remove version suffix for validation
+  let packageName = name
+  if (name.includes('@') && !name.startsWith('@')) {
+    packageName = name.split('@')[0]
+  } else if (name.startsWith('@') && name.lastIndexOf('@') > 0) {
+    packageName = name.substring(0, name.lastIndexOf('@'))
+  }
+  
+  if (packageName.length === 0 || packageName.length > 214) {
+    return false
+  }
+  
+  // Check for dangerous characters that could be used for command injection
+  if (/[;&|`$(){}[\]<>\\!#%^*?]/.test(name)) {
+    return false
+  }
+  
+  return scopedPattern.test(packageName) || normalPattern.test(packageName)
+}
+
+/**
  * Initialize the packages directory
  */
 export async function initPackagesDirectory(): Promise<string> {
@@ -91,6 +120,16 @@ export async function installPackage(packageName: string): Promise<PackageInstal
     await initPackagesDirectory()
   }
 
+  // SECURITY: Validate package name to prevent command injection
+  if (!isValidPackageName(packageName)) {
+    console.error(`[PackageManager] Invalid package name rejected: ${packageName}`)
+    return {
+      success: false,
+      packageName,
+      error: 'Invalid package name. Package names must contain only lowercase letters, numbers, hyphens, dots, and underscores.'
+    }
+  }
+
   console.log(`[PackageManager] Installing package: ${packageName}`)
 
   return new Promise((resolve) => {
@@ -107,6 +146,8 @@ export async function installPackage(packageName: string): Promise<PackageInstal
 
     console.log(`[PackageManager] Running: ${npm} ${args.join(' ')} in ${packagesDir}`)
 
+    // SECURITY: Command injection is prevented by isValidPackageName() validation above
+    // shell: true is required on Windows for .cmd files
     const child = spawn(npm, args, {
       cwd: packagesDir,
       shell: true,
@@ -173,12 +214,24 @@ export async function uninstallPackage(packageName: string): Promise<PackageInst
     await initPackagesDirectory()
   }
 
+  // SECURITY: Validate package name to prevent command injection
+  if (!isValidPackageName(packageName)) {
+    console.error(`[PackageManager] Invalid package name rejected: ${packageName}`)
+    return {
+      success: false,
+      packageName,
+      error: 'Invalid package name'
+    }
+  }
+
   console.log(`[PackageManager] Uninstalling package: ${packageName}`)
 
   return new Promise((resolve) => {
     const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
     const args = ['uninstall', packageName, '--save']
 
+    // SECURITY: Command injection is prevented by isValidPackageName() validation above
+    // shell: true is required on Windows for .cmd files
     const child = spawn(npm, args, {
       cwd: packagesDir,
       shell: true,

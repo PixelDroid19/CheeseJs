@@ -210,6 +210,12 @@ ipcMain.handle('install-package', async (_event, packageName: string) => {
 ipcMain.handle('uninstall-package', async (_event, packageName: string) => {
   try {
     const result = await uninstallPackage(packageName)
+    
+    // Clear the require cache in the worker so the package is no longer available
+    if (result.success && codeWorker) {
+      codeWorker.postMessage({ type: 'clear-cache', packageName })
+    }
+    
     return result
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
