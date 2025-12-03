@@ -101,7 +101,7 @@ function customInspect(val: unknown, depth: number = 4): string {
       maxArrayLength: 100,
       maxStringLength: 10000,
       breakLength: 80,
-      compact: false
+      compact: 3  // Keep arrays/objects compact up to 3 levels deep
     })
   } catch {
     return '[Object]'

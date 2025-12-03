@@ -27,7 +27,7 @@ const AdvancedRow = ({
   className?: string 
 }) => {
   return (
-    <div className={clsx("flex items-center justify-between min-h-[40px]", className)}>
+    <div className={clsx("flex items-center justify-between min-h-10", className)}>
       <div className="flex items-center gap-2">
         {label && (
           <span className="text-sm text-foreground">

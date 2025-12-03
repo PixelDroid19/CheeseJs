@@ -16,7 +16,7 @@ export function TitleBar() {
 
   return (
     <header className="titlebar select-none">
-      <nav className="flex items-center justify-between w-full bg-muted text-foreground border-b border-border h-[40px]">
+      <nav className="flex items-center justify-between w-full bg-muted text-foreground border-b border-border h-10">
         <div className="flex items-center pl-4 text-muted-foreground gap-3">
           <div className="flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1 text-green-500">

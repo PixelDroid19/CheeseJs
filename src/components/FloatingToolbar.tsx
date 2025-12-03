@@ -23,6 +23,8 @@ export default function FloatingToolbar() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
         className="flex items-center gap-1 px-2 py-2 bg-card rounded-full shadow-2xl border border-border"
+        role="toolbar"
+        aria-label={t('toolbar.label', 'Main toolbar')}
       >
         <ToolbarButton
           icon={<Play className="w-5 h-5" />}
@@ -48,11 +50,13 @@ export default function FloatingToolbar() {
 function ToolbarButton({
   icon,
   onClick,
-  label
+  label,
+  isActive = false
 }: {
   icon: React.ReactNode;
   onClick: () => void;
   label: string;
+  isActive?: boolean;
 }) {
   return (
     <motion.button
@@ -63,6 +67,8 @@ function ToolbarButton({
         'p-3 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group'
       )}
       title={label}
+      aria-label={label}
+      aria-pressed={isActive}
     >
       {icon}
     </motion.button>

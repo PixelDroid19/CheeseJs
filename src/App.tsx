@@ -1,16 +1,21 @@
-import { useEffect } from 'react'
-import CodeEditor from './components/Editor'
-import ResultDisplay from './components/Result'
-import Settings from './components/Settings/Settings'
+import { useEffect, lazy, Suspense } from 'react'
 import FloatingToolbar from './components/FloatingToolbar'
 import { Layout } from './components/Layout'
 import { useSettingsStore } from './store/useSettingsStore'
-import { usePackagesStore } from './store/usePackagesStore'
+import { usePackagesStore, type PackagesState } from './store/usePackagesStore'
+
+// Lazy load Settings (modal, not critical path)
+const Settings = lazy(() => import('./components/Settings/Settings'))
+
+// Keep Editor and Result as regular imports since they're in the critical render path
+// and react-split needs direct children
+import CodeEditor from './components/Editor'
+import ResultDisplay from './components/Result'
 
 function App() {
   const { setMagicComments } = useSettingsStore()
-  const addPackage = usePackagesStore((state) => state.addPackage)
-  const setPackageInstalled = usePackagesStore((state) => state.setPackageInstalled)
+  const addPackage = usePackagesStore((state: PackagesState) => state.addPackage)
+  const setPackageInstalled = usePackagesStore((state: PackagesState) => state.setPackageInstalled)
 
   // Load installed packages from disk on app start
   useEffect(() => {
@@ -45,7 +50,9 @@ function App() {
 
   return (
     <>
-      <Settings />
+      <Suspense fallback={null}>
+        <Settings />
+      </Suspense>
       <FloatingToolbar />
       <Layout>
         <CodeEditor />

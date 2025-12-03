@@ -150,7 +150,7 @@ export async function stringify (element: unknown): Promise<ColoredElement> {
       content: ObjetToString(jc.decycle(element), {
         indent: '  ',
         singleQuotes: false,
-        inlineCharacterLimit: 20
+        inlineCharacterLimit: 80
       })
     }
   }

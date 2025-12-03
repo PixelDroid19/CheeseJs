@@ -1,7 +1,29 @@
 import { useCallback, useRef, useEffect } from 'react'
-import { useCodeStore } from '../store/useCodeStore'
+import { useCodeStore, type CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
+
+// Error types for better error handling
+class CodeRunnerError extends Error {
+  constructor(message: string, public readonly code: string) {
+    super(message)
+    this.name = 'CodeRunnerError'
+  }
+}
+
+class WorkerUnavailableError extends CodeRunnerError {
+  constructor() {
+    super('Code runner not available. Please ensure you are running in Electron.', 'WORKER_UNAVAILABLE')
+    this.name = 'WorkerUnavailableError'
+  }
+}
+
+class ExecutionTimeoutError extends CodeRunnerError {
+  constructor() {
+    super('Code execution timed out.', 'EXECUTION_TIMEOUT')
+    this.name = 'ExecutionTimeoutError'
+  }
+}
 
 // Generate unique execution IDs
 let executionCounter = 0
@@ -10,14 +32,14 @@ function generateExecutionId(): string {
 }
 
 export function useCodeRunner() {
-  const code = useCodeStore((state) => state.code)
-  const setCode = useCodeStore((state) => state.setCode)
-  const setResult = useCodeStore((state) => state.setResult)
-  const appendResult = useCodeStore((state) => state.appendResult)
-  const clearResult = useCodeStore((state) => state.clearResult)
-  const language = useCodeStore((state) => state.language)
-  const setLanguage = useCodeStore((state) => state.setLanguage)
-  const setIsExecuting = useCodeStore((state) => state.setIsExecuting)
+  const code = useCodeStore((state: CodeState) => state.code)
+  const setCode = useCodeStore((state: CodeState) => state.setCode)
+  const setResult = useCodeStore((state: CodeState) => state.setResult)
+  const appendResult = useCodeStore((state: CodeState) => state.appendResult)
+  const clearResult = useCodeStore((state: CodeState) => state.clearResult)
+  const language = useCodeStore((state: CodeState) => state.language)
+  const setLanguage = useCodeStore((state: CodeState) => state.setLanguage)
+  const setIsExecuting = useCodeStore((state: CodeState) => state.setIsExecuting)
 
   const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
     useSettingsStore()
@@ -86,7 +108,7 @@ export function useCodeRunner() {
         try {
           // Check if codeRunner is available (Electron environment)
           if (!window.codeRunner) {
-            throw new Error('Code runner not available. Please ensure you are running in Electron.')
+            throw new WorkerUnavailableError()
           }
 
           // Subscribe to results for this execution
@@ -146,9 +168,24 @@ export function useCodeRunner() {
             })
           }
         } catch (error: unknown) {
-          const message =
-            error instanceof Error ? error.message : 'An unknown error occurred'
-          setResult([{ element: { content: `❌ ${message}` }, type: 'error' }])
+          let errorMessage: string
+          let errorIcon = '❌'
+          
+          if (error instanceof WorkerUnavailableError) {
+            errorMessage = `${error.message}\n\nPlease restart the application.`
+            errorIcon = '🔌'
+          } else if (error instanceof ExecutionTimeoutError) {
+            errorMessage = `${error.message}\n\nTry breaking your code into smaller chunks.`
+            errorIcon = '⏱️'
+          } else if (error instanceof CodeRunnerError) {
+            errorMessage = error.message
+          } else if (error instanceof Error) {
+            errorMessage = error.message
+          } else {
+            errorMessage = 'An unknown error occurred'
+          }
+          
+          setResult([{ element: { content: `${errorIcon} ${errorMessage}` }, type: 'error' }])
         } finally {
           setIsExecuting(false)
           currentExecutionIdRef.current = null

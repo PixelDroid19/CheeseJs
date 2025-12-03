@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 
 interface CodeResultElement {
   content: string | number | boolean | object | null;
+  jsType?: string;
+  consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir';
 }
 
 interface CodeResult {

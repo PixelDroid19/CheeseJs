@@ -91,10 +91,14 @@ function ResultDisplay() {
     return lines.join('\n')
   }, [elements, alignResults, code])
 
-  const actionResults = elements.filter(e => e.action)
+  // Memoize action results filtering
+  const actionResults = useMemo(() => 
+    elements.filter(e => e.action),
+    [elements]
+  )
 
-  // Combine actionResults, packages (managed), and detectedMissingPackages
-  const allActionItems = [
+  // Memoize combined action items from multiple sources
+  const allActionItems = useMemo(() => [
     // 1. Action results from code execution
     ...actionResults.map(r => ({
       pkgName: r.action?.payload as string,
@@ -128,10 +132,13 @@ function ResultDisplay() {
         message: `Package "${pkgName}" is missing`,
         isActionResult: false
       }))
-  ]
+  ], [actionResults, packages, detectedMissingPackages])
 
-  // Filter out dismissed packages
-  const visibleActionItems = allActionItems.filter(item => !dismissedPackages.includes(item.pkgName))
+  // Memoize visible items after filtering dismissed packages
+  const visibleActionItems = useMemo(() => 
+    allActionItems.filter(item => !dismissedPackages.includes(item.pkgName)),
+    [allActionItems, dismissedPackages]
+  )
 
   const handleDismiss = (pkgName: string) => {
     setDismissedPackages(prev => [...prev, pkgName])
@@ -197,7 +204,7 @@ function ResultDisplay() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="p-2 bg-muted rounded-md">
-                        <PackageIcon className="w-[1.125rem] h-[1.125rem] text-primary" />
+                        <PackageIcon className="size-4.5 text-primary" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2">

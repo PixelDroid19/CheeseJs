@@ -18,7 +18,7 @@ export interface PackageInfo {
   lastError?: PackageError
 }
 
-interface PackagesState {
+export interface PackagesState {
   packages: PackageInfo[]
   detectedMissingPackages: string[]
   isInstalling: boolean
