@@ -185,15 +185,19 @@ const JAVASCRIPT_PATTERNS: Array<[RegExp, number]> = [
   [/\bvar\s+\w+\s*=/, 1],
   [/\bfunction\s+\w*\s*\(/, 2],
   [/=>/, 2],
-  [/console\.(log|error|warn)/, 2],
-  [/require\s*\(/, 2],
-  [/import\s+.*\s+from\s+['"]/, 2],
-  [/export\s+(default|const|function)/, 2],
-  [/===|!==/, 1],
+  [/console\.(log|error|warn|info|debug|table)/, 5], // High weight - very JS specific
+  [/require\s*\(/, 3],
+  [/import\s+.*\s+from\s+['"]/, 3],
+  [/export\s+(default|const|function|class)/, 3],
+  [/===|!==/, 2],
+  [/document\.|window\.|localStorage/, 4], // DOM APIs
+  [/\.(then|catch|finally)\s*\(/, 3], // Promise chains
+  [/async\s+function|await\s+/, 3],
 ]
 
 function patternBasedDetection(content: string): DetectionResult {
-  if (!content || content.trim().length < 10) {
+  // Very short content - default to TypeScript (most common in this app)
+  if (!content || content.trim().length < 15) {
     return { monacoId: 'typescript', confidence: 1.0, isExecutable: true }
   }
 
@@ -339,8 +343,8 @@ export const useLanguageStore = create<LanguageState>()(
           const cached = detectionCache.get(cacheKey)
           if (cached) return cached
 
-          // Very short content - use pattern detection (ML unreliable < 20 chars)
-          if (!content || content.trim().length < 20) {
+          // Very short content - use pattern detection (ML unreliable < 30 chars)
+          if (!content || content.trim().length < 30) {
             const result = patternBasedDetection(content)
             updateCache(cacheKey, result)
             set({ lastDetectionConfidence: result.confidence })
