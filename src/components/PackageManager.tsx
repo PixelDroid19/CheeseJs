@@ -1,26 +1,34 @@
 import React, { useState } from 'react'
 import { usePackagesStore } from '../store/usePackagesStore'
 import { useSettingsStore } from '../store/useSettingsStore'
+import { usePackageInstaller } from '../hooks/usePackageInstaller'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, RefreshCw } from 'lucide-react'
 
 export function PackageManager () {
   const { t } = useTranslation()
   const [packageName, setPackageName] = useState('')
   const packages = usePackagesStore((state) => state.packages)
   const { npmRcContent, setNpmRcContent } = useSettingsStore()
+  const { installPackage, uninstallPackage } = usePackageInstaller()
 
-  const handleAddPackage = () => {
+  const handleAddPackage = async () => {
     if (!packageName.trim()) return
 
-    // Add package to store - it will be installed on next code run
-    usePackagesStore.getState().addPackage(packageName.trim())
+    const name = packageName.trim()
     setPackageName('')
+    
+    // Install the package via Electron IPC
+    await installPackage(name)
   }
 
-  const handleRemovePackage = (pkg: string) => {
-    usePackagesStore.getState().removePackage(pkg)
+  const handleRemovePackage = async (pkg: string) => {
+    await uninstallPackage(pkg)
+  }
+
+  const handleRetryInstall = async (pkg: string) => {
+    await installPackage(pkg)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -130,12 +138,21 @@ export function PackageManager () {
                           <span className="text-xs">Installing...</span>
                         </div>
                       ) : pkg.error ? (
-                        <div className="text-destructive" title={pkg.error}>
-                          ⚠
-                        </div>
-                      ) : (
+                        <button
+                          onClick={() => handleRetryInstall(pkg.name)}
+                          className="flex items-center gap-1 text-destructive hover:text-destructive/80"
+                          title={`Error: ${pkg.error}. Click to retry.`}
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span className="text-xs">Retry</span>
+                        </button>
+                      ) : pkg.isInstalled ? (
                         <div className="text-success">
                           ✓
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground text-xs">
+                          Pending
                         </div>
                       )}
                     </div>

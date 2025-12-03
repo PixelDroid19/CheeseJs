@@ -1,14 +1,13 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { useCodeStore } from '../store/useCodeStore'
-import { useWebContainerStore } from '../store/useWebContainerStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { usePackagesStore } from '../store/usePackagesStore'
-import { run, transformCode } from '../lib/code/run'
-import { runInWebContainer } from '../lib/code/runWebContainer'
 import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
-import { 
-  logAutoRunSkipped
-} from '../lib/logging/packageLogger'
+
+// Generate unique execution IDs
+let executionCounter = 0
+function generateExecutionId(): string {
+  return `exec-${Date.now()}-${++executionCounter}`
+}
 
 export function useCodeRunner() {
   const code = useCodeStore((state) => state.code)
@@ -19,16 +18,23 @@ export function useCodeRunner() {
   const language = useCodeStore((state) => state.language)
   const setLanguage = useCodeStore((state) => state.setLanguage)
   const setIsExecuting = useCodeStore((state) => state.setIsExecuting)
-  const setIsPendingRun = useCodeStore((state) => state.setIsPendingRun)
-  const isPendingRun = useCodeStore((state) => state.isPendingRun)
-  const setDetectedMissingPackages = usePackagesStore((state) => state.setDetectedMissingPackages)
 
-  const { showTopLevelResults, loopProtection, showUndefined, internalLogLevel, npmRcContent, magicComments, autoRunAfterInstall } =
+  const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
     useSettingsStore()
 
-  const webContainer = useWebContainerStore((state) => state.webContainer)
-  const killProcessRef = useRef<(() => void) | null>(null)
+  const currentExecutionIdRef = useRef<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const unsubscribeRef = useRef<(() => void) | null>(null)
+
+  // Clean up result listener on unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current()
+        unsubscribeRef.current = null
+      }
+    }
+  }, [])
 
   const runCode = useCallback(
     async (codeToRun?: string) => {
@@ -39,9 +45,16 @@ export function useCodeRunner() {
       debounceRef.current = setTimeout(async () => {
         const sourceCode = codeToRun ?? code
 
-        if (killProcessRef.current) {
-          killProcessRef.current()
-          killProcessRef.current = null
+        // Cancel any previous execution
+        if (currentExecutionIdRef.current) {
+          window.codeRunner?.cancel(currentExecutionIdRef.current)
+          currentExecutionIdRef.current = null
+        }
+
+        // Clean up previous listener
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current()
+          unsubscribeRef.current = null
         }
 
         // Detect language
@@ -67,73 +80,86 @@ export function useCodeRunner() {
         clearResult()
         setIsExecuting(true)
 
+        const executionId = generateExecutionId()
+        currentExecutionIdRef.current = executionId
+
         try {
-          // Always use WebContainer if available
-          if (webContainer) {
-            const { kill, missingPackages } = await runInWebContainer(
-              webContainer,
-              sourceCode,
-              (result) => {
-                appendResult(result)
-              },
-              {
-                showTopLevelResults,
-                loopProtection,
-                showUndefined,
-                internalLogLevel,
-                npmRcContent,
-                magicComments
-              }
-            )
+          // Check if codeRunner is available (Electron environment)
+          if (!window.codeRunner) {
+            throw new Error('Code runner not available. Please ensure you are running in Electron.')
+          }
 
-            if (missingPackages.length > 0) {
-              setIsPendingRun(true)
-              setDetectedMissingPackages(missingPackages)
-              
-              // Only auto-add packages to store if autoInstallPackages is enabled
-              // Read directly from store to get the current value (not stale closure)
-              const currentAutoInstall = useSettingsStore.getState().autoInstallPackages
-              if (currentAutoInstall) {
-                const { addPackage } = usePackagesStore.getState()
-                missingPackages.forEach(pkg => addPackage(pkg))
-              }
-            }
+          // Subscribe to results for this execution
+          unsubscribeRef.current = window.codeRunner.onResult((result: ExecutionResult) => {
+            // Only process results for current execution
+            if (result.id !== executionId) return
 
-            killProcessRef.current = kill
-          } else {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ WebContainer not available, falling back to browser execution')
+            if (result.type === 'debug') {
+              // Line-numbered output
+              appendResult({
+                lineNumber: result.line,
+                element: { 
+                  content: (result.data as { content: string })?.content ?? String(result.data),
+                  jsType: result.jsType
+                },
+                type: 'execution'
+              })
+            } else if (result.type === 'console') {
+              // Console output (log, warn, error, etc.)
+              const consolePrefix = result.consoleType === 'error' ? '❌ ' :
+                                   result.consoleType === 'warn' ? '⚠️ ' : ''
+              appendResult({
+                element: { 
+                  content: consolePrefix + ((result.data as { content: string })?.content ?? String(result.data)),
+                  consoleType: result.consoleType
+                },
+                type: 'execution'
+              })
+            } else if (result.type === 'error') {
+              // Execution error
+              const errorData = result.data as { name?: string; message?: string; stack?: string }
+              const errorMessage = errorData.message ?? String(result.data)
+              appendResult({
+                element: { content: `❌ ${errorData.name ?? 'Error'}: ${errorMessage}` },
+                type: 'error'
+              })
+            } else if (result.type === 'complete') {
+              // Execution completed
+              setIsExecuting(false)
+              currentExecutionIdRef.current = null
             }
-            const transformed = transformCode(sourceCode, {
-              showTopLevelResults,
-              loopProtection,
-              internalLogLevel,
-              magicComments
+          })
+
+          // Execute code via IPC
+          const response = await window.codeRunner.execute(executionId, sourceCode, {
+            timeout: 30000,
+            showUndefined,
+            showTopLevelResults,
+            loopProtection,
+            magicComments
+          })
+
+          if (!response.success) {
+            appendResult({
+              element: { content: `❌ ${response.error ?? 'Unknown error'}` },
+              type: 'error'
             })
-            await run(
-              transformed,
-              (result) => {
-                appendResult(result)
-              },
-              {
-                showUndefined
-              }
-            )
           }
         } catch (error: unknown) {
           const message =
             error instanceof Error ? error.message : 'An unknown error occurred'
-          setResult([{ element: { content: message }, type: 'error' }])
+          setResult([{ element: { content: `❌ ${message}` }, type: 'error' }])
         } finally {
           setIsExecuting(false)
+          currentExecutionIdRef.current = null
         }
+
         if (codeToRun !== undefined) {
           setCode(codeToRun)
         }
       }, 300)
     },
     [
-      webContainer,
       language,
       setResult,
       setCode,
@@ -145,31 +171,11 @@ export function useCodeRunner() {
       showTopLevelResults,
       loopProtection,
       showUndefined,
-      internalLogLevel,
-      npmRcContent,
-      magicComments,
-      setDetectedMissingPackages,
-      setIsPendingRun
+      magicComments
     ]
   )
 
-  // Effect to auto-run after package installation
-  // This effect is DISABLED here - the auto-run logic is handled in PackageInstaller.tsx
-  // to avoid race conditions between two competing effects
-  useEffect(() => {
-    if (!isPendingRun) return
-    
-    if (!autoRunAfterInstall) {
-      logAutoRunSkipped('Auto-run after install is disabled in settings')
-      setIsPendingRun(false)
-      return
-    }
-    
-    // The actual auto-run is triggered by PackageInstaller.tsx when packages finish installing
-  }, [isPendingRun, autoRunAfterInstall, setIsPendingRun])
-
   return {
-    runCode,
-    webContainer
+    runCode
   }
 }

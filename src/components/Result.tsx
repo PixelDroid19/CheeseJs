@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useCodeStore } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
@@ -14,10 +14,33 @@ function ResultDisplay() {
   const elements = useCodeStore((state) => state.result)
   const code = useCodeStore((state) => state.code)
   const { themeName, fontSize, alignResults } = useSettingsStore()
-  const { packages, addPackage, detectedMissingPackages } = usePackagesStore()
+  const { packages, addPackage, setPackageInstalling, setPackageInstalled, setPackageError, detectedMissingPackages } = usePackagesStore()
   const { t } = useTranslation()
 
   const { packageMetadata, dismissedPackages, setDismissedPackages } = usePackageMetadata(detectedMissingPackages)
+
+  // Handle package installation using native Electron API
+  const handleInstallPackage = useCallback(async (packageName: string) => {
+    console.log('[Result] Installing package:', packageName)
+    addPackage(packageName)
+    setPackageInstalling(packageName, true)
+    
+    if (window.packageManager) {
+      try {
+        const result = await window.packageManager.install(packageName)
+        if (result.success) {
+          setPackageInstalled(packageName, result.version)
+        } else {
+          setPackageError(packageName, result.error)
+        }
+      } catch (error) {
+        setPackageError(packageName, error instanceof Error ? error.message : 'Installation failed')
+      }
+    } else {
+      // Fallback: just mark as installing (will be picked up by auto-install if enabled)
+      console.warn('[Result] window.packageManager not available')
+    }
+  }, [addPackage, setPackageInstalling, setPackageInstalled, setPackageError])
 
   function handleEditorWillMount(monaco: Monaco) {
     // Register all themes
@@ -88,12 +111,18 @@ function ResultDisplay() {
         message: `Package "${p.name}"`,
         isActionResult: false
       })),
-    // 3. Detected missing packages (not in packages store yet)
+    // 3. Detected missing packages (not in packages store yet OR not installed)
     ...detectedMissingPackages
-      .filter(pkgName =>
-        !actionResults.some(r => r.action?.payload === pkgName) &&
-        !packages.some(p => p.name === pkgName)
-      )
+      .filter(pkgName => {
+        // Skip if already shown in action results
+        if (actionResults.some(r => r.action?.payload === pkgName)) return false
+        // Skip if package is already installed
+        const existingPkg = packages.find(p => p.name === pkgName)
+        if (existingPkg?.isInstalled) return false
+        // Skip if already in the packages list (will be shown from packages array)
+        if (existingPkg) return false
+        return true
+      })
       .map(pkgName => ({
         pkgName,
         message: `Package "${pkgName}" is missing`,
@@ -211,7 +240,7 @@ function ResultDisplay() {
                               <span className="truncate">{pkgInfo.error}</span>
                             </span>
                             <button
-                              onClick={() => pkgName && addPackage(pkgName)}
+                              onClick={() => pkgName && handleInstallPackage(pkgName)}
                               className="w-full px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                             >
                               <Download className="w-3.5 h-3.5" /> {t('packages.retry', 'Retry')}
@@ -232,7 +261,7 @@ function ResultDisplay() {
                             )
                             : (
                               <button
-                                onClick={() => pkgName && addPackage(pkgName)}
+                                onClick={() => pkgName && handleInstallPackage(pkgName)}
                                 className="w-full px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                               >
                                 <Download className="w-3.5 h-3.5" /> {t('packages.install', 'Install Package')}

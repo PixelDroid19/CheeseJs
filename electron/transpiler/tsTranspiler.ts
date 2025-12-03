@@ -1,0 +1,272 @@
+/**
+ * TypeScript-based Code Transpiler
+ * 
+ * Provides TypeScript/JSX transpilation using the TypeScript Compiler API
+ * for code transformations (debug injection, loop protection, etc.)
+ */
+
+import ts from 'typescript'
+
+export interface TransformOptions {
+  showTopLevelResults?: boolean
+  loopProtection?: boolean
+  magicComments?: boolean
+  showUndefined?: boolean
+}
+
+/**
+ * Transform code using TypeScript Compiler
+ */
+export function transpileWithTypeScript(code: string): string {
+  const result = ts.transpileModule(code, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS, // Use CommonJS for require() support
+      target: ts.ScriptTarget.ES2022,
+      jsx: ts.JsxEmit.React,
+      esModuleInterop: true,
+      allowSyntheticDefaultImports: true,
+      experimentalDecorators: true,
+      emitDecoratorMetadata: false,
+      strict: false,
+      skipLibCheck: true,
+      noEmit: false,
+      sourceMap: false
+    },
+    fileName: 'index.tsx'
+  })
+
+  return result.outputText
+}
+
+/**
+ * Simple regex-based transformations for code injection
+ * These run after TypeScript transpilation
+ */
+export function applyCodeTransforms(
+  code: string,
+  options: TransformOptions = {}
+): string {
+  let transformed = code
+
+  // Apply console.log -> debug transformation
+  transformed = transformConsoleTodebug(transformed)
+
+  // Apply loop protection if enabled
+  if (options.loopProtection) {
+    transformed = addLoopProtection(transformed)
+  }
+
+  // Apply stray expression wrapping if enabled
+  if (options.showTopLevelResults !== false) {
+    transformed = wrapTopLevelExpressions(transformed)
+  }
+
+  return transformed
+}
+
+/**
+ * Transform console.log/warn/error/info calls to debug calls
+ */
+function transformConsoleTodebug(code: string): string {
+  const lines = code.split('\n')
+  const result: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const lineNumber = i + 1
+
+    // Match console.log, console.warn, console.error, console.info
+    const consolePattern = /console\.(log|warn|error|info|debug)\s*\(/g
+    
+    if (consolePattern.test(line)) {
+      // Replace console.xxx( with debug(lineNumber, 
+      const transformed = line.replace(
+        /console\.(log|warn|error|info|debug)\s*\(/g,
+        `debug(${lineNumber}, `
+      )
+      result.push(transformed)
+    } else {
+      result.push(line)
+    }
+  }
+
+  return result.join('\n')
+}
+
+/**
+ * Add loop protection to prevent infinite loops
+ */
+function addLoopProtection(code: string): string {
+  const MAX_ITERATIONS = 10000
+  let loopCounter = 0
+
+  // Match while, for, do-while loops
+  const loopPattern = /(while\s*\([^)]*\)\s*\{|for\s*\([^)]*\)\s*\{|do\s*\{)/g
+
+  return code.replace(loopPattern, (match) => {
+    const counterVar = `__loopCounter${loopCounter++}`
+    const checkCode = `let ${counterVar} = 0; if (++${counterVar} > ${MAX_ITERATIONS}) throw new Error("Loop limit exceeded (${MAX_ITERATIONS} iterations)"); `
+    
+    // Insert the check after the opening brace
+    const braceIndex = match.lastIndexOf('{')
+    return match.slice(0, braceIndex + 1) + '\n' + checkCode + '\n'
+  })
+}
+
+/**
+ * Wrap top-level expressions in debug calls
+ */
+function wrapTopLevelExpressions(code: string): string {
+  const lines = code.split('\n')
+  const result: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    const lineNumber = i + 1
+
+    // Skip empty lines, comments, declarations
+    if (
+      !trimmed ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith('/*') ||
+      trimmed.startsWith('*') ||
+      trimmed.startsWith('import ') ||
+      trimmed.startsWith('export ') ||
+      trimmed.startsWith('const ') ||
+      trimmed.startsWith('let ') ||
+      trimmed.startsWith('var ') ||
+      trimmed.startsWith('function ') ||
+      trimmed.startsWith('class ') ||
+      trimmed.startsWith('interface ') ||
+      trimmed.startsWith('type ') ||
+      trimmed.startsWith('enum ') ||
+      trimmed.startsWith('if ') ||
+      trimmed.startsWith('for ') ||
+      trimmed.startsWith('while ') ||
+      trimmed.startsWith('switch ') ||
+      trimmed.startsWith('try ') ||
+      trimmed.startsWith('catch ') ||
+      trimmed.startsWith('finally ') ||
+      trimmed.startsWith('return ') ||
+      trimmed.startsWith('throw ') ||
+      trimmed.startsWith('break') ||
+      trimmed.startsWith('continue') ||
+      trimmed.startsWith('{') ||
+      trimmed.startsWith('}') ||
+      trimmed.startsWith('debug(') ||
+      trimmed.startsWith('await debug(') ||
+      // Skip method chaining (lines starting with .)
+      trimmed.startsWith('.')
+    ) {
+      result.push(line)
+      continue
+    }
+
+    // Skip if it's an assignment
+    if (/^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*/.test(trimmed) && !trimmed.startsWith('==')) {
+      result.push(line)
+      continue
+    }
+
+    // Check if next line starts with . (method chaining) - don't wrap this line
+    const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : ''
+    if (nextLine.startsWith('.')) {
+      result.push(line)
+      continue
+    }
+
+    // Wrap simple expressions that end with semicolon on a single line
+    if (trimmed.endsWith(';') && !trimmed.includes('.then(') && !trimmed.includes('.catch(')) {
+      const expr = trimmed.slice(0, -1)
+      const indent = line.match(/^\s*/)?.[0] || ''
+      result.push(`${indent}debug(${lineNumber}, ${expr});`)
+    } else {
+      result.push(line)
+    }
+  }
+
+  return result.join('\n')
+}
+
+/**
+ * Full transform pipeline
+ */
+export function transformCode(
+  code: string,
+  options: TransformOptions = {}
+): string {
+  if (!code.trim()) return ''
+
+  console.log('[tsTranspiler] transformCode called with options:', options)
+  console.log('[tsTranspiler] magicComments enabled:', options.magicComments)
+
+  try {
+    // Step 1: Apply magic comments BEFORE transpilation (they get removed by TS)
+    let processedCode = code
+    if (options.magicComments) {
+      console.log('[tsTranspiler] Applying magic comments...')
+      console.log('[tsTranspiler] Original code:', code)
+      processedCode = applyMagicComments(code)
+      console.log('[tsTranspiler] After magic comments:', processedCode)
+    }
+
+    // Step 2: Transpile TS/JSX with TypeScript
+    const transpiled = transpileWithTypeScript(processedCode)
+    console.log('[tsTranspiler] After TS transpilation:', transpiled)
+
+    // Step 3: Apply other code transformations
+    const transformed = applyCodeTransforms(transpiled, options)
+    console.log('[tsTranspiler] Final transformed code:', transformed)
+
+    return transformed
+  } catch (error) {
+    // If transpilation fails, try to apply transforms to original code
+    console.error('Transpilation error:', error)
+    return applyCodeTransforms(code, options)
+  }
+}
+
+/**
+ * Apply magic comments (//?  or //?) to inject debug calls
+ * This must run BEFORE TypeScript transpilation since TS removes comments
+ */
+function applyMagicComments(code: string): string {
+  const lines = code.split('\n')
+  const result: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const lineNumber = i + 1
+    
+    // Check for magic comment: //? or //?
+    const magicMatch = line.match(/(.+?)\/\/\?\s*(.*)$/)
+    
+    if (magicMatch) {
+      const codePart = magicMatch[1].trim()
+      
+      // Check if it's a variable declaration: const/let/var x = value //?
+      const varMatch = codePart.match(/^(const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(.+?);?\s*$/)
+      
+      if (varMatch) {
+        const [, keyword, varName, value] = varMatch
+        // Output: const x = value; debug(line, x);
+        result.push(`${keyword} ${varName} = ${value};`)
+        result.push(`debug(${lineNumber}, ${varName});`)
+      } else {
+        // For expressions: expr //? -> debug(line, expr)
+        const exprMatch = codePart.match(/^(.+?);?\s*$/)
+        if (exprMatch) {
+          const expr = exprMatch[1]
+          result.push(`debug(${lineNumber}, ${expr});`)
+        } else {
+          result.push(line)
+        }
+      }
+    } else {
+      result.push(line)
+    }
+  }
+
+  return result.join('\n')
+}

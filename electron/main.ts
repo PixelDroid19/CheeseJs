@@ -1,5 +1,14 @@
-import { app, BrowserWindow, ipcMain, nativeImage, Menu, MenuItemConstructorOptions, session } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, Menu, MenuItemConstructorOptions } from 'electron'
 import path from 'node:path'
+import { Worker } from 'node:worker_threads'
+import { transformCode, type TransformOptions } from './transpiler/tsTranspiler'
+import { 
+  initPackagesDirectory, 
+  installPackage, 
+  uninstallPackage, 
+  listInstalledPackages,
+  getNodeModulesPath
+} from './packages/packageManager'
 
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
@@ -15,52 +24,214 @@ if (!app.isPackaged) {
   app.commandLine.appendSwitch('allow-insecure-localhost')
 }
 
-function createWindow() {
-  // Get the session for WebContainer partition
-  const webContainerSession = session.fromPartition('persist:webcontainer')
+// ============================================================================
+// WORKER THREAD POOL MANAGEMENT
+// ============================================================================
 
-  // Configure session for WebContainers - allow third-party cookies
-  webContainerSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    callback({ requestHeaders: details.requestHeaders })
+interface ExecutionRequest {
+  id: string
+  code: string
+  options: {
+    timeout?: number
+    showUndefined?: boolean
+    showTopLevelResults?: boolean
+    loopProtection?: boolean
+    magicComments?: boolean
+  }
+}
+
+interface WorkerResult {
+  type: 'result' | 'console' | 'debug' | 'error' | 'complete' | 'ready'
+  id: string
+  data?: unknown
+  line?: number
+  jsType?: string
+  consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir'
+}
+
+let codeWorker: Worker | null = null
+const pendingExecutions = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void }>()
+
+/**
+ * Initialize the code executor worker
+ */
+function initializeCodeWorker(): void {
+  const workerPath = path.join(__dirname, 'codeExecutor.js')
+  
+  // Pass node_modules path to worker for package require support
+  codeWorker = new Worker(workerPath, {
+    workerData: {
+      nodeModulesPath: getNodeModulesPath()
+    }
   })
+  
+  codeWorker.on('message', (message: WorkerResult) => {
+    if (message.type === 'ready') {
+      console.log('Code executor worker ready')
+      return
+    }
+    
+    // Forward all messages to renderer
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('code-execution-result', message)
+    }
+    
+    // Handle completion
+    if (message.type === 'complete' || message.type === 'error') {
+      const pending = pendingExecutions.get(message.id)
+      if (pending) {
+        if (message.type === 'error') {
+          pending.reject(new Error((message.data as { message: string }).message))
+        } else {
+          pending.resolve(message.data)
+        }
+        pendingExecutions.delete(message.id)
+      }
+    }
+  })
+  
+  codeWorker.on('error', (error) => {
+    console.error('Worker error:', error)
+    // Reject all pending executions
+    for (const [id, pending] of pendingExecutions) {
+      pending.reject(error)
+      pendingExecutions.delete(id)
+    }
+  })
+  
+  codeWorker.on('exit', (code) => {
+    console.log(`Worker exited with code ${code}`)
+    codeWorker = null
+    // Reinitialize worker if it crashed
+    if (code !== 0) {
+      setTimeout(initializeCodeWorker, 1000)
+    }
+  })
+}
 
-  // Set CSP and COOP/COEP headers for WebContainers
-  webContainerSession.webRequest.onHeadersReceived((details, callback) => {
-    const responseHeaders = { ...details.responseHeaders }
-
-    // Remove conflicting headers to ensure our strict/permissive combo works
-    delete responseHeaders['content-security-policy']
-    delete responseHeaders['Content-Security-Policy']
-    delete responseHeaders['X-Content-Security-Policy']
-    delete responseHeaders['cross-origin-embedder-policy']
-    delete responseHeaders['Cross-Origin-Embedder-Policy']
-    delete responseHeaders['cross-origin-opener-policy']
-    delete responseHeaders['Cross-Origin-Opener-Policy']
-    delete responseHeaders['cross-origin-resource-policy']
-    delete responseHeaders['Cross-Origin-Resource-Policy']
-
-    callback({
-      responseHeaders: {
-        ...responseHeaders,
-        // Permissive CSP that allows all necessary WebContainer resources
-        'Content-Security-Policy': [
-          "default-src * 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' data: blob:; " +
-          "script-src * 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; " +
-          "style-src * 'self' 'unsafe-inline'; " +
-          "font-src * 'self' data:; " +
-          "img-src * 'self' data: blob:; " +
-          "connect-src * 'self' ws: wss:; " +
-          "frame-src * 'self' blob:; " +
-          "child-src * 'self' blob:; " +
-          "worker-src * 'self' blob:;"
-        ],
-        'Cross-Origin-Embedder-Policy': ['credentialless'],
-        'Cross-Origin-Opener-Policy': ['same-origin'],
-        'Cross-Origin-Resource-Policy': ['cross-origin']
+/**
+ * Execute code in the worker
+ */
+async function executeCode(request: ExecutionRequest): Promise<unknown> {
+  if (!codeWorker) {
+    initializeCodeWorker()
+    // Wait for worker to be ready
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  
+  const { id, code, options } = request
+  
+  // Transform code using SWC before sending to worker
+  const transformOptions: TransformOptions = {
+    showTopLevelResults: options.showTopLevelResults ?? true,
+    loopProtection: options.loopProtection ?? true,
+    magicComments: options.magicComments ?? false,
+    showUndefined: options.showUndefined ?? false
+  }
+  
+  let transformedCode: string
+  try {
+    transformedCode = transformCode(code, transformOptions)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    throw new Error(`Transpilation error: ${errorMessage}`)
+  }
+  
+  return new Promise((resolve, reject) => {
+    pendingExecutions.set(id, { resolve, reject })
+    
+    codeWorker!.postMessage({
+      type: 'execute',
+      id,
+      code: transformedCode,
+      options: {
+        timeout: options.timeout ?? 30000,
+        showUndefined: options.showUndefined ?? false
       }
     })
+    
+    // Safety timeout
+    setTimeout(() => {
+      if (pendingExecutions.has(id)) {
+        pendingExecutions.delete(id)
+        reject(new Error('Execution timeout'))
+      }
+    }, (options.timeout ?? 30000) + 5000)
   })
+}
 
+/**
+ * Cancel a running execution
+ */
+function cancelExecution(id: string): void {
+  if (codeWorker) {
+    codeWorker.postMessage({ type: 'cancel', id })
+  }
+  
+  const pending = pendingExecutions.get(id)
+  if (pending) {
+    pending.reject(new Error('Execution cancelled'))
+    pendingExecutions.delete(id)
+  }
+}
+
+// ============================================================================
+// IPC HANDLERS FOR CODE EXECUTION
+// ============================================================================
+
+ipcMain.handle('execute-code', async (_event, request: ExecutionRequest) => {
+  try {
+    const result = await executeCode(request)
+    return { success: true, data: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: errorMessage }
+  }
+})
+
+ipcMain.on('cancel-execution', (_event, id: string) => {
+  cancelExecution(id)
+})
+
+// ============================================================================
+// IPC HANDLERS FOR PACKAGE MANAGEMENT
+// ============================================================================
+
+ipcMain.handle('install-package', async (_event, packageName: string) => {
+  try {
+    const result = await installPackage(packageName)
+    return result
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, packageName, error: errorMessage }
+  }
+})
+
+ipcMain.handle('uninstall-package', async (_event, packageName: string) => {
+  try {
+    const result = await uninstallPackage(packageName)
+    return result
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, packageName, error: errorMessage }
+  }
+})
+
+ipcMain.handle('list-packages', async () => {
+  try {
+    const packages = await listInstalledPackages()
+    return { success: true, packages }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, packages: [], error: errorMessage }
+  }
+})
+
+ipcMain.handle('get-node-modules-path', () => {
+  return getNodeModulesPath()
+})
+
+function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.PUBLIC, 'cheesejs.png'),
     frame: false,
@@ -71,17 +242,9 @@ function createWindow() {
       devTools: true, // Enable devTools for debugging
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
-      webSecurity: true, // Enable webSecurity to support crossOriginIsolated
-      allowRunningInsecureContent: false,
-      // Enable features needed for WebContainers
-      experimentalFeatures: true,
-      // Allow service workers and shared workers
-      nodeIntegrationInWorker: false,
-      // Partition for session to enable third-party cookies
-      partition: 'persist:webcontainer'
+      sandbox: false, // Required for preload script functionality
+      webSecurity: true
     }
-
   })
 
   win.once('ready-to-show', () => {
@@ -167,6 +330,11 @@ function createWindow() {
 }
 
 app.on('window-all-closed', () => {
+  // Terminate worker when app closes
+  if (codeWorker) {
+    codeWorker.terminate()
+    codeWorker = null
+  }
   win = null
 })
 app
@@ -177,5 +345,11 @@ app
         nativeImage.createFromPath(path.join(process.env.PUBLIC, 'cheesejs.png'))
       )
     }
+  })
+  .then(async () => {
+    // Initialize packages directory
+    await initPackagesDirectory()
+    // Initialize the code worker before creating window
+    initializeCodeWorker()
   })
   .then(createWindow)

@@ -106,8 +106,8 @@ function validateImports (model: editor.ITextModel, monaco: Monaco) {
         continue
       }
 
-      // Check if installed
-      const isInstalled = packages.some(p => p.name === packageName)
+      // Check if installed (package must exist AND be marked as installed)
+      const isInstalled = packages.some(p => p.name === packageName && p.isInstalled)
 
       if (!isInstalled) {
         // Add to missing packages list

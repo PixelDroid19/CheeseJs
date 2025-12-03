@@ -182,11 +182,20 @@ function CodeEditor () {
       // Cleanup old models immediately on mount
       cleanupModels(editorInstance)
 
-      // Register custom commands for package management
-      editorInstance.addAction({
-        id: 'cheeseJS.installPackage',
-        label: 'Install Package',
-        run: (_ed, packageName: string) => {
+      // Register custom commands for package management using Monaco's command system
+      // This is required for CodeActions to work properly (addAction doesn't work with CodeAction commands)
+      monaco.editor.registerCommand('cheeseJS.installPackage', async (_accessor, packageName: string) => {
+        console.log('[Editor] Installing package:', packageName)
+        if (window.packageManager) {
+          usePackagesStore.getState().addPackage(packageName)
+          usePackagesStore.getState().setPackageInstalling(packageName, true)
+          const result = await window.packageManager.install(packageName)
+          if (result.success) {
+            usePackagesStore.getState().setPackageInstalled(packageName, result.version)
+          } else {
+            usePackagesStore.getState().setPackageError(packageName, result.error)
+          }
+        } else {
           usePackagesStore.getState().addPackage(packageName)
         }
       })
@@ -197,43 +206,59 @@ function CodeEditor () {
         lastCursorPositionRef.current = e.position
       })
 
-      editorInstance.addAction({
-        id: 'cheeseJS.installAndRun',
-        label: 'Install Package and Run',
-        run: async (ed, packageName: string) => {
+      monaco.editor.registerCommand('cheeseJS.installAndRun', async (_accessor, packageName: string) => {
+        console.log('[Editor] Installing package and running:', packageName)
+        if (window.packageManager) {
           usePackagesStore.getState().addPackage(packageName)
-          // Wait a bit for state update, then run code
+          usePackagesStore.getState().setPackageInstalling(packageName, true)
+          const result = await window.packageManager.install(packageName)
+          if (result.success) {
+            usePackagesStore.getState().setPackageInstalled(packageName, result.version)
+            // Run code after successful install
+            const code = editorInstance.getValue()
+            runCode(code)
+          } else {
+            usePackagesStore.getState().setPackageError(packageName, result.error)
+          }
+        } else {
+          usePackagesStore.getState().addPackage(packageName)
           setTimeout(() => {
-            const code = ed.getValue()
+            const code = editorInstance.getValue()
             runCode(code)
           }, 100)
         }
       })
 
-      editorInstance.addAction({
-        id: 'cheeseJS.retryInstall',
-        label: 'Retry Install',
-        run: (_ed, packageName: string) => {
-          const store = usePackagesStore.getState()
-          store.removePackage(packageName)
-          store.addPackage(packageName)
+      monaco.editor.registerCommand('cheeseJS.retryInstall', async (_accessor, packageName: string) => {
+        console.log('[Editor] Retrying install:', packageName)
+        const store = usePackagesStore.getState()
+        store.resetPackageAttempts(packageName)
+        store.setPackageInstalling(packageName, true)
+        if (window.packageManager) {
+          const result = await window.packageManager.install(packageName)
+          if (result.success) {
+            store.setPackageInstalled(packageName, result.version)
+          } else {
+            store.setPackageError(packageName, result.error)
+          }
         }
       })
 
-      editorInstance.addAction({
-        id: 'cheeseJS.uninstallPackage',
-        label: 'Uninstall Package',
-        run: (_ed, packageName: string) => {
+      monaco.editor.registerCommand('cheeseJS.uninstallPackage', async (_accessor, packageName: string) => {
+        console.log('[Editor] Uninstalling package:', packageName)
+        if (window.packageManager) {
+          const result = await window.packageManager.uninstall(packageName)
+          if (result.success) {
+            usePackagesStore.getState().removePackage(packageName)
+          }
+        } else {
           usePackagesStore.getState().removePackage(packageName)
         }
       })
 
-      editorInstance.addAction({
-        id: 'cheeseJS.viewOnNpm',
-        label: 'View Package on npm',
-        run: (_ed, packageName: string) => {
-          window.open(`https://www.npmjs.com/package/${packageName}`, '_blank')
-        }
+      monaco.editor.registerCommand('cheeseJS.viewOnNpm', (_accessor, packageName: string) => {
+        console.log('[Editor] Opening npm for:', packageName)
+        window.open(`https://www.npmjs.com/package/${packageName}`, '_blank')
       })
     },
     [runCode, cleanupModels]
