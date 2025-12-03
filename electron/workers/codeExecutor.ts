@@ -296,7 +296,7 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     EvalError,
     Float32Array,
     Float64Array,
-    // Function,  // SECURITY: Removed - can be used for sandbox escape
+    Function,  // Needed for dynamic function creation
     Int8Array,
     Int16Array,
     Int32Array,
@@ -322,6 +322,11 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     URIError,
     WeakMap,
     WeakSet,
+    WeakRef,
+    FinalizationRegistry,
+    
+    // WebAssembly
+    WebAssembly,
     
     // Built-in objects
     Math,
@@ -330,6 +335,7 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     Atomics,
     
     // Global functions
+    eval,
     isNaN,
     isFinite,
     parseFloat,

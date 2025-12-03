@@ -65,29 +65,74 @@ export function applyCodeTransforms(
 }
 
 /**
+ * Find the matching closing parenthesis
+ */
+function findMatchingParen(code: string, startIndex: number): number {
+  let depth = 1
+  let i = startIndex
+  
+  while (i < code.length && depth > 0) {
+    const char = code[i]
+    if (char === '(') depth++
+    else if (char === ')') depth--
+    
+    // Skip string literals
+    if (char === '"' || char === "'" || char === '`') {
+      const quote = char
+      i++
+      while (i < code.length && code[i] !== quote) {
+        if (code[i] === '\\') i++ // Skip escaped chars
+        i++
+      }
+    }
+    i++
+  }
+  
+  return depth === 0 ? i - 1 : -1
+}
+
+/**
  * Transform console.log/warn/error/info calls to debug calls
+ * Uses a parser-based approach to handle nested parentheses
  */
 function transformConsoleTodebug(code: string): string {
   const lines = code.split('\n')
   const result: string[] = []
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+    let line = lines[i]
     const lineNumber = i + 1
-
-    // Match console.log, console.warn, console.error, console.info
-    const consolePattern = /console\.(log|warn|error|info|debug)\s*\(/g
     
-    if (consolePattern.test(line)) {
-      // Replace console.xxx( with debug(lineNumber, 
-      const transformed = line.replace(
-        /console\.(log|warn|error|info|debug)\s*\(/g,
-        `debug(${lineNumber}, `
-      )
-      result.push(transformed)
-    } else {
-      result.push(line)
+    // Pattern to find console.xxx( start positions
+    const consoleStartRegex = /\bconsole\.(log|warn|error|info|debug)\s*\(/g
+    let match
+    let offset = 0
+    
+    while ((match = consoleStartRegex.exec(lines[i])) !== null) {
+      const fullMatchStart = match.index + offset
+      const openParenPos = fullMatchStart + match[0].length - 1
+      
+      // Find the matching close paren in the current line
+      const closeParenPos = findMatchingParen(line, openParenPos + 1)
+      
+      if (closeParenPos !== -1) {
+        const args = line.slice(openParenPos + 1, closeParenPos).trim()
+        const before = line.slice(0, fullMatchStart)
+        const after = line.slice(closeParenPos + 1)
+        
+        let replacement
+        if (args === '') {
+          replacement = `debug(${lineNumber})`
+        } else {
+          replacement = `debug(${lineNumber}, ${args})`
+        }
+        
+        line = before + replacement + after
+        offset += replacement.length - (closeParenPos + 1 - fullMatchStart)
+      }
     }
+    
+    result.push(line)
   }
 
   return result.join('\n')
@@ -125,7 +170,7 @@ function wrapTopLevelExpressions(code: string): string {
     const trimmed = line.trim()
     const lineNumber = i + 1
 
-    // Skip empty lines, comments, declarations
+    // Skip empty lines, comments, declarations, and structural elements
     if (
       !trimmed ||
       trimmed.startsWith('//') ||
@@ -137,27 +182,48 @@ function wrapTopLevelExpressions(code: string): string {
       trimmed.startsWith('let ') ||
       trimmed.startsWith('var ') ||
       trimmed.startsWith('function ') ||
+      trimmed.startsWith('async ') ||
       trimmed.startsWith('class ') ||
       trimmed.startsWith('interface ') ||
       trimmed.startsWith('type ') ||
       trimmed.startsWith('enum ') ||
       trimmed.startsWith('if ') ||
+      trimmed.startsWith('if(') ||
+      trimmed.startsWith('else ') ||
+      trimmed.startsWith('else{') ||
       trimmed.startsWith('for ') ||
+      trimmed.startsWith('for(') ||
       trimmed.startsWith('while ') ||
+      trimmed.startsWith('while(') ||
       trimmed.startsWith('switch ') ||
       trimmed.startsWith('try ') ||
+      trimmed.startsWith('try{') ||
       trimmed.startsWith('catch ') ||
+      trimmed.startsWith('catch(') ||
       trimmed.startsWith('finally ') ||
+      trimmed.startsWith('finally{') ||
       trimmed.startsWith('return ') ||
+      trimmed.startsWith('return;') ||
       trimmed.startsWith('throw ') ||
       trimmed.startsWith('break') ||
       trimmed.startsWith('continue') ||
       trimmed.startsWith('{') ||
       trimmed.startsWith('}') ||
+      trimmed.startsWith('});') ||
+      trimmed.startsWith(']);') ||
+      trimmed.startsWith(']') ||
+      trimmed.startsWith('[') ||
+      trimmed.startsWith('(') ||
+      trimmed.startsWith(')') ||
       trimmed.startsWith('debug(') ||
       trimmed.startsWith('await debug(') ||
+      trimmed.startsWith('yield ') ||
       // Skip method chaining (lines starting with .)
-      trimmed.startsWith('.')
+      trimmed.startsWith('.') ||
+      // Skip closing brackets with just semicolons
+      /^[\]\)\}]+;?$/.test(trimmed) ||
+      // Skip lines that are just commas or array/object continuations
+      /^[,\]\}\)]+$/.test(trimmed)
     ) {
       result.push(line)
       continue
