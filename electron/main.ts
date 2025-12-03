@@ -31,6 +31,7 @@ if (!app.isPackaged) {
 interface ExecutionRequest {
   id: string
   code: string
+  language?: 'javascript' | 'typescript' | 'python'
   options: {
     timeout?: number
     showUndefined?: boolean
@@ -50,6 +51,7 @@ interface WorkerResult {
 }
 
 let codeWorker: Worker | null = null
+let pythonWorker: Worker | null = null
 const pendingExecutions = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void }>()
 
 /**
@@ -167,6 +169,9 @@ function cancelExecution(id: string): void {
   if (codeWorker) {
     codeWorker.postMessage({ type: 'cancel', id })
   }
+  if (pythonWorker) {
+    pythonWorker.postMessage({ type: 'cancel', id })
+  }
   
   const pending = pendingExecutions.get(id)
   if (pending) {
@@ -176,12 +181,123 @@ function cancelExecution(id: string): void {
 }
 
 // ============================================================================
+// PYTHON WORKER MANAGEMENT
+// ============================================================================
+
+/**
+ * Initialize the Python executor worker
+ */
+function initializePythonWorker(): void {
+  const workerPath = path.join(__dirname, 'pythonExecutor.js')
+  
+  pythonWorker = new Worker(workerPath)
+  
+  pythonWorker.on('message', (message: WorkerResult) => {
+    if (message.type === 'ready') {
+      console.log('Python executor worker ready')
+      return
+    }
+    
+    // Forward status messages
+    if (message.type === 'status' as WorkerResult['type']) {
+      console.log('Python status:', (message.data as { message: string }).message)
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('code-execution-result', message)
+      }
+      return
+    }
+    
+    // Forward all messages to renderer
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('code-execution-result', message)
+    }
+    
+    // Handle completion
+    if (message.type === 'complete' || message.type === 'error') {
+      const pending = pendingExecutions.get(message.id)
+      if (pending) {
+        if (message.type === 'error') {
+          pending.reject(new Error((message.data as { message: string }).message))
+        } else {
+          pending.resolve(message.data)
+        }
+        pendingExecutions.delete(message.id)
+      }
+    }
+  })
+  
+  pythonWorker.on('error', (error) => {
+    console.error('Python worker error:', error)
+    for (const [id, pending] of pendingExecutions) {
+      pending.reject(error)
+      pendingExecutions.delete(id)
+    }
+  })
+  
+  pythonWorker.on('exit', (code) => {
+    console.log(`Python worker exited with code ${code}`)
+    pythonWorker = null
+    if (code !== 0) {
+      setTimeout(initializePythonWorker, 1000)
+    }
+  })
+}
+
+/**
+ * Execute Python code in the worker
+ */
+async function executePython(request: ExecutionRequest): Promise<unknown> {
+  if (!pythonWorker) {
+    initializePythonWorker()
+    // Wait for worker to be ready (Pyodide takes longer to load)
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  
+  const { id, code, options } = request
+  
+  return new Promise((resolve, reject) => {
+    pendingExecutions.set(id, { resolve, reject })
+    
+    pythonWorker!.postMessage({
+      type: 'execute',
+      id,
+      code,
+      options: {
+        timeout: options.timeout ?? 30000,
+        showUndefined: options.showUndefined ?? false
+      }
+    })
+    
+    // Safety timeout (longer for Python due to Pyodide loading)
+    setTimeout(() => {
+      if (pendingExecutions.has(id)) {
+        pendingExecutions.delete(id)
+        reject(new Error('Execution timeout'))
+      }
+    }, (options.timeout ?? 30000) + 10000)
+  })
+}
+
+// ============================================================================
 // IPC HANDLERS FOR CODE EXECUTION
 // ============================================================================
 
 ipcMain.handle('execute-code', async (_event, request: ExecutionRequest) => {
   try {
-    const result = await executeCode(request)
+    // Route to appropriate executor based on language
+    const language = request.language || 'javascript'
+    console.log('[execute-code] Language:', language, 'Request keys:', Object.keys(request))
+    
+    let result: unknown
+    if (language === 'python') {
+      console.log('[execute-code] Routing to Python executor')
+      result = await executePython(request)
+    } else {
+      // JavaScript/TypeScript use the same code executor
+      console.log('[execute-code] Routing to JS/TS executor')
+      result = await executeCode(request)
+    }
+    
     return { success: true, data: result }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

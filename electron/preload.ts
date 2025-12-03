@@ -16,6 +16,7 @@ interface ExecutionOptions {
   showTopLevelResults?: boolean
   loopProtection?: boolean
   magicComments?: boolean
+  language?: 'javascript' | 'typescript' | 'python'
 }
 
 interface ExecutionResult {
@@ -54,7 +55,9 @@ contextBridge.exposeInMainWorld('codeRunner', {
    * Execute code in the sandboxed VM
    */
   execute: async (id: string, code: string, options: ExecutionOptions = {}) => {
-    return ipcRenderer.invoke('execute-code', { id, code, options })
+    // Extract language from options and pass it at request level for routing
+    const { language, ...restOptions } = options
+    return ipcRenderer.invoke('execute-code', { id, code, language, options: restOptions })
   },
   
   /**

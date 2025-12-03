@@ -101,7 +101,7 @@ export function useCodeRunner() {
           setResult([
             {
               element: {
-                content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can only execute JavaScript and TypeScript code.\n\nDetected language: ${detectedLang}\nSupported languages: javascript, typescript`
+                content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${detectedLang}\nSupported languages: javascript, typescript, python`
               },
               type: 'error'
             }
@@ -162,13 +162,17 @@ export function useCodeRunner() {
             }
           })
 
-          // Execute code via IPC
+          // Execute code via IPC - pass language for routing to correct worker
+          const execLanguage = detectedLang === 'python' ? 'python' : 
+                               detectedLang === 'typescript' ? 'typescript' : 'javascript'
+          
           const response = await window.codeRunner.execute(executionId, sourceCode, {
             timeout: 30000,
             showUndefined,
             showTopLevelResults,
             loopProtection,
-            magicComments
+            magicComments,
+            language: execLanguage
           })
 
           if (!response.success) {

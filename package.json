@@ -40,6 +40,7 @@
     "json-cycle": "^1.5.0",
     "lucide-react": "^0.555.0",
     "path-browserify": "^1.0.1",
+    "pyodide": "^0.26.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-i18next": "^16.3.5",

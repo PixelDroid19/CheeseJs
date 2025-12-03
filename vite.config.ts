@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => ({
         entry: 'electron/workers/codeExecutor.ts',
       },
       {
+        // Worker thread for Python execution
+        entry: 'electron/workers/pythonExecutor.ts',
+      },
+      {
         // TypeScript transpiler module
         entry: 'electron/transpiler/tsTranspiler.ts',
       },

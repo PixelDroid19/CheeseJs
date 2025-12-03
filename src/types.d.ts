@@ -11,6 +11,7 @@ interface ExecutionOptions {
   showTopLevelResults?: boolean
   loopProtection?: boolean
   magicComments?: boolean
+  language?: 'javascript' | 'typescript' | 'python'
 }
 
 interface ExecutionResult {

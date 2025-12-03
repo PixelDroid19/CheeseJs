@@ -14,7 +14,8 @@ import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
 import { setupTypeAcquisition } from '../lib/ata'
-import { detectLanguage } from '../lib/languageDetector'
+import { detectLanguage, setEditorLanguage, initLanguageDetector } from '../lib/languageDetector'
+import { registerPythonLanguage } from '../lib/python'
 import { editor } from 'monaco-editor'
 import { configureMonaco } from '../utils/monaco-config'
 import { EditorErrorBoundary } from './editor-error-boundary'
@@ -144,18 +145,46 @@ function CodeEditor () {
 
   // Effect to handle language changes and cleanup
   useEffect(() => {
-    if (monacoRef.current) {
+    if (monacoRef.current && monacoInstanceRef.current) {
        const model = monacoRef.current.getModel()
-       if (model) {
-         // Update the language of the existing model without replacing it
-         monaco.editor.setModelLanguage(model, language)
+       if (model && !model.isDisposed()) {
+         const currentLang = model.getLanguageId()
+         if (currentLang !== language) {
+           console.log(`[Editor] Changing language: ${currentLang} -> ${language}`)
+           // Use monaco.editor.setModelLanguage API
+           monacoInstanceRef.current.editor.setModelLanguage(model, language)
+         }
+         
+         // When switching to Python, clear TypeScript/JavaScript markers
+         if (language === 'python') {
+           // Clear all markers for this model using setModelMarkers API
+           monacoInstanceRef.current.editor.setModelMarkers(model, 'typescript', [])
+           monacoInstanceRef.current.editor.setModelMarkers(model, 'javascript', [])
+         }
        }
+       
+       // Configure TypeScript/JavaScript diagnostics based on language
+       const isPython = language === 'python'
+       monacoInstanceRef.current.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+         noSemanticValidation: isPython,
+         noSyntaxValidation: isPython,
+       })
+       monacoInstanceRef.current.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+         noSemanticValidation: isPython,
+         noSyntaxValidation: isPython,
+       })
     }
   }, [language])
 
   const handleEditorWillMount = useCallback((monaco: Monaco) => {
     monacoInstanceRef.current = monaco
     configureMonaco(monaco)
+    
+    // Register Python language with syntax highlighting
+    registerPythonLanguage(monaco)
+    
+    // Initialize language detector with Monaco instance
+    initLanguageDetector()
   }, [])
 
   const handleEditorDidMount = useCallback(
@@ -172,6 +201,17 @@ function CodeEditor () {
         window.useCodeStore = useCodeStore
       }
 
+      // Detect language from initial code and set it
+      const initialCode = editorInstance.getValue()
+      if (initialCode) {
+        const detected = detectLanguage(initialCode)
+        const model = editorInstance.getModel()
+        if (model && detected !== model.getLanguageId()) {
+          console.log(`[Editor] Initial language detection: ${detected}`)
+          monaco.editor.setModelLanguage(model, detected)
+          setLanguage(detected)
+        }
+      }
 
       // Setup ATA
       ataDisposeRef.current = setupTypeAcquisition(monaco)
@@ -184,7 +224,7 @@ function CodeEditor () {
 
       // Register custom commands for package management using Monaco's command system
       // This is required for CodeActions to work properly (addAction doesn't work with CodeAction commands)
-      monaco.editor.registerCommand('cheeseJS.installPackage', async (_accessor, packageName: string) => {
+      monaco.editor.registerCommand('cheeseJS.installPackage', async (_accessor: unknown, packageName: string) => {
         console.log('[Editor] Installing package:', packageName)
         if (window.packageManager) {
           usePackagesStore.getState().addPackage(packageName)
@@ -206,7 +246,7 @@ function CodeEditor () {
         lastCursorPositionRef.current = e.position
       })
 
-      monaco.editor.registerCommand('cheeseJS.installAndRun', async (_accessor, packageName: string) => {
+      monaco.editor.registerCommand('cheeseJS.installAndRun', async (_accessor: unknown, packageName: string) => {
         console.log('[Editor] Installing package and running:', packageName)
         if (window.packageManager) {
           usePackagesStore.getState().addPackage(packageName)
@@ -229,7 +269,7 @@ function CodeEditor () {
         }
       })
 
-      monaco.editor.registerCommand('cheeseJS.retryInstall', async (_accessor, packageName: string) => {
+      monaco.editor.registerCommand('cheeseJS.retryInstall', async (_accessor: unknown, packageName: string) => {
         console.log('[Editor] Retrying install:', packageName)
         const store = usePackagesStore.getState()
         store.resetPackageAttempts(packageName)
@@ -244,7 +284,7 @@ function CodeEditor () {
         }
       })
 
-      monaco.editor.registerCommand('cheeseJS.uninstallPackage', async (_accessor, packageName: string) => {
+      monaco.editor.registerCommand('cheeseJS.uninstallPackage', async (_accessor: unknown, packageName: string) => {
         console.log('[Editor] Uninstalling package:', packageName)
         if (window.packageManager) {
           const result = await window.packageManager.uninstall(packageName)
@@ -256,7 +296,7 @@ function CodeEditor () {
         }
       })
 
-      monaco.editor.registerCommand('cheeseJS.viewOnNpm', (_accessor, packageName: string) => {
+      monaco.editor.registerCommand('cheeseJS.viewOnNpm', (_accessor: unknown, packageName: string) => {
         console.log('[Editor] Opening npm for:', packageName)
         window.open(`https://www.npmjs.com/package/${packageName}`, '_blank')
       })
@@ -265,6 +305,18 @@ function CodeEditor () {
   )
 
   const debouncedRunner = useDebouncedFunction(runCode, 250)
+  
+  // Language detection - immediate for first detection, debounced for subsequent
+  const lastDetectedRef = useRef<string>('typescript')
+  
+  const debouncedLanguageDetection = useDebouncedFunction((value: string) => {
+    const detected = detectLanguage(value)
+    lastDetectedRef.current = detected
+    if (detected !== language) {
+      console.log(`[Editor] Language detected: ${detected} (was ${language})`)
+      setLanguage(detected)
+    }
+  }, 300) // Reduced debounce for faster response
 
   const handler = useCallback(
     (value: string | undefined) => {
@@ -274,24 +326,22 @@ function CodeEditor () {
         }
         lastLocalCodeRef.current = value
         setCode(value)
-        const detected = detectLanguage(value)
-        if (detected !== language) {
-          setLanguage(detected)
-        }
+        // Use debounced language detection to reduce flicker
+        debouncedLanguageDetection(value)
         debouncedRunner(value)
       }
     },
-    [debouncedRunner, language, setCode, setLanguage]
+    [debouncedRunner, debouncedLanguageDetection, setCode]
   )
 
   return (
     <div className="h-full w-full">
       <Editor
-        // Fixed path to prevent model swapping on language change
-        path="index.ts" 
+        // Use a generic path - we control language via setModelLanguage
+        path="code.txt"
         defaultLanguage="typescript"
-        // language prop removed to prevent automatic model recreation by the wrapper
-        // We handle language updates manually via monaco.editor.setModelLanguage in useEffect
+        // Pass language prop to help Monaco - but we also set it manually
+        language={language}
         theme={themeName}
         options={{
           automaticLayout: true,
