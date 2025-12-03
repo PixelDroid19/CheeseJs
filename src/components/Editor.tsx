@@ -48,7 +48,7 @@ function CodeEditor () {
   // Use centralized language store
   const language = useLanguageStore((state) => state.currentLanguage)
   const setLanguage = useLanguageStore((state) => state.setLanguage)
-  const detectLanguage = useLanguageStore((state) => state.detectLanguage)
+  const detectLanguageAsync = useLanguageStore((state) => state.detectLanguageAsync)
   const setMonacoInstance = useLanguageStore((state) => state.setMonacoInstance)
   const applyLanguageToMonaco = useLanguageStore((state) => state.applyLanguageToMonaco)
   const initializeModel = useLanguageStore((state) => state.initializeModel)
@@ -188,16 +188,17 @@ function CodeEditor () {
         window.useCodeStore = useCodeStore
       }
 
-      // Detect language from initial code and set it
+      // Detect language from initial code using ML (async)
       const initialCode = editorInstance.getValue()
-      if (initialCode) {
-        const detected = detectLanguage(initialCode)
-        const model = editorInstance.getModel()
-        if (model && detected.monacoId !== model.getLanguageId()) {
-          console.log(`[Editor] Initial language detection: ${detected.monacoId} (confidence: ${detected.confidence.toFixed(2)})`)
-          monaco.editor.setModelLanguage(model, detected.monacoId)
-          setLanguage(detected.monacoId)
-        }
+      if (initialCode && initialCode.trim().length > 10) {
+        detectLanguageAsync(initialCode).then(detected => {
+          const model = editorInstance.getModel()
+          if (model && !model.isDisposed() && detected.monacoId !== model.getLanguageId()) {
+            console.log(`[Editor] Initial ML detection: ${detected.monacoId} (confidence: ${(detected.confidence * 100).toFixed(1)}%)`)
+            monaco.editor.setModelLanguage(model, detected.monacoId)
+            setLanguage(detected.monacoId)
+          }
+        }).catch(console.error)
       }
 
       // Setup ATA
@@ -288,22 +289,33 @@ function CodeEditor () {
         window.open(`https://www.npmjs.com/package/${packageName}`, '_blank')
       })
     },
-    [runCode, cleanupModels, detectLanguage, setLanguage]
+    [runCode, cleanupModels, detectLanguageAsync, setLanguage]
   )
 
   const debouncedRunner = useDebouncedFunction(runCode, 250)
   
-  // Language detection - immediate for first detection, debounced for subsequent
+  // Language detection using ML (async) - debounced to avoid excessive calls
   const lastDetectedRef = useRef<string>('typescript')
+  const detectionInProgressRef = useRef<boolean>(false)
   
-  const debouncedLanguageDetection = useDebouncedFunction((value: string) => {
-    const detected = detectLanguage(value)
-    lastDetectedRef.current = detected.monacoId
-    if (detected.monacoId !== language) {
-      console.log(`[Editor] Language detected: ${detected.monacoId} (confidence: ${detected.confidence.toFixed(2)}, was ${language})`)
-      setLanguage(detected.monacoId)
+  const debouncedLanguageDetection = useDebouncedFunction(async (value: string) => {
+    // Skip if detection already in progress or content too short
+    if (detectionInProgressRef.current || !value || value.trim().length < 20) return
+    
+    detectionInProgressRef.current = true
+    try {
+      const detected = await detectLanguageAsync(value)
+      lastDetectedRef.current = detected.monacoId
+      if (detected.monacoId !== language) {
+        console.log(`[Editor] ML detected: ${detected.monacoId} (confidence: ${(detected.confidence * 100).toFixed(1)}%, was ${language})`)
+        setLanguage(detected.monacoId)
+      }
+    } catch (error) {
+      console.error('[Editor] Detection failed:', error)
+    } finally {
+      detectionInProgressRef.current = false
     }
-  }, 300) // Reduced debounce for faster response
+  }, 500) // Slightly longer debounce for async ML detection
 
   const handler = useCallback(
     (value: string | undefined) => {
@@ -313,7 +325,7 @@ function CodeEditor () {
         }
         lastLocalCodeRef.current = value
         setCode(value)
-        // Use debounced language detection to reduce flicker
+        // Use debounced ML language detection
         debouncedLanguageDetection(value)
         debouncedRunner(value)
       }

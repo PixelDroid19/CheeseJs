@@ -242,22 +242,37 @@ let modelOperations: ModelOperations | null = null
 let modelLoadPromise: Promise<void> | null = null
 
 // ============================================================================
-// DETECTION CACHE
+// DETECTION CACHE (LRU with proper key hashing)
 // ============================================================================
 
 const detectionCache = new Map<string, DetectionResult>()
-const CACHE_SIZE = 100
+const CACHE_SIZE = 50
 
+/**
+ * Generate a cache key using content signature:
+ * - First 200 chars (captures imports/headers)
+ * - Last 200 chars (captures unique code)
+ * - Total length (differentiates similar starts)
+ */
 function getCacheKey(content: string): string {
-  return content.slice(0, 500)
+  const len = content.length
+  const start = content.slice(0, 200)
+  const end = len > 400 ? content.slice(-200) : ''
+  return `${len}:${start}:${end}`
 }
 
 function updateCache(key: string, value: DetectionResult): void {
+  // LRU eviction: remove oldest entries when at capacity
   if (detectionCache.size >= CACHE_SIZE) {
-    const firstKey = detectionCache.keys().next().value
-    if (firstKey) detectionCache.delete(firstKey)
+    const keysToDelete = Array.from(detectionCache.keys()).slice(0, 10)
+    keysToDelete.forEach(k => detectionCache.delete(k))
   }
   detectionCache.set(key, value)
+}
+
+/** Clear the detection cache (exported for testing/reset) */
+export function clearDetectionCache(): void {
+  detectionCache.clear()
 }
 
 // ============================================================================
@@ -295,20 +310,27 @@ export const useLanguageStore = create<LanguageState>()(
           }
         },
 
+        /**
+         * Synchronous detection - uses cache or pattern fallback
+         * For immediate UI feedback, prefer detectLanguageAsync for accuracy
+         */
         detectLanguage: (content: string): DetectionResult => {
-          // Check cache
+          // Check cache first (may contain ML results from previous async detection)
           const cacheKey = getCacheKey(content)
           const cached = detectionCache.get(cacheKey)
           if (cached) return cached
 
-          // Use pattern-based detection (synchronous)
+          // Fallback to pattern-based for sync detection
+          // This is only used when cache misses and we need immediate result
           const result = patternBasedDetection(content)
-          updateCache(cacheKey, result)
-          
-          set({ lastDetectionConfidence: result.confidence })
+          // Don't cache pattern results - let ML override on next async call
           return result
         },
 
+        /**
+         * ML-first async detection - PRIMARY detection method
+         * Uses ML model for high accuracy, pattern fallback only on error
+         */
         detectLanguageAsync: async (content: string): Promise<DetectionResult> => {
           const state = get()
           
@@ -317,19 +339,29 @@ export const useLanguageStore = create<LanguageState>()(
           const cached = detectionCache.get(cacheKey)
           if (cached) return cached
 
-          // Short content - use pattern detection
+          // Very short content - use pattern detection (ML unreliable < 20 chars)
           if (!content || content.trim().length < 20) {
-            return patternBasedDetection(content)
+            const result = patternBasedDetection(content)
+            updateCache(cacheKey, result)
+            set({ lastDetectionConfidence: result.confidence })
+            return result
           }
 
           // Ensure model is loaded
-          if (!state.isModelLoaded) {
+          if (!state.isModelLoaded && !state.isModelLoading) {
             await state.initializeModel()
+          } else if (state.isModelLoading) {
+            // Wait for ongoing load
+            await modelLoadPromise
           }
 
-          // If model failed to load, fallback
+          // If model failed to load, fallback to patterns
           if (!modelOperations) {
-            return patternBasedDetection(content)
+            console.warn('[LanguageStore] ML model not available, using pattern fallback')
+            const result = patternBasedDetection(content)
+            updateCache(cacheKey, result)
+            set({ lastDetectionConfidence: result.confidence })
+            return result
           }
 
           set({ isDetecting: true })
@@ -338,7 +370,10 @@ export const useLanguageStore = create<LanguageState>()(
             const results = await modelOperations.runModel(content)
             
             if (results.length === 0) {
-              return patternBasedDetection(content)
+              const result = patternBasedDetection(content)
+              updateCache(cacheKey, result)
+              set({ lastDetectionConfidence: result.confidence, isDetecting: false })
+              return result
             }
 
             const topResult = results[0]
@@ -351,23 +386,18 @@ export const useLanguageStore = create<LanguageState>()(
               isExecutable: langInfo?.isExecutable ?? false
             }
 
-            // If confidence is low, verify with pattern detection
-            if (topResult.confidence < 0.2) {
-              const patternResult = patternBasedDetection(content)
-              if (patternResult.confidence > result.confidence) {
-                updateCache(cacheKey, patternResult)
-                set({ lastDetectionConfidence: patternResult.confidence, isDetecting: false })
-                return patternResult
-              }
-            }
-
+            // Cache ML result
             updateCache(cacheKey, result)
             set({ lastDetectionConfidence: result.confidence, isDetecting: false })
+            
+            console.debug(`[LanguageStore] ML detected: ${monacoId} (${(topResult.confidence * 100).toFixed(1)}%)`)
             return result
           } catch (error) {
             console.error('[LanguageStore] ML detection failed:', error)
             set({ isDetecting: false })
-            return patternBasedDetection(content)
+            const result = patternBasedDetection(content)
+            updateCache(cacheKey, result)
+            return result
           }
         },
 

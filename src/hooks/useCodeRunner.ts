@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { useCodeStore, type CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { useLanguageStore, detectLanguageSync, isLanguageExecutable } from '../store/useLanguageStore'
+import { useLanguageStore, isLanguageExecutable, getLanguageDisplayName } from '../store/useLanguageStore'
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -49,9 +49,8 @@ export function useCodeRunner() {
   const clearResult = useCodeStore((state: CodeState) => state.clearResult)
   const setIsExecuting = useCodeStore((state: CodeState) => state.setIsExecuting)
   
-  // Use centralized language store
+  // Use centralized language store (read-only, Editor.tsx handles detection)
   const language = useLanguageStore((state) => state.currentLanguage)
-  const setLanguage = useLanguageStore((state) => state.setLanguage)
 
   const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
     useSettingsStore()
@@ -91,20 +90,17 @@ export function useCodeRunner() {
           unsubscribeRef.current = null
         }
 
-        // Detect language using ML-based detector
-        const detected = detectLanguageSync(sourceCode)
-        const detectedLang = detected.monacoId
-        if (detectedLang !== language) {
-          setLanguage(detectedLang)
-        }
+        // Use language from centralized store (Editor.tsx handles detection)
+        // No duplicate detection here to avoid race conditions
+        const currentLang = language
 
         // Validate that language is executable
-        if (!isLanguageExecutable(detectedLang)) {
+        if (!isLanguageExecutable(currentLang)) {
           setIsExecuting(false)
           setResult([
             {
               element: {
-                content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${detectedLang} (confidence: ${(detected.confidence * 100).toFixed(0)}%)\nSupported languages: javascript, typescript, python`
+                content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)}\n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang}\nSupported languages: javascript, typescript, python`
               },
               type: 'error'
             }
@@ -166,8 +162,8 @@ export function useCodeRunner() {
           })
 
           // Execute code via IPC - pass language for routing to correct worker
-          const execLanguage = detectedLang === 'python' ? 'python' : 
-                               detectedLang === 'typescript' ? 'typescript' : 'javascript'
+          const execLanguage = currentLang === 'python' ? 'python' : 
+                               currentLang === 'typescript' ? 'typescript' : 'javascript'
           
           const response = await window.codeRunner.execute(executionId, sourceCode, {
             timeout: 30000,
@@ -219,7 +215,6 @@ export function useCodeRunner() {
       setCode,
       appendResult,
       clearResult,
-      setLanguage,
       setIsExecuting,
       code,
       showTopLevelResults,
