@@ -10,14 +10,11 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { useCodeStore, CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
+import { useLanguageStore } from '../store/useLanguageStore'
 import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
 import { setupTypeAcquisition } from '../lib/ata'
-import { 
-  detectLanguageSync, 
-  initializeLanguageDetection
-} from '../lib/languageDetection'
 import { registerPythonLanguage } from '../lib/python'
 import { editor } from 'monaco-editor'
 import { configureMonaco } from '../utils/monaco-config'
@@ -45,10 +42,16 @@ loader.config({ monaco })
 
 function CodeEditor () {
   const code = useCodeStore((state: CodeState) => state.code)
-  const language = useCodeStore((state: CodeState) => state.language)
   const setCode = useCodeStore((state: CodeState) => state.setCode)
-  const setLanguage = useCodeStore((state: CodeState) => state.setLanguage)
   const { themeName, fontSize } = useSettingsStore()
+  
+  // Use centralized language store
+  const language = useLanguageStore((state) => state.currentLanguage)
+  const setLanguage = useLanguageStore((state) => state.setLanguage)
+  const detectLanguage = useLanguageStore((state) => state.detectLanguage)
+  const setMonacoInstance = useLanguageStore((state) => state.setMonacoInstance)
+  const applyLanguageToMonaco = useLanguageStore((state) => state.applyLanguageToMonaco)
+  const initializeModel = useLanguageStore((state) => state.initializeModel)
 
   const monacoRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoInstanceRef = useRef<Monaco | null>(null)
@@ -151,44 +154,25 @@ function CodeEditor () {
     if (monacoRef.current && monacoInstanceRef.current) {
        const model = monacoRef.current.getModel()
        if (model && !model.isDisposed()) {
-         const currentLang = model.getLanguageId()
-         if (currentLang !== language) {
-           console.log(`[Editor] Changing language: ${currentLang} -> ${language}`)
-           // Use monaco.editor.setModelLanguage API
-           monacoInstanceRef.current.editor.setModelLanguage(model, language)
-         }
-         
-         // When switching to Python, clear TypeScript/JavaScript markers
-         if (language === 'python') {
-           // Clear all markers for this model using setModelMarkers API
-           monacoInstanceRef.current.editor.setModelMarkers(model, 'typescript', [])
-           monacoInstanceRef.current.editor.setModelMarkers(model, 'javascript', [])
-         }
+         // Use centralized applyLanguageToMonaco
+         applyLanguageToMonaco(model)
        }
-       
-       // Configure TypeScript/JavaScript diagnostics based on language
-       const isPython = language === 'python'
-       monacoInstanceRef.current.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-         noSemanticValidation: isPython,
-         noSyntaxValidation: isPython,
-       })
-       monacoInstanceRef.current.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-         noSemanticValidation: isPython,
-         noSyntaxValidation: isPython,
-       })
     }
-  }, [language])
+  }, [language, applyLanguageToMonaco])
 
   const handleEditorWillMount = useCallback((monaco: Monaco) => {
     monacoInstanceRef.current = monaco
     configureMonaco(monaco)
     
+    // Register Monaco instance in centralized store
+    setMonacoInstance(monaco)
+    
     // Register Python language with syntax highlighting
     registerPythonLanguage(monaco)
     
     // Pre-initialize ML language detection model
-    initializeLanguageDetection().catch(console.error)
-  }, [])
+    initializeModel().catch(console.error)
+  }, [setMonacoInstance, initializeModel])
 
   const handleEditorDidMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
@@ -207,7 +191,7 @@ function CodeEditor () {
       // Detect language from initial code and set it
       const initialCode = editorInstance.getValue()
       if (initialCode) {
-        const detected = detectLanguageSync(initialCode)
+        const detected = detectLanguage(initialCode)
         const model = editorInstance.getModel()
         if (model && detected.monacoId !== model.getLanguageId()) {
           console.log(`[Editor] Initial language detection: ${detected.monacoId} (confidence: ${detected.confidence.toFixed(2)})`)
@@ -304,7 +288,7 @@ function CodeEditor () {
         window.open(`https://www.npmjs.com/package/${packageName}`, '_blank')
       })
     },
-    [runCode, cleanupModels]
+    [runCode, cleanupModels, detectLanguage, setLanguage]
   )
 
   const debouncedRunner = useDebouncedFunction(runCode, 250)
@@ -313,7 +297,7 @@ function CodeEditor () {
   const lastDetectedRef = useRef<string>('typescript')
   
   const debouncedLanguageDetection = useDebouncedFunction((value: string) => {
-    const detected = detectLanguageSync(value)
+    const detected = detectLanguage(value)
     lastDetectedRef.current = detected.monacoId
     if (detected.monacoId !== language) {
       console.log(`[Editor] Language detected: ${detected.monacoId} (confidence: ${detected.confidence.toFixed(2)}, was ${language})`)

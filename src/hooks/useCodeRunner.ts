@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { useCodeStore, type CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { detectLanguageSync, isLanguageExecutable } from '../lib/languageDetection'
+import { useLanguageStore, detectLanguageSync, isLanguageExecutable } from '../store/useLanguageStore'
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -47,9 +47,11 @@ export function useCodeRunner() {
   const setResult = useCodeStore((state: CodeState) => state.setResult)
   const appendResult = useCodeStore((state: CodeState) => state.appendResult)
   const clearResult = useCodeStore((state: CodeState) => state.clearResult)
-  const language = useCodeStore((state: CodeState) => state.language)
-  const setLanguage = useCodeStore((state: CodeState) => state.setLanguage)
   const setIsExecuting = useCodeStore((state: CodeState) => state.setIsExecuting)
+  
+  // Use centralized language store
+  const language = useLanguageStore((state) => state.currentLanguage)
+  const setLanguage = useLanguageStore((state) => state.setLanguage)
 
   const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
     useSettingsStore()
