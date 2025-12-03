@@ -3,6 +3,16 @@ import { useCodeStore, type CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
 
+// Type for execution results from the worker
+interface ExecutionResultData {
+  type: 'result' | 'console' | 'debug' | 'error' | 'complete'
+  id: string
+  data?: unknown
+  line?: number
+  jsType?: string
+  consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir'
+}
+
 // Error types for better error handling
 class CodeRunnerError extends Error {
   constructor(message: string, public readonly code: string) {
@@ -112,7 +122,7 @@ export function useCodeRunner() {
           }
 
           // Subscribe to results for this execution
-          unsubscribeRef.current = window.codeRunner.onResult((result: ExecutionResult) => {
+          unsubscribeRef.current = window.codeRunner.onResult((result: ExecutionResultData) => {
             // Only process results for current execution
             if (result.id !== executionId) return
 

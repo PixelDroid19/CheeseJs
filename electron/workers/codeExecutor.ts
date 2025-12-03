@@ -322,8 +322,10 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     URIError,
     WeakMap,
     WeakSet,
-    WeakRef,
-    FinalizationRegistry,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    WeakRef: (globalThis as any).WeakRef,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    FinalizationRegistry: (globalThis as any).FinalizationRegistry,
     
     // WebAssembly
     WebAssembly,
