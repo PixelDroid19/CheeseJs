@@ -48,9 +48,6 @@ export function useCodeRunner() {
   const appendResult = useCodeStore((state: CodeState) => state.appendResult)
   const clearResult = useCodeStore((state: CodeState) => state.clearResult)
   const setIsExecuting = useCodeStore((state: CodeState) => state.setIsExecuting)
-  
-  // Use centralized language store (read-only, Editor.tsx handles detection)
-  const language = useLanguageStore((state) => state.currentLanguage)
 
   const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
     useSettingsStore()
@@ -90,9 +87,11 @@ export function useCodeRunner() {
           unsubscribeRef.current = null
         }
 
-        // Use language from centralized store (Editor.tsx handles detection)
-        // No duplicate detection here to avoid race conditions
-        const currentLang = language
+        // IMPORTANT: Detect language directly from source code to avoid race conditions
+        // The store language might not be updated yet when auto-run triggers
+        const detectLanguage = useLanguageStore.getState().detectLanguage
+        const detected = detectLanguage(sourceCode)
+        const currentLang = detected.monacoId
 
         // Validate that language is executable
         if (!isLanguageExecutable(currentLang)) {
@@ -219,7 +218,6 @@ export function useCodeRunner() {
       }, 300)
     },
     [
-      language,
       setResult,
       setCode,
       appendResult,
