@@ -157,7 +157,7 @@ const DETECTION_TO_MONACO: Record<string, string> = {
 const DEFINITIVE_PYTHON_PATTERNS: RegExp[] = [
   /^print\s*\(/m,                    // print( at start of line - ONLY Python
   /^\s*print\s*\([^)]*\)\s*$/,       // Single line print statement
-  /^\s*def\s+\w+\s*\([^)]*\)\s*:/m,  // def func(): - Python function
+  /^\s*def\s+\w+\s*\([^)]*\).*:/m,   // def func(): or def func() -> type: - Python function
   /^\s*class\s+\w+.*:\s*$/m,         // class Name: - Python class
   /^\s*from\s+\w+\s+import\s+/m,     // from x import - Python import
   /^\s*import\s+\w+\s*$/m,           // import x (no from/require)
@@ -165,6 +165,8 @@ const DEFINITIVE_PYTHON_PATTERNS: RegExp[] = [
   /\bexcept\s*:/,                    // except: - ONLY Python
   /\bexcept\s+\w+/,                  // except Exception - ONLY Python
   /:\s*\n\s+/,                       // colon followed by indented block
+  /->\s*(str|int|float|bool|None|list|dict|tuple|set)\s*:/,  // Python return type hints
+  /if\s+__name__\s*==\s*["']__main__["']\s*:/,  // Python main guard
 ]
 
 /**
@@ -205,6 +207,7 @@ const DEFINITIVE_TS_PATTERNS: RegExp[] = [
 
 const PYTHON_PATTERNS: Array<[RegExp, number]> = [
   [/^\s*def\s+\w+\s*\(/m, 4],
+  [/^\s*def\s+\w+\s*\([^)]*\).*:/m, 5],  // def with return type hint
   [/^\s*class\s+\w+.*:/m, 4],
   [/^\s*import\s+\w+$/m, 3],
   [/^\s*from\s+\w+\s+import/m, 4],
@@ -223,6 +226,9 @@ const PYTHON_PATTERNS: Array<[RegExp, number]> = [
   [/__\w+__/, 2],                     // __init__, __name__, etc.
   [/\bpass\b/, 2],
   [/\blambda\s+\w*:/, 3],
+  [/->\s*(str|int|float|bool|None|list|dict|tuple)\s*:/, 5],  // Return type hints
+  [/:\s*(str|int|float|bool|List|Dict|Tuple|Set|Optional)\b/, 4],  // Python type hints
+  [/if\s+__name__\s*==\s*["']__main__["']/, 5],  // Python main guard
 ]
 
 const TYPESCRIPT_PATTERNS: Array<[RegExp, number]> = [
