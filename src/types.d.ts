@@ -57,6 +57,22 @@ interface PackageManager {
 }
 
 // ============================================================================
+// PYTHON PACKAGE MANAGER TYPES
+// ============================================================================
+
+interface PythonPackageInstallResult {
+  success: boolean
+  packageName: string
+  version?: string
+  error?: string
+}
+
+interface PythonPackageManager {
+  install: (packageName: string) => Promise<PythonPackageInstallResult>
+  listInstalled: () => Promise<{ success: boolean; packages: string[]; error?: string }>
+}
+
+// ============================================================================
 // WINDOW INTERFACE
 // ============================================================================
 
@@ -71,4 +87,5 @@ interface Window {
   }
   codeRunner: CodeRunner
   packageManager: PackageManager
+  pythonPackageManager: PythonPackageManager
 }

@@ -31,7 +31,12 @@ interface InstallPackageMessage {
   packageName: string
 }
 
-type WorkerMessage = ExecuteMessage | CancelMessage | InstallPackageMessage
+interface ListPackagesMessage {
+  type: 'list-packages'
+  id: string
+}
+
+type WorkerMessage = ExecuteMessage | CancelMessage | InstallPackageMessage | ListPackagesMessage
 
 interface ExecuteOptions {
   timeout?: number
@@ -314,6 +319,38 @@ await micropip.install('${packageName}')
   }
 }
 
+/**
+ * List installed Python packages
+ */
+async function listInstalledPackages(id: string): Promise<void> {
+  try {
+    const py = await initializePyodide()
+    
+    const result = await py.runPythonAsync(`
+import micropip
+list(micropip.list().keys())
+`)
+
+    const packages = result.toJs() as string[]
+
+    parentPort?.postMessage({
+      type: 'complete',
+      id,
+      data: { packages }
+    } as ResultMessage)
+
+  } catch (error) {
+    parentPort?.postMessage({
+      type: 'error',
+      id,
+      data: { 
+        name: 'ListError', 
+        message: `Failed to list packages: ${error instanceof Error ? error.message : String(error)}` 
+      }
+    } as ResultMessage)
+  }
+}
+
 // Message handler
 parentPort?.on('message', async (message: WorkerMessage) => {
   if (message.type === 'execute') {
@@ -329,6 +366,8 @@ parentPort?.on('message', async (message: WorkerMessage) => {
     }
   } else if (message.type === 'install-package') {
     await installPackage(message)
+  } else if (message.type === 'list-packages') {
+    await listInstalledPackages(message.id)
   }
 })
 

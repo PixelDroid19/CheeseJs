@@ -78,43 +78,44 @@ function initializeCodeWorker(): Promise<void> {
         return
       }
     
-    // Forward all messages to renderer
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('code-execution-result', message)
-    }
-    
-    // Handle completion
-    if (message.type === 'complete' || message.type === 'error') {
-      const pending = pendingExecutions.get(message.id)
-      if (pending) {
-        if (message.type === 'error') {
-          pending.reject(new Error((message.data as { message: string }).message))
-        } else {
-          pending.resolve(message.data)
-        }
-        pendingExecutions.delete(message.id)
+      // Forward all messages to renderer
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('code-execution-result', message)
       }
-    }
-  })
+    
+      // Handle completion
+      if (message.type === 'complete' || message.type === 'error') {
+        const pending = pendingExecutions.get(message.id)
+        if (pending) {
+          if (message.type === 'error') {
+            pending.reject(new Error((message.data as { message: string }).message))
+          } else {
+            pending.resolve(message.data)
+          }
+          pendingExecutions.delete(message.id)
+        }
+      }
+    })
   
-  codeWorker.on('error', (error) => {
-    console.error('Worker error:', error)
-    codeWorkerReady = false
-    // Reject all pending executions
-    for (const [id, pending] of pendingExecutions) {
-      pending.reject(error)
-      pendingExecutions.delete(id)
-    }
-  })
+    codeWorker.on('error', (error) => {
+      console.error('Worker error:', error)
+      codeWorkerReady = false
+      // Reject all pending executions
+      for (const [id, pending] of pendingExecutions) {
+        pending.reject(error)
+        pendingExecutions.delete(id)
+      }
+    })
   
-  codeWorker.on('exit', (code) => {
-    console.log(`Worker exited with code ${code}`)
-    codeWorker = null
-    codeWorkerReady = false
-    // Reinitialize worker if it crashed
-    if (code !== 0) {
-      setTimeout(() => initializeCodeWorker(), 1000)
-    }
+    codeWorker.on('exit', (code) => {
+      console.log(`Worker exited with code ${code}`)
+      codeWorker = null
+      codeWorkerReady = false
+      // Reinitialize worker if it crashed
+      if (code !== 0) {
+        setTimeout(() => initializeCodeWorker(), 1000)
+      }
+    })
   })
 }
 
@@ -370,6 +371,97 @@ ipcMain.handle('list-packages', async () => {
 
 ipcMain.handle('get-node-modules-path', () => {
   return getNodeModulesPath()
+})
+
+// ============================================================================
+// IPC HANDLERS FOR PYTHON PACKAGE MANAGEMENT
+// ============================================================================
+
+ipcMain.handle('install-python-package', async (_event, packageName: string) => {
+  try {
+    // Ensure Python worker is initialized
+    if (!pythonWorker || !pythonWorkerReady) {
+      await initializePythonWorker()
+    }
+
+    const id = `python-install-${Date.now()}`
+    
+    return new Promise((resolve) => {
+      if (!pythonWorker) {
+        resolve({ success: false, packageName, error: 'Python worker not available' })
+        return
+      }
+
+      const handleMessage = (message: WorkerResult) => {
+        if (message.id !== id) return
+        
+        if (message.type === 'complete') {
+          pythonWorker?.off('message', handleMessage)
+          resolve({ success: true, packageName })
+        } else if (message.type === 'error') {
+          pythonWorker?.off('message', handleMessage)
+          const errorData = message.data as { message: string }
+          resolve({ success: false, packageName, error: errorData.message })
+        }
+      }
+
+      pythonWorker.on('message', handleMessage)
+      pythonWorker.postMessage({ type: 'install-package', id, packageName })
+
+      // Timeout after 60 seconds
+      setTimeout(() => {
+        pythonWorker?.off('message', handleMessage)
+        resolve({ success: false, packageName, error: 'Installation timeout' })
+      }, 60000)
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, packageName, error: errorMessage }
+  }
+})
+
+ipcMain.handle('list-python-packages', async () => {
+  try {
+    // Ensure Python worker is initialized
+    if (!pythonWorker || !pythonWorkerReady) {
+      await initializePythonWorker()
+    }
+
+    const id = `python-list-${Date.now()}`
+    
+    return new Promise((resolve) => {
+      if (!pythonWorker) {
+        resolve({ success: false, packages: [], error: 'Python worker not available' })
+        return
+      }
+
+      const handleMessage = (message: WorkerResult) => {
+        if (message.id !== id) return
+        
+        if (message.type === 'complete') {
+          pythonWorker?.off('message', handleMessage)
+          const data = message.data as { packages: string[] }
+          resolve({ success: true, packages: data.packages || [] })
+        } else if (message.type === 'error') {
+          pythonWorker?.off('message', handleMessage)
+          const errorData = message.data as { message: string }
+          resolve({ success: false, packages: [], error: errorData.message })
+        }
+      }
+
+      pythonWorker.on('message', handleMessage)
+      pythonWorker.postMessage({ type: 'list-packages', id })
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        pythonWorker?.off('message', handleMessage)
+        resolve({ success: false, packages: [], error: 'List packages timeout' })
+      }, 10000)
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, packages: [], error: errorMessage }
+  }
 })
 
 function createWindow() {

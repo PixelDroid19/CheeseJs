@@ -10,10 +10,12 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { useCodeStore, CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
+import { usePythonPackagesStore } from '../store/usePythonPackagesStore'
 import { useLanguageStore } from '../store/useLanguageStore'
 import { useDebouncedFunction } from '../hooks/useDebounce'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { registerMonacoProviders, disposeMonacoProviders } from '../lib/monacoProviders'
+import { registerPythonMonacoProviders, disposePythonMonacoProviders } from '../lib/python/pythonMonacoProviders'
 import { setupTypeAcquisition } from '../lib/ata'
 import { registerPythonLanguage } from '../lib/python'
 import { editor } from 'monaco-editor'
@@ -71,6 +73,7 @@ function CodeEditor () {
       window.removeEventListener('trigger-format', handleFormat)
       // Dispose Monaco providers on unmount
       disposeMonacoProviders()
+      disposePythonMonacoProviders()
       // Dispose ATA subscription
       if (ataDisposeRef.current) {
         ataDisposeRef.current()
@@ -206,6 +209,9 @@ function CodeEditor () {
       // Register hover and code action providers
       registerMonacoProviders(monaco, editorInstance)
       
+      // Register Python providers
+      registerPythonMonacoProviders(monaco, editorInstance)
+      
       // Cleanup old models immediately on mount
       cleanupModels(editorInstance)
 
@@ -286,6 +292,66 @@ function CodeEditor () {
       monaco.editor.registerCommand('cheeseJS.viewOnNpm', (_accessor: unknown, packageName: string) => {
         console.log('[Editor] Opening npm for:', packageName)
         window.open(`https://www.npmjs.com/package/${packageName}`, '_blank')
+      })
+
+      // Python package management commands
+      monaco.editor.registerCommand('cheeseJS.installPythonPackage', async (_accessor: unknown, packageName: string) => {
+        console.log('[Editor] Installing Python package:', packageName)
+        if (window.pythonPackageManager) {
+          usePythonPackagesStore.getState().addPackage(packageName)
+          usePythonPackagesStore.getState().setPackageInstalling(packageName, true)
+          const result = await window.pythonPackageManager.install(packageName)
+          if (result.success) {
+            usePythonPackagesStore.getState().setPackageInstalled(packageName, result.version)
+          } else {
+            usePythonPackagesStore.getState().setPackageError(packageName, result.error)
+          }
+        } else {
+          usePythonPackagesStore.getState().addPackage(packageName)
+        }
+      })
+
+      monaco.editor.registerCommand('cheeseJS.installPythonPackageAndRun', async (_accessor: unknown, packageName: string) => {
+        console.log('[Editor] Installing Python package and running:', packageName)
+        if (window.pythonPackageManager) {
+          usePythonPackagesStore.getState().addPackage(packageName)
+          usePythonPackagesStore.getState().setPackageInstalling(packageName, true)
+          const result = await window.pythonPackageManager.install(packageName)
+          if (result.success) {
+            usePythonPackagesStore.getState().setPackageInstalled(packageName, result.version)
+            // Run code after successful install
+            const code = editorInstance.getValue()
+            runCode(code)
+          } else {
+            usePythonPackagesStore.getState().setPackageError(packageName, result.error)
+          }
+        } else {
+          usePythonPackagesStore.getState().addPackage(packageName)
+          setTimeout(() => {
+            const code = editorInstance.getValue()
+            runCode(code)
+          }, 100)
+        }
+      })
+
+      monaco.editor.registerCommand('cheeseJS.retryPythonInstall', async (_accessor: unknown, packageName: string) => {
+        console.log('[Editor] Retrying Python install:', packageName)
+        const store = usePythonPackagesStore.getState()
+        store.resetPackageAttempts(packageName)
+        store.setPackageInstalling(packageName, true)
+        if (window.pythonPackageManager) {
+          const result = await window.pythonPackageManager.install(packageName)
+          if (result.success) {
+            store.setPackageInstalled(packageName, result.version)
+          } else {
+            store.setPackageError(packageName, result.error)
+          }
+        }
+      })
+
+      monaco.editor.registerCommand('cheeseJS.viewOnPyPI', (_accessor: unknown, packageName: string) => {
+        console.log('[Editor] Opening PyPI for:', packageName)
+        window.open(`https://pypi.org/project/${packageName}/`, '_blank')
       })
     },
     [runCode, cleanupModels, detectLanguageAsync, setLanguage]

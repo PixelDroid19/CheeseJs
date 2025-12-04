@@ -132,4 +132,31 @@ contextBridge.exposeInMainWorld('packageManager', {
   }
 })
 
+// ============================================================================
+// PYTHON PACKAGE MANAGER API
+// ============================================================================
+
+interface PythonPackageInstallResult {
+  success: boolean
+  packageName: string
+  version?: string
+  error?: string
+}
+
+contextBridge.exposeInMainWorld('pythonPackageManager', {
+  /**
+   * Install a Python package using micropip
+   */
+  install: async (packageName: string): Promise<PythonPackageInstallResult> => {
+    return ipcRenderer.invoke('install-python-package', packageName)
+  },
+
+  /**
+   * List all installed Python packages
+   */
+  listInstalled: async (): Promise<{ success: boolean; packages: string[]; error?: string }> => {
+    return ipcRenderer.invoke('list-python-packages')
+  }
+})
+
 setTimeout(removeLoading, 1000)
