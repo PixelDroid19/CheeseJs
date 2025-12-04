@@ -52,26 +52,31 @@ interface WorkerResult {
 
 let codeWorker: Worker | null = null
 let pythonWorker: Worker | null = null
+let codeWorkerReady = false
+let pythonWorkerReady = false
 const pendingExecutions = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void }>()
 
 /**
  * Initialize the code executor worker
  */
-function initializeCodeWorker(): void {
-  const workerPath = path.join(__dirname, 'codeExecutor.js')
-  
-  // Pass node_modules path to worker for package require support
-  codeWorker = new Worker(workerPath, {
-    workerData: {
-      nodeModulesPath: getNodeModulesPath()
-    }
-  })
-  
-  codeWorker.on('message', (message: WorkerResult) => {
-    if (message.type === 'ready') {
-      console.log('Code executor worker ready')
-      return
-    }
+function initializeCodeWorker(): Promise<void> {
+  return new Promise((resolve) => {
+    const workerPath = path.join(__dirname, 'codeExecutor.js')
+    
+    // Pass node_modules path to worker for package require support
+    codeWorker = new Worker(workerPath, {
+      workerData: {
+        nodeModulesPath: getNodeModulesPath()
+      }
+    })
+    
+    codeWorker.on('message', (message: WorkerResult) => {
+      if (message.type === 'ready') {
+        console.log('Code executor worker ready')
+        codeWorkerReady = true
+        resolve()
+        return
+      }
     
     // Forward all messages to renderer
     if (win && !win.isDestroyed()) {
@@ -94,6 +99,7 @@ function initializeCodeWorker(): void {
   
   codeWorker.on('error', (error) => {
     console.error('Worker error:', error)
+    codeWorkerReady = false
     // Reject all pending executions
     for (const [id, pending] of pendingExecutions) {
       pending.reject(error)
@@ -104,9 +110,10 @@ function initializeCodeWorker(): void {
   codeWorker.on('exit', (code) => {
     console.log(`Worker exited with code ${code}`)
     codeWorker = null
+    codeWorkerReady = false
     // Reinitialize worker if it crashed
     if (code !== 0) {
-      setTimeout(initializeCodeWorker, 1000)
+      setTimeout(() => initializeCodeWorker(), 1000)
     }
   })
 }
@@ -115,10 +122,8 @@ function initializeCodeWorker(): void {
  * Execute code in the worker
  */
 async function executeCode(request: ExecutionRequest): Promise<unknown> {
-  if (!codeWorker) {
-    initializeCodeWorker()
-    // Wait for worker to be ready
-    await new Promise(resolve => setTimeout(resolve, 100))
+  if (!codeWorker || !codeWorkerReady) {
+    await initializeCodeWorker()
   }
   
   const { id, code, options } = request
@@ -140,9 +145,14 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
   }
   
   return new Promise((resolve, reject) => {
+    if (!codeWorker) {
+      reject(new Error('Code worker not initialized'))
+      return
+    }
+    
     pendingExecutions.set(id, { resolve, reject })
     
-    codeWorker!.postMessage({
+    codeWorker.postMessage({
       type: 'execute',
       id,
       code: transformedCode,
@@ -187,59 +197,65 @@ function cancelExecution(id: string): void {
 /**
  * Initialize the Python executor worker
  */
-function initializePythonWorker(): void {
-  const workerPath = path.join(__dirname, 'pythonExecutor.js')
-  
-  pythonWorker = new Worker(workerPath)
-  
-  pythonWorker.on('message', (message: WorkerResult) => {
-    if (message.type === 'ready') {
-      console.log('Python executor worker ready')
-      return
-    }
+function initializePythonWorker(): Promise<void> {
+  return new Promise((resolve) => {
+    const workerPath = path.join(__dirname, 'pythonExecutor.js')
     
-    // Forward status messages
-    if (message.type === 'status' as WorkerResult['type']) {
-      console.log('Python status:', (message.data as { message: string }).message)
+    pythonWorker = new Worker(workerPath)
+    
+    pythonWorker.on('message', (message: WorkerResult) => {
+      if (message.type === 'ready') {
+        console.log('Python executor worker ready')
+        pythonWorkerReady = true
+        resolve()
+        return
+      }
+      
+      // Forward status messages
+      if (message.type === 'status' as WorkerResult['type']) {
+        console.log('Python status:', (message.data as { message: string }).message)
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('code-execution-result', message)
+        }
+        return
+      }
+      
+      // Forward all messages to renderer
       if (win && !win.isDestroyed()) {
         win.webContents.send('code-execution-result', message)
       }
-      return
-    }
-    
-    // Forward all messages to renderer
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('code-execution-result', message)
-    }
-    
-    // Handle completion
-    if (message.type === 'complete' || message.type === 'error') {
-      const pending = pendingExecutions.get(message.id)
-      if (pending) {
-        if (message.type === 'error') {
-          pending.reject(new Error((message.data as { message: string }).message))
-        } else {
-          pending.resolve(message.data)
+      
+      // Handle completion
+      if (message.type === 'complete' || message.type === 'error') {
+        const pending = pendingExecutions.get(message.id)
+        if (pending) {
+          if (message.type === 'error') {
+            pending.reject(new Error((message.data as { message: string }).message))
+          } else {
+            pending.resolve(message.data)
+          }
+          pendingExecutions.delete(message.id)
         }
-        pendingExecutions.delete(message.id)
       }
-    }
-  })
-  
-  pythonWorker.on('error', (error) => {
-    console.error('Python worker error:', error)
-    for (const [id, pending] of pendingExecutions) {
-      pending.reject(error)
-      pendingExecutions.delete(id)
-    }
-  })
-  
-  pythonWorker.on('exit', (code) => {
-    console.log(`Python worker exited with code ${code}`)
-    pythonWorker = null
-    if (code !== 0) {
-      setTimeout(initializePythonWorker, 1000)
-    }
+    })
+    
+    pythonWorker.on('error', (error) => {
+      console.error('Python worker error:', error)
+      pythonWorkerReady = false
+      for (const [id, pending] of pendingExecutions) {
+        pending.reject(error)
+        pendingExecutions.delete(id)
+      }
+    })
+    
+    pythonWorker.on('exit', (code) => {
+      console.log(`Python worker exited with code ${code}`)
+      pythonWorker = null
+      pythonWorkerReady = false
+      if (code !== 0) {
+        setTimeout(() => initializePythonWorker(), 1000)
+      }
+    })
   })
 }
 
@@ -247,18 +263,21 @@ function initializePythonWorker(): void {
  * Execute Python code in the worker
  */
 async function executePython(request: ExecutionRequest): Promise<unknown> {
-  if (!pythonWorker) {
-    initializePythonWorker()
-    // Wait for worker to be ready (Pyodide takes longer to load)
-    await new Promise(resolve => setTimeout(resolve, 500))
+  if (!pythonWorker || !pythonWorkerReady) {
+    await initializePythonWorker()
   }
   
   const { id, code, options } = request
   
   return new Promise((resolve, reject) => {
+    if (!pythonWorker) {
+      reject(new Error('Python worker not initialized'))
+      return
+    }
+    
     pendingExecutions.set(id, { resolve, reject })
     
-    pythonWorker!.postMessage({
+    pythonWorker.postMessage({
       type: 'execute',
       id,
       code,
@@ -452,11 +471,17 @@ function createWindow() {
 }
 
 app.on('window-all-closed', () => {
-  // Terminate worker when app closes
+  // Terminate workers when app closes
   if (codeWorker) {
     codeWorker.terminate()
     codeWorker = null
   }
+  if (pythonWorker) {
+    pythonWorker.terminate()
+    pythonWorker = null
+  }
+  // Clear any pending executions to prevent memory leaks
+  pendingExecutions.clear()
   win = null
 })
 app

@@ -150,23 +150,79 @@ const DETECTION_TO_MONACO: Record<string, string> = {
 // PATTERN-BASED DETECTION (Fallback)
 // ============================================================================
 
+/**
+ * DEFINITIVE Python patterns - these ONLY exist in Python, not JS/TS
+ * If matched, immediately return Python without scoring
+ */
+const DEFINITIVE_PYTHON_PATTERNS: RegExp[] = [
+  /^print\s*\(/m,                    // print( at start of line - ONLY Python
+  /^\s*print\s*\([^)]*\)\s*$/,       // Single line print statement
+  /^\s*def\s+\w+\s*\([^)]*\)\s*:/m,  // def func(): - Python function
+  /^\s*class\s+\w+.*:\s*$/m,         // class Name: - Python class
+  /^\s*from\s+\w+\s+import\s+/m,     // from x import - Python import
+  /^\s*import\s+\w+\s*$/m,           // import x (no from/require)
+  /\belif\s+/,                       // elif - ONLY Python
+  /\bexcept\s*:/,                    // except: - ONLY Python
+  /\bexcept\s+\w+/,                  // except Exception - ONLY Python
+  /:\s*\n\s+/,                       // colon followed by indented block
+]
+
+/**
+ * DEFINITIVE JavaScript/TypeScript patterns - these ONLY exist in JS/TS
+ */
+const DEFINITIVE_JS_PATTERNS: RegExp[] = [
+  /console\.(log|error|warn|info|debug|table|dir)\s*\(/,  // console.log( - ONLY JS
+  /\bfunction\s*\w*\s*\([^)]*\)\s*\{/,                     // function() { - JS syntax
+  /=>\s*\{/,                                               // => { - Arrow function
+  /\bconst\s+\w+\s*=\s*\(/,                                // const x = ( - likely JS
+  /\blet\s+\w+\s*=\s*\{/,                                  // let x = { - likely JS
+  /\brequire\s*\(\s*['"`]/,                                // require('...')
+  /\bimport\s+.*\s+from\s+['"`]/,                          // import x from '...'
+  /document\.|window\.|localStorage\./,                    // DOM APIs
+  /\.(then|catch|finally)\s*\(/,                           // Promise chain
+]
+
+/**
+ * DEFINITIVE TypeScript patterns - these ONLY exist in TypeScript, not plain JS
+ * If matched, return TypeScript (higher priority than JS)
+ */
+const DEFINITIVE_TS_PATTERNS: RegExp[] = [
+  /\binterface\s+\w+\s*\{/,              // interface Name { - TS only
+  /\btype\s+\w+\s*=/,                    // type Name = - TS only
+  /:\s*(string|number|boolean|void|never|unknown|any)\b/,  // Type annotations
+  /<\w+>\s*\(/,                          // Generic syntax: <T>(
+  /\w+<[^>]+>/,                          // Generic usage: Array<string>
+  /\bas\s+(string|number|boolean|any|unknown)\b/,  // Type assertion
+  /\benum\s+\w+/,                        // enum - TS only
+  /\bnamespace\s+\w+/,                   // namespace - TS only
+  /\bdeclare\s+(const|let|var|function|class)/,  // declare - TS only
+  /\bimplements\s+\w+/,                  // implements - TS only
+  /\bprivate\s+\w+:/,                    // private property - TS only
+  /\bpublic\s+\w+:/,                     // public property - TS only
+  /\bprotected\s+\w+:/,                  // protected property - TS only
+  /\breadonly\s+\w+:/,                   // readonly property - TS only
+]
+
 const PYTHON_PATTERNS: Array<[RegExp, number]> = [
-  [/^\s*def\s+\w+\s*\(/m, 3],
-  [/^\s*class\s+\w+.*:/m, 3],
-  [/^\s*import\s+\w+$/m, 2],
-  [/^\s*from\s+\w+\s+import/m, 3],
-  [/print\s*\(/, 2],
+  [/^\s*def\s+\w+\s*\(/m, 4],
+  [/^\s*class\s+\w+.*:/m, 4],
+  [/^\s*import\s+\w+$/m, 3],
+  [/^\s*from\s+\w+\s+import/m, 4],
+  [/print\s*\(/, 5],                  // HIGH weight - print() is Python-specific
   [/:\s*$/m, 1],
-  [/\bself\b/, 2],
-  [/\bNone\b/, 2],
-  [/\bTrue\b(?!\s*[,;)\]])/, 1],
-  [/\bFalse\b(?!\s*[,;)\]])/, 1],
-  [/\belif\b/, 3],
-  [/\bexcept\b/, 2],
-  [/for\s+\w+\s+in\s+(range|enumerate|zip)/, 3],
-  [/^\s*@\w+/m, 2],
-  [/f["'].*\{/, 2],
+  [/\bself\b/, 3],
+  [/\bNone\b/, 3],
+  [/\bTrue\b(?!\s*[,;)\]])/, 2],
+  [/\bFalse\b(?!\s*[,;)\]])/, 2],
+  [/\belif\b/, 4],
+  [/\bexcept\b/, 3],
+  [/for\s+\w+\s+in\s+(range|enumerate|zip)/, 4],
+  [/^\s*@\w+/m, 3],
+  [/f["'].*\{/, 3],
   [/^\s*#(?!\?).*$/m, 1],
+  [/__\w+__/, 2],                     // __init__, __name__, etc.
+  [/\bpass\b/, 2],
+  [/\blambda\s+\w*:/, 3],
 ]
 
 const TYPESCRIPT_PATTERNS: Array<[RegExp, number]> = [
@@ -196,8 +252,49 @@ const JAVASCRIPT_PATTERNS: Array<[RegExp, number]> = [
 ]
 
 function patternBasedDetection(content: string): DetectionResult {
-  // Very short content - default to TypeScript (most common in this app)
-  if (!content || content.trim().length < 15) {
+  // Empty content - default to TypeScript
+  if (!content || content.trim().length === 0) {
+    return { monacoId: 'typescript', confidence: 1.0, isExecutable: true }
+  }
+
+  const trimmed = content.trim()
+
+  // =========================================================================
+  // DEFINITIVE PATTERN MATCHING (highest priority)
+  // These patterns are UNIQUE to their language - no ambiguity
+  // Order matters: Python first, then TypeScript (superset of JS), then JS
+  // =========================================================================
+  
+  // Check definitive Python patterns FIRST
+  for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      console.log(`[Detection] Definitive Python pattern matched: ${pattern}`)
+      return { monacoId: 'python', confidence: 0.95, isExecutable: true }
+    }
+  }
+
+  // Check definitive TypeScript patterns (before JS, since TS is superset)
+  for (const pattern of DEFINITIVE_TS_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      console.log(`[Detection] Definitive TypeScript pattern matched: ${pattern}`)
+      return { monacoId: 'typescript', confidence: 0.95, isExecutable: true }
+    }
+  }
+
+  // Check definitive JS patterns
+  for (const pattern of DEFINITIVE_JS_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      console.log(`[Detection] Definitive JS pattern matched: ${pattern}`)
+      return { monacoId: 'javascript', confidence: 0.95, isExecutable: true }
+    }
+  }
+
+  // =========================================================================
+  // SCORING-BASED DETECTION (for ambiguous code)
+  // =========================================================================
+  
+  // Very short content without definitive patterns - default to TypeScript
+  if (trimmed.length < 10) {
     return { monacoId: 'typescript', confidence: 1.0, isExecutable: true }
   }
 
@@ -254,15 +351,17 @@ const CACHE_SIZE = 50
 
 /**
  * Generate a cache key using content signature:
- * - First 200 chars (captures imports/headers)
- * - Last 200 chars (captures unique code)
- * - Total length (differentiates similar starts)
+ * - First 100 chars (captures imports/headers)
+ * - Middle 100 chars (captures unique code patterns)
+ * - Last 100 chars (captures unique endings)
+ * - Total length (differentiates similar content)
  */
 function getCacheKey(content: string): string {
   const len = content.length
-  const start = content.slice(0, 200)
-  const end = len > 400 ? content.slice(-200) : ''
-  return `${len}:${start}:${end}`
+  const start = content.slice(0, 100)
+  const mid = len > 300 ? content.slice(Math.floor(len / 2) - 50, Math.floor(len / 2) + 50) : ''
+  const end = len > 200 ? content.slice(-100) : ''
+  return `${len}:${start}:${mid}:${end}`
 }
 
 function updateCache(key: string, value: DetectionResult): void {
@@ -343,8 +442,47 @@ export const useLanguageStore = create<LanguageState>()(
           const cached = detectionCache.get(cacheKey)
           if (cached) return cached
 
-          // Very short content - use pattern detection (ML unreliable < 30 chars)
-          if (!content || content.trim().length < 30) {
+          const trimmed = content?.trim() || ''
+
+          // =====================================================================
+          // DEFINITIVE PATTERN CHECK (ALWAYS runs first, regardless of ML)
+          // These patterns are UNAMBIGUOUS - no ML needed
+          // Order: Python first, then TypeScript, then JavaScript
+          // =====================================================================
+          for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
+            if (pattern.test(trimmed)) {
+              console.log(`[LanguageStore] Definitive Python: ${pattern}`)
+              const result: DetectionResult = { monacoId: 'python', confidence: 0.98, isExecutable: true }
+              updateCache(cacheKey, result)
+              set({ lastDetectionConfidence: result.confidence })
+              return result
+            }
+          }
+
+          for (const pattern of DEFINITIVE_TS_PATTERNS) {
+            if (pattern.test(trimmed)) {
+              console.log(`[LanguageStore] Definitive TypeScript: ${pattern}`)
+              const result: DetectionResult = { monacoId: 'typescript', confidence: 0.98, isExecutable: true }
+              updateCache(cacheKey, result)
+              set({ lastDetectionConfidence: result.confidence })
+              return result
+            }
+          }
+
+          for (const pattern of DEFINITIVE_JS_PATTERNS) {
+            if (pattern.test(trimmed)) {
+              console.log(`[LanguageStore] Definitive JS: ${pattern}`)
+              const result: DetectionResult = { monacoId: 'javascript', confidence: 0.98, isExecutable: true }
+              updateCache(cacheKey, result)
+              set({ lastDetectionConfidence: result.confidence })
+              return result
+            }
+          }
+
+          // =====================================================================
+          // SHORT CONTENT - use pattern scoring (ML unreliable < 50 chars)
+          // =====================================================================
+          if (trimmed.length < 50) {
             const result = patternBasedDetection(content)
             updateCache(cacheKey, result)
             set({ lastDetectionConfidence: result.confidence })

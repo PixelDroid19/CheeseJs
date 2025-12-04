@@ -4,7 +4,7 @@ import { domReady, useLoading } from './utils'
 // eslint-disable-next-line react-hooks/rules-of-hooks
 const { appendLoading, removeLoading } = useLoading()
 
-domReady().then(appendLoading)
+domReady().then(appendLoading).catch(console.error)
 
 // ============================================================================
 // TYPES

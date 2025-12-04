@@ -146,12 +146,19 @@ export async function stringify (element: unknown): Promise<ColoredElement> {
   }
 
   if (Array.isArray(element)) {
-    return {
-      content: ObjetToString(jc.decycle(element), {
-        indent: '  ',
-        singleQuotes: false,
-        inlineCharacterLimit: 80
-      })
+    try {
+      return {
+        content: ObjetToString(jc.decycle(element), {
+          indent: '  ',
+          singleQuotes: false,
+          inlineCharacterLimit: 80
+        })
+      }
+    } catch {
+      return {
+        content: '[Array - unable to serialize]',
+        color: Colors.GRAY
+      }
     }
   }
 
@@ -184,9 +191,16 @@ export async function stringify (element: unknown): Promise<ColoredElement> {
   }
 
   if (typeof element === 'object') {
-    return {
-      content: ObjetToString(jc.decycle(element)),
-      color: Colors.GRAY
+    try {
+      return {
+        content: ObjetToString(jc.decycle(element)),
+        color: Colors.GRAY
+      }
+    } catch {
+      return {
+        content: '[Object - unable to serialize]',
+        color: Colors.GRAY
+      }
     }
   }
 

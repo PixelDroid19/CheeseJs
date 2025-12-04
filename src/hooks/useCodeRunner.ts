@@ -155,7 +155,11 @@ export function useCodeRunner() {
                 type: 'error'
               })
             } else if (result.type === 'complete') {
-              // Execution completed
+              // Execution completed - clean up listener
+              if (unsubscribeRef.current) {
+                unsubscribeRef.current()
+                unsubscribeRef.current = null
+              }
               setIsExecuting(false)
               currentExecutionIdRef.current = null
             }
@@ -200,6 +204,11 @@ export function useCodeRunner() {
           
           setResult([{ element: { content: `${errorIcon} ${errorMessage}` }, type: 'error' }])
         } finally {
+          // Clean up listener on any exit path
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current()
+            unsubscribeRef.current = null
+          }
           setIsExecuting(false)
           currentExecutionIdRef.current = null
         }

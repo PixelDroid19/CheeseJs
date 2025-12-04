@@ -232,18 +232,26 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
       timeoutPromise
     ])
     
-    // Get debug outputs
-    const debugOutputs = py.runPython('_get_debug_outputs()').toJs() as Array<{line: number, content: string}>
-    
-    // Send debug outputs
-    for (const output of debugOutputs) {
-      parentPort?.postMessage({
-        type: 'debug',
-        id,
-        line: output.line,
-        data: { content: output.content },
-        jsType: 'python'
-      } as ResultMessage)
+    // Get debug outputs (safely - the function might not exist in some edge cases)
+    try {
+      const hasDebugFn = py.runPython('hasattr(__builtins__, "_get_debug_outputs") if isinstance(__builtins__, dict) else hasattr(__builtins__, "_get_debug_outputs")')
+      if (hasDebugFn) {
+        const debugOutputs = py.runPython('_get_debug_outputs()').toJs() as Array<{line: number, content: string}>
+        
+        // Send debug outputs
+        for (const output of debugOutputs) {
+          parentPort?.postMessage({
+            type: 'debug',
+            id,
+            line: output.line,
+            data: { content: output.content },
+            jsType: 'python'
+          } as ResultMessage)
+        }
+      }
+    } catch (debugError) {
+      // Debug function not available - this is not critical
+      console.warn('[PythonExecutor] Debug outputs unavailable:', debugError)
     }
     
     // Send completion

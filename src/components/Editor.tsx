@@ -291,30 +291,47 @@ function CodeEditor () {
     [runCode, cleanupModels, detectLanguageAsync, setLanguage]
   )
 
-  const debouncedRunner = useDebouncedFunction(runCode, 250)
+  const debouncedRunner = useDebouncedFunction(runCode, 150)
   
-  // Language detection using ML (async) - debounced to avoid excessive calls
+  // Language detection - use refs to avoid stale closures in callbacks
   const lastDetectedRef = useRef<string>('typescript')
   const detectionInProgressRef = useRef<boolean>(false)
+  const detectLanguageSync = useLanguageStore((state) => state.detectLanguage)
   
+  // Refs for values that change frequently - prevents callback recreation
+  const languageRef = useRef(language)
+  languageRef.current = language
+  
+  const setLanguageRef = useRef(setLanguage)
+  setLanguageRef.current = setLanguage
+  
+  const detectLanguageAsyncRef = useRef(detectLanguageAsync)
+  detectLanguageAsyncRef.current = detectLanguageAsync
+  
+  const detectLanguageSyncRef = useRef(detectLanguageSync)
+  detectLanguageSyncRef.current = detectLanguageSync
+  
+  // ML detection with debounce - refines heuristic results for ambiguous cases
   const debouncedLanguageDetection = useDebouncedFunction(async (value: string) => {
-    // Skip if detection already in progress or content too short
-    if (detectionInProgressRef.current || !value || value.trim().length < 20) return
-    
+    if (detectionInProgressRef.current || !value || value.trim().length === 0) return
+
     detectionInProgressRef.current = true
     try {
-      const detected = await detectLanguageAsync(value)
-      lastDetectedRef.current = detected.monacoId
-      if (detected.monacoId !== language) {
-        console.log(`[Editor] ML detected: ${detected.monacoId} (confidence: ${(detected.confidence * 100).toFixed(1)}%, was ${language})`)
-        setLanguage(detected.monacoId)
+      const detected = await detectLanguageAsyncRef.current(value)
+      const currentLang = languageRef.current
+      
+      // Only update if ML has good confidence and differs from current
+      if (detected.monacoId !== currentLang && detected.confidence > 0.7) {
+        console.log(`[Editor] ML refined: ${detected.monacoId} (${(detected.confidence * 100).toFixed(0)}%, was ${currentLang})`)
+        lastDetectedRef.current = detected.monacoId
+        setLanguageRef.current(detected.monacoId)
       }
     } catch (error) {
-      console.error('[Editor] Detection failed:', error)
+      console.error('[Editor] ML detection failed:', error)
     } finally {
       detectionInProgressRef.current = false
     }
-  }, 500) // Slightly longer debounce for async ML detection
+  }, 250) // Slightly longer debounce - ML is for refinement
 
   const handler = useCallback(
     (value: string | undefined) => {
@@ -324,12 +341,28 @@ function CodeEditor () {
         }
         lastLocalCodeRef.current = value
         setCode(value)
-        // Use debounced ML language detection
+        
+        // Immediate heuristic detection for snappy feedback
+        // Only applies if confidence >= 0.9 (definitive patterns)
+        try {
+          const quick = detectLanguageSyncRef.current(value)
+          const currentLang = languageRef.current
+          
+          if (quick && quick.monacoId !== currentLang && quick.confidence >= 0.9) {
+            console.log(`[Editor] Heuristic: ${quick.monacoId} (${(quick.confidence * 100).toFixed(0)}%)`)
+            lastDetectedRef.current = quick.monacoId
+            setLanguageRef.current(quick.monacoId)
+          }
+        } catch (e) {
+          console.warn('[Editor] Heuristic failed:', e)
+        }
+        
+        // Queue ML detection for refinement (handles ambiguous cases)
         debouncedLanguageDetection(value)
         debouncedRunner(value)
       }
     },
-    [debouncedRunner, debouncedLanguageDetection, setCode]
+    [debouncedRunner, debouncedLanguageDetection, setCode] // Minimal deps - uses refs
   )
 
   return (

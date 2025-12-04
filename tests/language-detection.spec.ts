@@ -17,8 +17,22 @@ test.setTimeout(120000);
 let app: ElectronApplication;
 let window: Page;
 
+// Helper to clear the output panel
+async function clearOutput(page: Page) {
+  await page.evaluate(() => {
+    // @ts-ignore
+    const models = window.monaco.editor.getModels();
+    if (models.length > 1) {
+      models[1].setValue('');
+    }
+  });
+}
+
 // Helper to set code in the editor
 async function setCode(page: Page, code: string) {
+  // Clear output first to avoid contamination from previous tests
+  await clearOutput(page);
+  
   await page.evaluate((c) => {
     // @ts-ignore
     const model = window.monaco.editor.getModels()[0];
@@ -280,6 +294,20 @@ console.log(Color.Green);`;
 // ============================================================================
 
 test.describe('Python Detection & Execution', () => {
+  test('SHORT: print("text") - must detect as Python and execute', async () => {
+    // This is the CRITICAL test - short print statements must work
+    await setCode(window, `print('Now Python')`);
+    
+    const lang = await getLanguage(window);
+    expect(lang).toBe('python'); // MUST be python, not javascript
+    
+    const output = await runAndGetOutput(window, 8000);
+    expect(output).toContain('Now Python');
+    expect(output).not.toContain('ReferenceError'); // No JS error
+    expect(output).not.toContain('is not defined'); // No JS error
+    expect(hasError(output)).toBe(false);
+  });
+
   test('print function - detects Python and outputs correctly', async () => {
     await setCode(window, `print('Hello from Python')`);
     

@@ -72,19 +72,24 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
   },
 
   setPackageInstalling: (name: string, installing: boolean) => {
-    set((state) => ({
-      packages: state.packages.map(pkg =>
+    set((state) => {
+      const updatedPackages = state.packages.map(pkg =>
         pkg.name === name
           ? { ...pkg, installing, error: undefined }
           : pkg
-      ),
-      isInstalling: installing
-    }))
+      )
+      // Compute isInstalling from actual package states
+      const anyInstalling = updatedPackages.some(pkg => pkg.installing)
+      return {
+        packages: updatedPackages,
+        isInstalling: anyInstalling
+      }
+    })
   },
 
   setPackageInstalled: (name: string, version?: string) => {
-    set((state) => ({
-      packages: state.packages.map(pkg =>
+    set((state) => {
+      const updatedPackages = state.packages.map(pkg =>
         pkg.name === name
           ? { 
               ...pkg, 
@@ -95,14 +100,19 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
               lastError: undefined
             }
           : pkg
-      ),
-      isInstalling: false
-    }))
+      )
+      // Compute isInstalling from actual package states
+      const anyInstalling = updatedPackages.some(pkg => pkg.installing)
+      return {
+        packages: updatedPackages,
+        isInstalling: anyInstalling
+      }
+    })
   },
 
   setPackageError: (name: string, error?: string, errorCode?: string) => {
-    set((state) => ({
-      packages: state.packages.map(pkg =>
+    set((state) => {
+      const updatedPackages = state.packages.map(pkg =>
         pkg.name === name
           ? { 
               ...pkg, 
@@ -116,9 +126,14 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
               } : undefined
             }
           : pkg
-      ),
-      isInstalling: false
-    }))
+      )
+      // Compute isInstalling from actual package states
+      const anyInstalling = updatedPackages.some(pkg => pkg.installing)
+      return {
+        packages: updatedPackages,
+        isInstalling: anyInstalling
+      }
+    })
   },
 
   removePackage: (name: string) => {

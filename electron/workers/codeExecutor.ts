@@ -322,10 +322,10 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     URIError,
     WeakMap,
     WeakSet,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    WeakRef: (globalThis as any).WeakRef,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    FinalizationRegistry: (globalThis as any).FinalizationRegistry,
+    // WeakRef and FinalizationRegistry (available in Node.js 14.6+ / ES2021)
+    // Access via globalThis since target is ES2020
+    WeakRef: 'WeakRef' in globalThis ? (globalThis as Record<string, unknown>).WeakRef : undefined,
+    FinalizationRegistry: 'FinalizationRegistry' in globalThis ? (globalThis as Record<string, unknown>).FinalizationRegistry : undefined,
     
     // WebAssembly
     WebAssembly,
