@@ -125,7 +125,6 @@ async function initializePyodide(): Promise<PyodideInterface> {
     pyodide = await loadPyodide({
       indexURL: pyodidePath,
       stdout: (text: string) => {
-        console.log('[Pyodide stdout]', JSON.stringify(text), '| execId:', currentExecutionId)
         // Suppress init messages like "Loading micropip", "Loaded micropip"
         if (isInitializing && (text.includes('micropip') || text.includes('Loading') || text.includes('Loaded'))) {
           return // Suppress during init
@@ -140,7 +139,6 @@ async function initializePyodide(): Promise<PyodideInterface> {
         }
       },
       stderr: (text: string) => {
-        console.log('[Pyodide stderr]', JSON.stringify(text), '| execId:', currentExecutionId)
         if (currentExecutionId) {
           parentPort?.postMessage({
             type: 'console',
@@ -183,16 +181,12 @@ setattr(builtins, 'debug', debug)
 setattr(builtins, '_get_debug_outputs', _get_debug_outputs)
 `)
 
-    // Set up custom input handler with logging
+    // Set up custom input handler
     pyodide.globals.set('_js_request_input', (prompt: string, line: number) => {
-      console.log('[PythonInput] _js_request_input called:', { prompt, line })
-
       const promise = new Promise<string>((resolve, reject) => {
-        console.log('[PythonInput] Promise created, adding to pending queue')
         pendingInputs.push({ resolve, reject })
 
         // Send input request to main process
-        console.log('[PythonInput] Sending input-request to main process')
         parentPort?.postMessage({
           type: 'input-request',
           id: currentExecutionId,
@@ -200,7 +194,6 @@ setattr(builtins, '_get_debug_outputs', _get_debug_outputs)
         })
       })
 
-      console.log('[PythonInput] Returning Promise to Python')
       return promise
     })
 
@@ -256,7 +249,7 @@ async def _async_input(prompt=""):
  * Also transforms code to support async input() for proper JS promise integration
  */
 function transformPythonCode(code: string): string {
-  const DEBUG_TRANSFORM = true // Enable to see transformation logs
+  const DEBUG_TRANSFORM = false // Set to true to see transformation logs
 
   const lines = code.split('\n')
   const result: string[] = []
@@ -408,18 +401,12 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
 
   currentExecutionId = id
 
-  console.log('[PythonExecutor] Starting execution, hasInput:', hasInput)
-
   try {
     // Initialize Pyodide if needed
     const py = await initializePyodide()
 
-    console.log('[PythonExecutor] Pyodide initialized')
-
     // Transform code to handle magic comments
     const transformedCode = transformPythonCode(code)
-
-    console.log('[PythonExecutor] Code transformed, starting runPythonAsync...')
 
     // Create timeout promise
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -427,19 +414,10 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
     })
 
     // Execute code with timeout
-    console.log('[PythonExecutor] Calling runPythonAsync...')
     const result = await Promise.race([
-      py.runPythonAsync(transformedCode).then(r => {
-        console.log('[PythonExecutor] runPythonAsync completed successfully')
-        return r
-      }).catch(err => {
-        console.error('[PythonExecutor] runPythonAsync error:', err)
-        throw err
-      }),
+      py.runPythonAsync(transformedCode),
       timeoutPromise
     ])
-
-    console.log('[PythonExecutor] Execution completed, result:', result)
 
     // Flush Python stdout/stderr to ensure all output is captured
     // This is important because async operations might have buffered output
@@ -590,20 +568,9 @@ parentPort?.on('message', async (message: WorkerMessage) => {
     await listInstalledPackages(message.id)
   } else if (message.type === 'input-response') {
     // Resolve the pending input with the user's value
-    console.log('[PythonInput] Received input-response:', message.value)
-    console.log('[PythonInput] Pending inputs queue length:', pendingInputs.length)
-    console.log('[PythonInput] Current execution ID:', currentExecutionId)
     const pending = pendingInputs.shift()
     if (pending) {
-      console.log('[PythonInput] Resolving Promise with value:', message.value)
-      try {
-        pending.resolve(message.value)
-        console.log('[PythonInput] Promise resolved successfully')
-      } catch (err) {
-        console.error('[PythonInput] Error resolving Promise:', err)
-      }
-    } else {
-      console.warn('[PythonInput] No pending input to resolve!')
+      pending.resolve(message.value)
     }
   }
 })

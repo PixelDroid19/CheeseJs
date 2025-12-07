@@ -90,6 +90,7 @@
     "checking": "Checking...",
     "notFound": "Package not found",
     "install": "Install Package",
+    "installPython": "Install via micropip",
     "retry": "Retry"
   },
   "common": {

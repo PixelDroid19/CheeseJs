@@ -111,6 +111,7 @@
     "checking": "Verificando...",
     "notFound": "Paquete no encontrado",
     "install": "Instalar Paquete",
+    "installPython": "Instalar via micropip",
     "retry": "Reintentar"
   },
   "common": {
