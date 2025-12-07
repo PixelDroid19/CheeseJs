@@ -210,13 +210,16 @@ export function useCodeRunner() {
 
           setResult([{ element: { content: `${errorIcon} ${errorMessage}` }, type: 'error' }])
         } finally {
-          // Clean up listener on any exit path
-          if (unsubscribeRef.current) {
-            unsubscribeRef.current()
-            unsubscribeRef.current = null
+          // DON'T clean up listener here - it will be cleaned up when 'complete' message arrives
+          // This prevents race condition where messages arrive after execute() returns but before 'complete'
+          // The listener cleanup happens in the onResult callback when type === 'complete'
+
+          // Only set isExecuting to false if we didn't set up a listener
+          // (e.g., if an error occurred before setting up the listener)
+          if (!unsubscribeRef.current) {
+            setIsExecuting(false)
+            currentExecutionIdRef.current = null
           }
-          setIsExecuting(false)
-          currentExecutionIdRef.current = null
         }
 
         if (codeToRun !== undefined) {

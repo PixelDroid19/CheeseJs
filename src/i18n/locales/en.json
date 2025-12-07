@@ -101,5 +101,23 @@
     "submit": "Submit",
     "cancel": "Cancel",
     "hint": "Press Enter to submit, Escape to cancel"
-  }
+  },
+  "settings.pypi": {
+    "description": "Manage Python packages for your code. Packages are installed via micropip from PyPI.",
+    "installedPackages": "Installed Packages",
+    "placeholder": "Package name (e.g., numpy, pandas)",
+    "add": "Add",
+    "remove": "Remove package",
+    "empty": "No packages installed yet",
+    "loading": "Loading packages...",
+    "info": {
+      "title": "How it works:",
+      "auto": "Packages are detected from import statements",
+      "install": "They are installed automatically on first execution",
+      "manual": "You can also manually add packages here",
+      "sandbox": "All code runs in a secure WebAssembly sandbox"
+    }
+  },
+  "settings.categories.pypi": "PyPI (Python)",
+  "settings.descriptions.pypi": "Manage Python packages from PyPI"
 }

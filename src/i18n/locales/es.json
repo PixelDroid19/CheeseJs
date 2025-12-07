@@ -122,5 +122,23 @@
     "submit": "Enviar",
     "cancel": "Cancelar",
     "hint": "Enter para enviar, Escape para cancelar"
-  }
+  },
+  "settings.pypi": {
+    "description": "Administra paquetes Python para tu código. Los paquetes se instalan vía micropip desde PyPI.",
+    "installedPackages": "Paquetes Instalados",
+    "placeholder": "Nombre del paquete (ej: numpy, pandas)",
+    "add": "Agregar",
+    "remove": "Eliminar paquete",
+    "empty": "No hay paquetes instalados aún",
+    "loading": "Cargando paquetes...",
+    "info": {
+      "title": "Cómo funciona:",
+      "auto": "Los paquetes se detectan desde las declaraciones import",
+      "install": "Se instalan automáticamente en la primera ejecución",
+      "manual": "También puedes agregar paquetes manualmente aquí",
+      "sandbox": "Todo el código se ejecuta en un sandbox WebAssembly seguro"
+    }
+  },
+  "settings.categories.pypi": "PyPI (Python)",
+  "settings.descriptions.pypi": "Administra paquetes Python desde PyPI"
 }

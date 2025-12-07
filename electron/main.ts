@@ -231,6 +231,10 @@ function initializePythonWorker(): Promise<void> {
       }
 
       // Forward all messages to renderer
+      // Log console messages to help debug
+      if (message.type === 'console') {
+        console.log('[Main->Renderer] Forwarding console message:', JSON.stringify((message.data as { content: string }).content).substring(0, 50))
+      }
       if (win && !win.isDestroyed()) {
         win.webContents.send('code-execution-result', message)
       }

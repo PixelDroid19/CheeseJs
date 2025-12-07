@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { PackageManager } from '../PackageManager'
+import { PythonPackageManager } from '../PythonPackageManager'
 import {
   X,
   Sliders,
@@ -9,7 +10,8 @@ import {
   Bot,
   Package,
   Wrench,
-  FileCode
+  FileCode,
+  Bug
 } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import clsx from 'clsx'
@@ -27,10 +29,11 @@ type Tab =
   | 'appearance'
   | 'ai'
   | 'npm'
+  | 'pypi'
   | 'snippets'
   | 'advanced';
 
-export default function Settings () {
+export default function Settings() {
   const { t } = useTranslation()
   const { isSettingsOpen, setIsSettingsOpen } = useSettingsStore()
   const [activeTab, setActiveTab] = useState<Tab>('advanced')
@@ -55,6 +58,7 @@ export default function Settings () {
     { id: 'snippets', label: t('settings.categories.snippets', 'Snippets'), icon: FileCode },
     { id: 'ai', label: t('settings.categories.ai'), icon: Bot },
     { id: 'npm', label: t('settings.categories.npm'), icon: Package },
+    { id: 'pypi', label: t('settings.categories.pypi', 'PyPI (Python)'), icon: Bug },
     { id: 'advanced', label: t('settings.categories.advanced'), icon: Wrench }
   ]
 
@@ -80,7 +84,7 @@ export default function Settings () {
               <h2 className={clsx("px-6 mb-8 text-xl font-bold text-foreground")}>
                 {t('settings.title')}
               </h2>
-              
+
               <div className="space-y-1 px-3">
                 {tabs.map((tab) => {
                   const Icon = tab.icon
@@ -128,9 +132,10 @@ export default function Settings () {
                   {activeTab === 'general' && <GeneralTab />}
                   {activeTab === 'appearance' && <AppearanceTab />}
                   {activeTab === 'npm' && <PackageManager />}
+                  {activeTab === 'pypi' && <PythonPackageManager />}
                   {activeTab === 'advanced' && <AdvancedTab />}
                   {activeTab === 'snippets' && <SnippetsTab />}
-                  
+
                   {/* Placeholders for other tabs */}
                   {['compilation', 'formatting', 'ai'].includes(activeTab) && (
                     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

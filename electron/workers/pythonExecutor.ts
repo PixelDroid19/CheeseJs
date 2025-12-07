@@ -125,6 +125,7 @@ async function initializePyodide(): Promise<PyodideInterface> {
     pyodide = await loadPyodide({
       indexURL: pyodidePath,
       stdout: (text: string) => {
+        console.log('[Pyodide stdout]', JSON.stringify(text), '| execId:', currentExecutionId)
         // Suppress init messages like "Loading micropip", "Loaded micropip"
         if (isInitializing && (text.includes('micropip') || text.includes('Loading') || text.includes('Loaded'))) {
           return // Suppress during init
@@ -139,6 +140,7 @@ async function initializePyodide(): Promise<PyodideInterface> {
         }
       },
       stderr: (text: string) => {
+        console.log('[Pyodide stderr]', JSON.stringify(text), '| execId:', currentExecutionId)
         if (currentExecutionId) {
           parentPort?.postMessage({
             type: 'console',
@@ -181,47 +183,59 @@ setattr(builtins, 'debug', debug)
 setattr(builtins, '_get_debug_outputs', _get_debug_outputs)
 `)
 
-    // Set up custom input handler
+    // Set up custom input handler with logging
     pyodide.globals.set('_js_request_input', (prompt: string, line: number) => {
-      return new Promise<string>((resolve, reject) => {
+      console.log('[PythonInput] _js_request_input called:', { prompt, line })
+
+      const promise = new Promise<string>((resolve, reject) => {
+        console.log('[PythonInput] Promise created, adding to pending queue')
         pendingInputs.push({ resolve, reject })
 
         // Send input request to main process
+        console.log('[PythonInput] Sending input-request to main process')
         parentPort?.postMessage({
           type: 'input-request',
           id: currentExecutionId,
           data: { prompt, line }
         })
       })
+
+      console.log('[PythonInput] Returning Promise to Python')
+      return promise
     })
 
-    // Override Python's input function
+    // Override Python's input function to use async JS integration
+    // In Pyodide, we need to use a special pattern to await JS promises from Python
     pyodide.runPython(`
 import builtins
 import asyncio
+import sys
 
 _original_input = builtins.input
 
 async def _async_input(prompt=""):
     """Async input that communicates with the editor"""
-    import js
-    # Get the line number from the call stack
     import traceback
-    stack = traceback.extract_stack()
-    line = stack[-2].lineno if len(stack) > 1 else 0
     
-    # Request input from JS
-    result = await _js_request_input(prompt, line)
+    # Get the line number from the call stack
+    stack = traceback.extract_stack()
+    line = stack[-3].lineno if len(stack) > 2 else 0
+    
+    # Print the prompt so user sees it (before waiting)
+    if prompt:
+        print(prompt, end="", flush=True)
+    
+    # Request input from JS and await the result
+    # The JS function returns a Promise, which Pyodide converts to a Future
+    result = await _js_request_input(str(prompt), line)
+    
+    # Flush stdout to ensure any print statements are captured
+    sys.stdout.flush()
+    
     return result
 
-def input(prompt=""):
-    """Synchronous wrapper for async input"""
-    import asyncio
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(_async_input(prompt))
-
-# Override builtins
-builtins.input = input
+# Don't define sync wrapper - we'll use async directly in transformed code
+# builtins.input = input
 `)
 
     isInitializing = false
@@ -239,10 +253,21 @@ builtins.input = input
 
 /**
  * Transform Python code to inject debug calls for expressions with #? comments
+ * Also transforms code to support async input() for proper JS promise integration
  */
 function transformPythonCode(code: string): string {
+  const DEBUG_TRANSFORM = true // Enable to see transformation logs
+
   const lines = code.split('\n')
   const result: string[] = []
+  const hasInput = code.includes('input(')
+
+  if (DEBUG_TRANSFORM) {
+    console.log('\n' + '='.repeat(60))
+    console.log('[PythonTransform] Starting code transformation')
+    console.log('[PythonTransform] Has input():', hasInput)
+    console.log('='.repeat(60))
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -271,8 +296,105 @@ function transformPythonCode(code: string): string {
     }
   }
 
-  return result.join('\n')
+  let transformedCode = result.join('\n')
+
+  // If code uses input(), we need to transform it for async execution
+  // Pyodide's runPythonAsync supports top-level await, so we can use await directly
+  // without wrapping in asyncio.run_until_complete (which doesn't work with JS promises)
+  if (hasInput) {
+    if (DEBUG_TRANSFORM) {
+      console.log('\n[PythonTransform] Step 1: Replacing input() with await _async_input()')
+    }
+
+    // Step 1: Replace input( with await _async_input(
+    const beforeStep1 = transformedCode
+    transformedCode = transformedCode.replace(/\binput\s*\(/g, 'await _async_input(')
+
+    if (DEBUG_TRANSFORM) {
+      const inputMatches = beforeStep1.match(/\binput\s*\(/g)
+      console.log('[PythonTransform]   Found input() calls:', inputMatches?.length ?? 0)
+    }
+
+    if (DEBUG_TRANSFORM) {
+      console.log('\n[PythonTransform] Step 2: Converting def to async def')
+    }
+
+    // Step 2: Find all function definitions and make them async
+    const beforeStep2 = transformedCode
+    transformedCode = transformedCode.replace(/^(\s*)def\s+(\w+)\s*\(/gm, '$1async def $2(')
+
+    if (DEBUG_TRANSFORM) {
+      const defMatches = beforeStep2.match(/^(\s*)def\s+(\w+)\s*\(/gm)
+      console.log('[PythonTransform]   Found def statements:', defMatches?.length ?? 0, defMatches)
+    }
+
+    // Step 3: Find all function calls to user-defined functions and await them
+    const funcNames = [...transformedCode.matchAll(/async def (\w+)\s*\(/g)].map(m => m[1])
+
+    if (DEBUG_TRANSFORM) {
+      console.log('\n[PythonTransform] Step 3: Adding await to user function calls')
+      console.log('[PythonTransform]   Detected async functions:', funcNames)
+    }
+
+    // Built-in functions that should NOT be awaited
+    const builtins = ['print', 'len', 'range', 'str', 'int', 'float', 'list', 'dict', 'set',
+      'tuple', 'bool', 'type', 'isinstance', 'hasattr', 'getattr', 'setattr',
+      'open', 'input', 'sorted', 'reversed', 'enumerate', 'zip', 'map', 'filter',
+      'sum', 'min', 'max', 'abs', 'round', 'pow', 'divmod', 'hex', 'oct', 'bin',
+      'ord', 'chr', 'repr', 'format', 'iter', 'next', 'slice', 'super', '_async_input']
+
+    // Await calls to user-defined functions
+    for (const funcName of funcNames) {
+      if (!builtins.includes(funcName)) {
+        // Match function calls anywhere (not just at start of statement)
+        // Use negative lookbehinds to:
+        // 1. Avoid double-await ((?<!await\s))
+        // 2. Avoid matching function definitions ((?<!def\s))
+        const callPattern = new RegExp(`(?<!await\\s)(?<!def\\s)\\b${funcName}\\s*\\(`, 'g')
+        const beforeAwait = transformedCode
+        transformedCode = transformedCode.replace(callPattern, `await ${funcName}(`)
+
+        if (DEBUG_TRANSFORM) {
+          const callMatches = beforeAwait.match(callPattern)
+          console.log(`[PythonTransform]   ${funcName}(): found ${callMatches?.length ?? 0} call(s) to await`)
+        }
+      }
+    }
+
+    // Step 4: Handle "if __name__ == '__main__':" - just use top-level await
+    // Pyodide's runPythonAsync supports this natively!
+    if (transformedCode.includes('if __name__')) {
+      if (DEBUG_TRANSFORM) {
+        console.log('\n[PythonTransform] Step 4: Transforming if __name__ block')
+      }
+
+      const beforeMainBlock = transformedCode
+      // Replace the if __name__ block with top-level await call
+      // Match: if __name__ == "__main__":\n    main() OR if __name__ == "__main__":\n    await main()
+      // (Step 3 may have already added "await" before the function name)
+      transformedCode = transformedCode.replace(
+        /if\s+__name__\s*==\s*["']__main__["']\s*:\s*\n(\s+)(await\s+)?(\w+)\s*\(\)/g,
+        '# Top-level await (transformed for async input)\nawait $3()'
+      )
+
+      if (DEBUG_TRANSFORM) {
+        const didTransform = beforeMainBlock !== transformedCode
+        console.log('[PythonTransform]   Transformed if __name__ block:', didTransform)
+      }
+    }
+
+    if (DEBUG_TRANSFORM) {
+      console.log('\n' + '='.repeat(60))
+      console.log('[PythonTransform] FINAL TRANSFORMED CODE:')
+      console.log('='.repeat(60))
+      console.log(transformedCode)
+      console.log('='.repeat(60) + '\n')
+    }
+  }
+
+  return transformedCode
 }
+
 
 /**
  * Execute Python code
@@ -286,12 +408,18 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
 
   currentExecutionId = id
 
+  console.log('[PythonExecutor] Starting execution, hasInput:', hasInput)
+
   try {
     // Initialize Pyodide if needed
     const py = await initializePyodide()
 
+    console.log('[PythonExecutor] Pyodide initialized')
+
     // Transform code to handle magic comments
     const transformedCode = transformPythonCode(code)
+
+    console.log('[PythonExecutor] Code transformed, starting runPythonAsync...')
 
     // Create timeout promise
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -299,10 +427,31 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
     })
 
     // Execute code with timeout
+    console.log('[PythonExecutor] Calling runPythonAsync...')
     const result = await Promise.race([
-      py.runPythonAsync(transformedCode),
+      py.runPythonAsync(transformedCode).then(r => {
+        console.log('[PythonExecutor] runPythonAsync completed successfully')
+        return r
+      }).catch(err => {
+        console.error('[PythonExecutor] runPythonAsync error:', err)
+        throw err
+      }),
       timeoutPromise
     ])
+
+    console.log('[PythonExecutor] Execution completed, result:', result)
+
+    // Flush Python stdout/stderr to ensure all output is captured
+    // This is important because async operations might have buffered output
+    try {
+      py.runPython(`
+import sys
+sys.stdout.flush()
+sys.stderr.flush()
+`)
+    } catch (flushError) {
+      console.warn('[PythonExecutor] Error flushing output:', flushError)
+    }
 
     // Get debug outputs (safely - the function might not exist in some edge cases)
     try {
@@ -441,9 +590,20 @@ parentPort?.on('message', async (message: WorkerMessage) => {
     await listInstalledPackages(message.id)
   } else if (message.type === 'input-response') {
     // Resolve the pending input with the user's value
+    console.log('[PythonInput] Received input-response:', message.value)
+    console.log('[PythonInput] Pending inputs queue length:', pendingInputs.length)
+    console.log('[PythonInput] Current execution ID:', currentExecutionId)
     const pending = pendingInputs.shift()
     if (pending) {
-      pending.resolve(message.value)
+      console.log('[PythonInput] Resolving Promise with value:', message.value)
+      try {
+        pending.resolve(message.value)
+        console.log('[PythonInput] Promise resolved successfully')
+      } catch (err) {
+        console.error('[PythonInput] Error resolving Promise:', err)
+      }
+    } else {
+      console.warn('[PythonInput] No pending input to resolve!')
     }
   }
 })

@@ -34,18 +34,18 @@ export interface DetectionResult {
 interface LanguageState {
   // Current language
   currentLanguage: string
-  
+
   // Detection state
   isDetecting: boolean
   lastDetectionConfidence: number
-  
+
   // ML model state
   isModelLoaded: boolean
   isModelLoading: boolean
-  
+
   // Monaco reference (non-persisted)
   monacoInstance: typeof Monaco | null
-  
+
   // Actions
   setLanguage: (language: string) => void
   detectLanguage: (content: string) => DetectionResult
@@ -53,7 +53,7 @@ interface LanguageState {
   initializeModel: () => Promise<void>
   setMonacoInstance: (monaco: typeof Monaco) => void
   applyLanguageToMonaco: (model: Monaco.editor.ITextModel | null) => void
-  
+
   // Utilities
   isExecutable: (languageId: string) => boolean
   getLanguageInfo: (languageId: string) => LanguageInfo | undefined
@@ -87,7 +87,7 @@ const LANGUAGES: Record<string, LanguageInfo> = {
     extensions: ['.py', '.pyw'],
     isExecutable: true
   },
-  
+
   // Non-executable languages
   html: {
     id: 'html',
@@ -174,14 +174,17 @@ const DEFINITIVE_PYTHON_PATTERNS: RegExp[] = [
  */
 const DEFINITIVE_JS_PATTERNS: RegExp[] = [
   /console\.(log|error|warn|info|debug|table|dir)\s*\(/,  // console.log( - ONLY JS
-  /\bfunction\s*\w*\s*\([^)]*\)\s*\{/,                     // function() { - JS syntax
-  /=>\s*\{/,                                               // => { - Arrow function
-  /\bconst\s+\w+\s*=\s*\(/,                                // const x = ( - likely JS
-  /\blet\s+\w+\s*=\s*\{/,                                  // let x = { - likely JS
+  /\bfunction\s+\w+\s*\(/,                                 // function name( - JS syntax (any function declaration)
+  /\bfunction\s*\(/,                                       // function( - anonymous function
+  /=>\s*[\{\(]/,                                           // => { or => ( - Arrow function
+  /\bconst\s+\w+\s*=\s*[\(\{]/,                           // const x = ( or { - likely JS
+  /\blet\s+\w+\s*=\s*[\(\{]/,                             // let x = ( or { - likely JS
+  /\bvar\s+\w+\s*=\s*[\(\{]/,                             // var x = ( or { - likely JS
   /\brequire\s*\(\s*['"`]/,                                // require('...')
   /\bimport\s+.*\s+from\s+['"`]/,                          // import x from '...'
   /document\.|window\.|localStorage\./,                    // DOM APIs
   /\.(then|catch|finally)\s*\(/,                           // Promise chain
+  // NOTE: Removed /===|!==/ as it's too aggressive and causes false positives
 ]
 
 /**
@@ -270,7 +273,7 @@ function patternBasedDetection(content: string): DetectionResult {
   // These patterns are UNIQUE to their language - no ambiguity
   // Order matters: Python first, then TypeScript (superset of JS), then JS
   // =========================================================================
-  
+
   // Check definitive Python patterns FIRST
   for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
     if (pattern.test(trimmed)) {
@@ -298,7 +301,7 @@ function patternBasedDetection(content: string): DetectionResult {
   // =========================================================================
   // SCORING-BASED DETECTION (for ambiguous code)
   // =========================================================================
-  
+
   // Very short content without definitive patterns - default to TypeScript
   if (trimmed.length < 10) {
     return { monacoId: 'typescript', confidence: 1.0, isExecutable: true }
@@ -404,9 +407,9 @@ export const useLanguageStore = create<LanguageState>()(
         setLanguage: (language: string) => {
           const state = get()
           if (state.currentLanguage === language) return
-          
+
           set({ currentLanguage: language })
-          
+
           // Apply to Monaco if available
           if (state.monacoInstance) {
             const editors = state.monacoInstance.editor.getEditors()
@@ -424,15 +427,45 @@ export const useLanguageStore = create<LanguageState>()(
          * For immediate UI feedback, prefer detectLanguageAsync for accuracy
          */
         detectLanguage: (content: string): DetectionResult => {
-          // Check cache first (may contain ML results from previous async detection)
+          const trimmed = content?.trim() || ''
+
+          // =====================================================================
+          // DEFINITIVE PATTERN CHECK (highest priority, before cache)
+          // Order: Python FIRST (most distinctive), then TypeScript, then JavaScript
+          // Python patterns like 'def', 'import', 'print' are VERY distinctive
+          // =====================================================================
+
+          // Check Python FIRST - patterns like 'def func():' are unambiguous
+          for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
+            if (pattern.test(trimmed)) {
+              console.log(`[LanguageStore] Sync: Definitive Python matched: ${pattern}`)
+              return { monacoId: 'python', confidence: 0.98, isExecutable: true }
+            }
+          }
+
+          // Check TypeScript second - type annotations are distinctive
+          for (const pattern of DEFINITIVE_TS_PATTERNS) {
+            if (pattern.test(trimmed)) {
+              console.log(`[LanguageStore] Sync: Definitive TS matched: ${pattern}`)
+              return { monacoId: 'typescript', confidence: 0.98, isExecutable: true }
+            }
+          }
+
+          // Check JavaScript last - patterns like 'function' are clear
+          for (const pattern of DEFINITIVE_JS_PATTERNS) {
+            if (pattern.test(trimmed)) {
+              console.log(`[LanguageStore] Sync: Definitive JS matched: ${pattern}`)
+              return { monacoId: 'javascript', confidence: 0.98, isExecutable: true }
+            }
+          }
+
+          // Check cache only for ambiguous content
           const cacheKey = getCacheKey(content)
           const cached = detectionCache.get(cacheKey)
           if (cached) return cached
 
-          // Fallback to pattern-based for sync detection
-          // This is only used when cache misses and we need immediate result
+          // Fallback to pattern-based scoring for sync detection
           const result = patternBasedDetection(content)
-          // Don't cache pattern results - let ML override on next async call
           return result
         },
 
@@ -442,7 +475,7 @@ export const useLanguageStore = create<LanguageState>()(
          */
         detectLanguageAsync: async (content: string): Promise<DetectionResult> => {
           const state = get()
-          
+
           // Check cache
           const cacheKey = getCacheKey(content)
           const cached = detectionCache.get(cacheKey)
@@ -516,7 +549,7 @@ export const useLanguageStore = create<LanguageState>()(
 
           try {
             const results = await modelOperations.runModel(content)
-            
+
             if (results.length === 0) {
               const result = patternBasedDetection(content)
               updateCache(cacheKey, result)
@@ -537,7 +570,7 @@ export const useLanguageStore = create<LanguageState>()(
             // Cache ML result
             updateCache(cacheKey, result)
             set({ lastDetectionConfidence: result.confidence, isDetecting: false })
-            
+
             console.debug(`[LanguageStore] ML detected: ${monacoId} (${(topResult.confidence * 100).toFixed(1)}%)`)
             return result
           } catch (error) {
@@ -589,7 +622,7 @@ export const useLanguageStore = create<LanguageState>()(
 
           // Configure TypeScript diagnostics
           const isPython = targetLang === 'python'
-          
+
           // @ts-expect-error - Monaco types don't include typescript.typescriptDefaults
           state.monacoInstance.languages.typescript?.typescriptDefaults?.setDiagnosticsOptions({
             noSemanticValidation: isPython,
@@ -625,8 +658,8 @@ export const useLanguageStore = create<LanguageState>()(
       }),
       {
         name: 'language-storage',
-        partialize: (state) => ({ 
-          currentLanguage: state.currentLanguage 
+        partialize: (state) => ({
+          currentLanguage: state.currentLanguage
         }),
       }
     )
