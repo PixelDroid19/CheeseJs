@@ -1,10 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { MAX_RESULTS, type ConsoleType } from '../types/workerTypes'
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface CodeResultElement {
   content: string | number | boolean | object | null;
   jsType?: string;
-  consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir';
+  consoleType?: ConsoleType;
 }
 
 interface CodeResult {
@@ -28,26 +33,60 @@ export interface CodeState {
   setIsExecuting: (isExecuting: boolean) => void;
   isPendingRun: boolean;
   setIsPendingRun: (isPendingRun: boolean) => void;
+  // Memory management
+  pruneOldResults: () => void;
 }
+
+// ============================================================================
+// STORE
+// ============================================================================
 
 export const useCodeStore = create<CodeState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       code: 'console.log("Hello World");',
       result: [],
       isExecuting: false,
       isPendingRun: false,
+
       setCode: (code) => set({ code }),
-      setResult: (result) => set({ result }),
+
+      setResult: (result) => {
+        // Enforce max results on direct set
+        const limited = result.length > MAX_RESULTS
+          ? result.slice(-MAX_RESULTS)
+          : result
+        set({ result: limited })
+      },
+
       appendResult: (resultItem) =>
-        set((state) => ({ result: [...state.result, resultItem] })),
+        set((state) => {
+          const newResults = [...state.result, resultItem]
+          // Auto-prune if exceeding limit
+          if (newResults.length > MAX_RESULTS) {
+            return { result: newResults.slice(-MAX_RESULTS) }
+          }
+          return { result: newResults }
+        }),
+
       clearResult: () => set({ result: [] }),
+
       setIsExecuting: (isExecuting) => set({ isExecuting }),
-      setIsPendingRun: (isPendingRun) => set({ isPendingRun })
+
+      setIsPendingRun: (isPendingRun) => set({ isPendingRun }),
+
+      // Manual pruning for explicit cleanup
+      pruneOldResults: () => {
+        const { result } = get()
+        if (result.length > MAX_RESULTS) {
+          set({ result: result.slice(-MAX_RESULTS) })
+        }
+      }
     }),
     {
-      name: 'code-storage', // name of the item in the storage (must be unique)
+      name: 'code-storage',
       partialize: (state) => ({ code: state.code }), // Only persist code
     }
   )
 )
+

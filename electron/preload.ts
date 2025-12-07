@@ -30,15 +30,28 @@ interface ExecutionResult {
 
 type ResultCallback = (result: ExecutionResult) => void
 
+// Input request types
+interface InputRequest {
+  id: string
+  data: { prompt: string; line: number }
+}
+type InputRequestCallback = (request: InputRequest) => void
+
 // ============================================================================
 // CODE RUNNER API
 // ============================================================================
 
 const resultCallbacks = new Set<ResultCallback>()
+const inputRequestCallbacks = new Set<InputRequestCallback>()
 
 // Listen for execution results from main process
 ipcRenderer.on('code-execution-result', (_event, result: ExecutionResult) => {
   resultCallbacks.forEach(callback => callback(result))
+})
+
+// Listen for Python input requests
+ipcRenderer.on('python-input-request', (_event, request: InputRequest) => {
+  inputRequestCallbacks.forEach(callback => callback(request))
 })
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -59,14 +72,39 @@ contextBridge.exposeInMainWorld('codeRunner', {
     const { language, ...restOptions } = options
     return ipcRenderer.invoke('execute-code', { id, code, language, options: restOptions })
   },
-  
+
   /**
    * Cancel a running execution
    */
   cancel: (id: string) => {
     ipcRenderer.send('cancel-execution', id)
   },
-  
+
+  /**
+   * Check if worker is ready
+   */
+  isReady: async (language: string = 'javascript'): Promise<boolean> => {
+    const result = await ipcRenderer.invoke('is-worker-ready', language)
+    return result.ready
+  },
+
+  /**
+   * Wait for worker to be ready (polls every 100ms, max 10s)
+   */
+  waitForReady: async (language: string = 'javascript'): Promise<boolean> => {
+    const maxWait = 10000
+    const interval = 100
+    let waited = 0
+
+    while (waited < maxWait) {
+      const result = await ipcRenderer.invoke('is-worker-ready', language)
+      if (result.ready) return true
+      await new Promise(r => setTimeout(r, interval))
+      waited += interval
+    }
+    return false
+  },
+
   /**
    * Subscribe to execution results
    */
@@ -76,12 +114,29 @@ contextBridge.exposeInMainWorld('codeRunner', {
       resultCallbacks.delete(callback)
     }
   },
-  
+
   /**
    * Remove result listener
    */
   removeResultListener: (callback: ResultCallback) => {
     resultCallbacks.delete(callback)
+  },
+
+  /**
+   * Subscribe to Python input requests
+   */
+  onInputRequest: (callback: InputRequestCallback) => {
+    inputRequestCallbacks.add(callback)
+    return () => {
+      inputRequestCallbacks.delete(callback)
+    }
+  },
+
+  /**
+   * Send input response back to Python
+   */
+  sendInputResponse: (id: string, value: string) => {
+    ipcRenderer.send('python-input-response', { id, value })
   }
 })
 
@@ -109,21 +164,21 @@ contextBridge.exposeInMainWorld('packageManager', {
   install: async (packageName: string): Promise<PackageInstallResult> => {
     return ipcRenderer.invoke('install-package', packageName)
   },
-  
+
   /**
    * Uninstall an npm package
    */
   uninstall: async (packageName: string): Promise<PackageInstallResult> => {
     return ipcRenderer.invoke('uninstall-package', packageName)
   },
-  
+
   /**
    * List all installed packages
    */
   list: async (): Promise<{ success: boolean; packages: InstalledPackage[]; error?: string }> => {
     return ipcRenderer.invoke('list-packages')
   },
-  
+
   /**
    * Get the node_modules path
    */

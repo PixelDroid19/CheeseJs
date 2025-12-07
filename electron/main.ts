@@ -1,11 +1,12 @@
 import { app, BrowserWindow, ipcMain, nativeImage, Menu, MenuItemConstructorOptions } from 'electron'
 import path from 'node:path'
 import { Worker } from 'node:worker_threads'
+// Use TypeScript transpiler by default - SWC available as performance option once node_modules issue is resolved
 import { transformCode, type TransformOptions } from './transpiler/tsTranspiler'
-import { 
-  initPackagesDirectory, 
-  installPackage, 
-  uninstallPackage, 
+import {
+  initPackagesDirectory,
+  installPackage,
+  uninstallPackage,
   listInstalledPackages,
   getNodeModulesPath
 } from './packages/packageManager'
@@ -62,14 +63,14 @@ const pendingExecutions = new Map<string, { resolve: (value: unknown) => void; r
 function initializeCodeWorker(): Promise<void> {
   return new Promise((resolve) => {
     const workerPath = path.join(__dirname, 'codeExecutor.js')
-    
+
     // Pass node_modules path to worker for package require support
     codeWorker = new Worker(workerPath, {
       workerData: {
         nodeModulesPath: getNodeModulesPath()
       }
     })
-    
+
     codeWorker.on('message', (message: WorkerResult) => {
       if (message.type === 'ready') {
         console.log('Code executor worker ready')
@@ -77,12 +78,12 @@ function initializeCodeWorker(): Promise<void> {
         resolve()
         return
       }
-    
+
       // Forward all messages to renderer
       if (win && !win.isDestroyed()) {
         win.webContents.send('code-execution-result', message)
       }
-    
+
       // Handle completion
       if (message.type === 'complete' || message.type === 'error') {
         const pending = pendingExecutions.get(message.id)
@@ -96,7 +97,7 @@ function initializeCodeWorker(): Promise<void> {
         }
       }
     })
-  
+
     codeWorker.on('error', (error) => {
       console.error('Worker error:', error)
       codeWorkerReady = false
@@ -106,7 +107,7 @@ function initializeCodeWorker(): Promise<void> {
         pendingExecutions.delete(id)
       }
     })
-  
+
     codeWorker.on('exit', (code) => {
       console.log(`Worker exited with code ${code}`)
       codeWorker = null
@@ -126,9 +127,9 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
   if (!codeWorker || !codeWorkerReady) {
     await initializeCodeWorker()
   }
-  
+
   const { id, code, options } = request
-  
+
   // Transform code using SWC before sending to worker
   const transformOptions: TransformOptions = {
     showTopLevelResults: options.showTopLevelResults ?? true,
@@ -136,7 +137,7 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
     magicComments: options.magicComments ?? false,
     showUndefined: options.showUndefined ?? false
   }
-  
+
   let transformedCode: string
   try {
     transformedCode = transformCode(code, transformOptions)
@@ -144,15 +145,15 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
     const errorMessage = error instanceof Error ? error.message : String(error)
     throw new Error(`Transpilation error: ${errorMessage}`)
   }
-  
+
   return new Promise((resolve, reject) => {
     if (!codeWorker) {
       reject(new Error('Code worker not initialized'))
       return
     }
-    
+
     pendingExecutions.set(id, { resolve, reject })
-    
+
     codeWorker.postMessage({
       type: 'execute',
       id,
@@ -162,7 +163,7 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
         showUndefined: options.showUndefined ?? false
       }
     })
-    
+
     // Safety timeout
     setTimeout(() => {
       if (pendingExecutions.has(id)) {
@@ -183,7 +184,7 @@ function cancelExecution(id: string): void {
   if (pythonWorker) {
     pythonWorker.postMessage({ type: 'cancel', id })
   }
-  
+
   const pending = pendingExecutions.get(id)
   if (pending) {
     pending.reject(new Error('Execution cancelled'))
@@ -201,9 +202,9 @@ function cancelExecution(id: string): void {
 function initializePythonWorker(): Promise<void> {
   return new Promise((resolve) => {
     const workerPath = path.join(__dirname, 'pythonExecutor.js')
-    
+
     pythonWorker = new Worker(workerPath)
-    
+
     pythonWorker.on('message', (message: WorkerResult) => {
       if (message.type === 'ready') {
         console.log('Python executor worker ready')
@@ -211,7 +212,7 @@ function initializePythonWorker(): Promise<void> {
         resolve()
         return
       }
-      
+
       // Forward status messages
       if (message.type === 'status' as WorkerResult['type']) {
         console.log('Python status:', (message.data as { message: string }).message)
@@ -220,12 +221,20 @@ function initializePythonWorker(): Promise<void> {
         }
         return
       }
-      
+
+      // Handle input requests - forward to renderer
+      if ((message as { type: string }).type === 'input-request') {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('python-input-request', message)
+        }
+        return
+      }
+
       // Forward all messages to renderer
       if (win && !win.isDestroyed()) {
         win.webContents.send('code-execution-result', message)
       }
-      
+
       // Handle completion
       if (message.type === 'complete' || message.type === 'error') {
         const pending = pendingExecutions.get(message.id)
@@ -239,7 +248,7 @@ function initializePythonWorker(): Promise<void> {
         }
       }
     })
-    
+
     pythonWorker.on('error', (error) => {
       console.error('Python worker error:', error)
       pythonWorkerReady = false
@@ -248,7 +257,7 @@ function initializePythonWorker(): Promise<void> {
         pendingExecutions.delete(id)
       }
     })
-    
+
     pythonWorker.on('exit', (code) => {
       console.log(`Python worker exited with code ${code}`)
       pythonWorker = null
@@ -267,17 +276,17 @@ async function executePython(request: ExecutionRequest): Promise<unknown> {
   if (!pythonWorker || !pythonWorkerReady) {
     await initializePythonWorker()
   }
-  
+
   const { id, code, options } = request
-  
+
   return new Promise((resolve, reject) => {
     if (!pythonWorker) {
       reject(new Error('Python worker not initialized'))
       return
     }
-    
+
     pendingExecutions.set(id, { resolve, reject })
-    
+
     pythonWorker.postMessage({
       type: 'execute',
       id,
@@ -287,7 +296,7 @@ async function executePython(request: ExecutionRequest): Promise<unknown> {
         showUndefined: options.showUndefined ?? false
       }
     })
-    
+
     // Safety timeout (longer for Python due to Pyodide loading)
     setTimeout(() => {
       if (pendingExecutions.has(id)) {
@@ -307,7 +316,7 @@ ipcMain.handle('execute-code', async (_event, request: ExecutionRequest) => {
     // Route to appropriate executor based on language
     const language = request.language || 'javascript'
     console.log('[execute-code] Language:', language, 'Request keys:', Object.keys(request))
-    
+
     let result: unknown
     if (language === 'python') {
       console.log('[execute-code] Routing to Python executor')
@@ -317,7 +326,7 @@ ipcMain.handle('execute-code', async (_event, request: ExecutionRequest) => {
       console.log('[execute-code] Routing to JS/TS executor')
       result = await executeCode(request)
     }
-    
+
     return { success: true, data: result }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -327,6 +336,25 @@ ipcMain.handle('execute-code', async (_event, request: ExecutionRequest) => {
 
 ipcMain.on('cancel-execution', (_event, id: string) => {
   cancelExecution(id)
+})
+
+// Check if workers are ready for execution
+ipcMain.handle('is-worker-ready', async (_event, language: string) => {
+  if (language === 'python') {
+    return { ready: pythonWorkerReady }
+  }
+  return { ready: codeWorkerReady }
+})
+
+// Handle input response from renderer to Python worker
+ipcMain.on('python-input-response', (_event, { id, value }: { id: string; value: string }) => {
+  if (pythonWorker) {
+    pythonWorker.postMessage({
+      type: 'input-response',
+      id,
+      value
+    })
+  }
 })
 
 // ============================================================================
@@ -346,12 +374,12 @@ ipcMain.handle('install-package', async (_event, packageName: string) => {
 ipcMain.handle('uninstall-package', async (_event, packageName: string) => {
   try {
     const result = await uninstallPackage(packageName)
-    
+
     // Clear the require cache in the worker so the package is no longer available
     if (result.success && codeWorker) {
       codeWorker.postMessage({ type: 'clear-cache', packageName })
     }
-    
+
     return result
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -385,7 +413,7 @@ ipcMain.handle('install-python-package', async (_event, packageName: string) => 
     }
 
     const id = `python-install-${Date.now()}`
-    
+
     return new Promise((resolve) => {
       if (!pythonWorker) {
         resolve({ success: false, packageName, error: 'Python worker not available' })
@@ -394,7 +422,7 @@ ipcMain.handle('install-python-package', async (_event, packageName: string) => 
 
       const handleMessage = (message: WorkerResult) => {
         if (message.id !== id) return
-        
+
         if (message.type === 'complete') {
           pythonWorker?.off('message', handleMessage)
           resolve({ success: true, packageName })
@@ -428,7 +456,7 @@ ipcMain.handle('list-python-packages', async () => {
     }
 
     const id = `python-list-${Date.now()}`
-    
+
     return new Promise((resolve) => {
       if (!pythonWorker) {
         resolve({ success: false, packages: [], error: 'Python worker not available' })
@@ -437,7 +465,7 @@ ipcMain.handle('list-python-packages', async () => {
 
       const handleMessage = (message: WorkerResult) => {
         if (message.id !== id) return
-        
+
         if (message.type === 'complete') {
           pythonWorker?.off('message', handleMessage)
           const data = message.data as { packages: string[] }
@@ -588,7 +616,17 @@ app
   .then(async () => {
     // Initialize packages directory
     await initPackagesDirectory()
-    // Initialize the code worker before creating window
-    initializeCodeWorker()
+
+    // Initialize BOTH workers in parallel for faster cold start
+    // Python worker takes 3-5s to load Pyodide, so start it early
+    const workerInitPromises = [
+      initializeCodeWorker(),
+      initializePythonWorker().catch(err => {
+        console.warn('Python worker pre-init failed (will retry on demand):', err)
+      })
+    ]
+
+    // Wait for JS worker (required), Python can continue in background
+    await workerInitPromises[0]
   })
   .then(createWindow)

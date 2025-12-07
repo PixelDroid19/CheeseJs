@@ -37,8 +37,19 @@ export default defineConfig(({ mode }) => ({
         entry: 'electron/workers/pythonExecutor.ts',
       },
       {
-        // TypeScript transpiler module
+        // TypeScript transpiler module (legacy)
         entry: 'electron/transpiler/tsTranspiler.ts',
+      },
+      {
+        // SWC transpiler module (high-performance)
+        entry: 'electron/transpiler/swcTranspiler.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['@swc/core']
+            }
+          }
+        }
       },
       {
         // Package manager module

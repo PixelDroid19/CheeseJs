@@ -33,6 +33,7 @@
     "@babel/plugin-proposal-decorators": "^7.28.0",
     "@babel/plugin-transform-async-generator-functions": "^7.28.0",
     "@emotion/is-prop-valid": "^1.4.0",
+    "@swc/core": "^1.10.0",
     "@vscode/vscode-languagedetection": "^1.0.22",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.25",

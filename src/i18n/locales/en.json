@@ -94,5 +94,12 @@
   },
   "common": {
     "comingSoon": "Coming soon"
+  },
+  "input": {
+    "defaultPrompt": "Enter value:",
+    "placeholder": "Enter a value...",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "hint": "Press Enter to submit, Escape to cancel"
   }
 }

@@ -115,5 +115,12 @@
   },
   "common": {
     "comingSoon": "Próximamente..."
+  },
+  "input": {
+    "defaultPrompt": "Ingresa un valor:",
+    "placeholder": "Ingresa un valor...",
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "hint": "Enter para enviar, Escape para cancelar"
   }
 }

@@ -119,7 +119,16 @@ export function useCodeRunner() {
             throw new WorkerUnavailableError()
           }
 
-          // Subscribe to results for this execution
+          // Wait for worker to be ready before executing
+          const execLanguage = currentLang === 'python' ? 'python' :
+            currentLang === 'typescript' ? 'typescript' : 'javascript'
+
+          const isReady = await window.codeRunner.waitForReady(execLanguage)
+          if (!isReady) {
+            throw new Error(`Worker for ${execLanguage} failed to initialize`)
+          }
+
+          // Subscribe to results BEFORE executing to avoid race condition
           unsubscribeRef.current = window.codeRunner.onResult((result: ExecutionResultData) => {
             // Only process results for current execution
             if (result.id !== executionId) return
@@ -128,7 +137,7 @@ export function useCodeRunner() {
               // Line-numbered output
               appendResult({
                 lineNumber: result.line,
-                element: { 
+                element: {
                   content: (result.data as { content: string })?.content ?? String(result.data),
                   jsType: result.jsType
                 },
@@ -137,9 +146,9 @@ export function useCodeRunner() {
             } else if (result.type === 'console') {
               // Console output (log, warn, error, etc.)
               const consolePrefix = result.consoleType === 'error' ? '❌ ' :
-                                   result.consoleType === 'warn' ? '⚠️ ' : ''
+                result.consoleType === 'warn' ? '⚠️ ' : ''
               appendResult({
-                element: { 
+                element: {
                   content: consolePrefix + ((result.data as { content: string })?.content ?? String(result.data)),
                   consoleType: result.consoleType
                 },
@@ -164,10 +173,8 @@ export function useCodeRunner() {
             }
           })
 
-          // Execute code via IPC - pass language for routing to correct worker
-          const execLanguage = currentLang === 'python' ? 'python' : 
-                               currentLang === 'typescript' ? 'typescript' : 'javascript'
-          
+          // Execute code via IPC - language already determined above
+
           const response = await window.codeRunner.execute(executionId, sourceCode, {
             timeout: 30000,
             showUndefined,
@@ -186,7 +193,7 @@ export function useCodeRunner() {
         } catch (error: unknown) {
           let errorMessage: string
           let errorIcon = '❌'
-          
+
           if (error instanceof WorkerUnavailableError) {
             errorMessage = `${error.message}\n\nPlease restart the application.`
             errorIcon = '🔌'
@@ -200,7 +207,7 @@ export function useCodeRunner() {
           } else {
             errorMessage = 'An unknown error occurred'
           }
-          
+
           setResult([{ element: { content: `${errorIcon} ${errorMessage}` }, type: 'error' }])
         } finally {
           // Clean up listener on any exit path

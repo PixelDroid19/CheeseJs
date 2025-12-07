@@ -1,9 +1,11 @@
 import React from 'react'
-import { motion } from 'framer-motion'
-import { Play, Settings, Brush } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Play, Settings, Brush, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useCodeRunner } from '../hooks/useCodeRunner'
 import { useSettingsStore } from '../store/useSettingsStore'
+import { useRuntimeStatus } from '../hooks/useRuntimeStatus'
+import { useLanguageStore } from '../store/useLanguageStore'
 import { SnippetsMenu } from './SnippetsMenu'
 import clsx from 'clsx'
 
@@ -11,6 +13,10 @@ export default function FloatingToolbar() {
   const { t } = useTranslation()
   const { runCode } = useCodeRunner()
   const toggleSettings = useSettingsStore((state) => state.toggleSettings)
+  const currentLanguage = useLanguageStore((state) => state.currentLanguage)
+  const { isLoading, message } = useRuntimeStatus(
+    currentLanguage === 'python' ? 'python' : 'javascript'
+  )
 
   const handleLint = () => {
     window.dispatchEvent(new CustomEvent('trigger-format'))
@@ -26,10 +32,28 @@ export default function FloatingToolbar() {
         role="toolbar"
         aria-label={t('toolbar.label', 'Main toolbar')}
       >
+        {/* Loading indicator for Python */}
+        <AnimatePresence>
+          {isLoading && currentLanguage === 'python' && (
+            <motion.div
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              className="flex items-center gap-2 px-3 text-xs text-muted-foreground"
+            >
+              <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+              <span className="whitespace-nowrap text-amber-500/80">
+                {message || 'Loading Python...'}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <ToolbarButton
           icon={<Play className="w-5 h-5" />}
           onClick={() => runCode()}
           label={t('toolbar.run')}
+          disabled={isLoading && currentLanguage === 'python'}
         />
         <SnippetsMenu />
         <ToolbarButton
@@ -51,20 +75,26 @@ function ToolbarButton({
   icon,
   onClick,
   label,
-  isActive = false
+  isActive = false,
+  disabled = false
 }: {
   icon: React.ReactNode;
   onClick: () => void;
   label: string;
   isActive?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <motion.button
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={disabled ? {} : { scale: 1.1 }}
+      whileTap={disabled ? {} : { scale: 0.95 }}
       onClick={onClick}
+      disabled={disabled}
       className={clsx(
-        'p-3 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group'
+        'p-3 rounded-full transition-colors relative group',
+        disabled
+          ? 'text-muted-foreground/50 cursor-not-allowed'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
       )}
       title={label}
       aria-label={label}

@@ -59,6 +59,7 @@ class RPC {
   private pendingExecutions = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
   private executionCounter = 0
   private workerStatus: Map<Language, WorkerStatus> = new Map()
+  private currentExecutionId: string | null = null  // For rate limiting
 
   constructor() {
     this.initializeStatus()
@@ -84,14 +85,21 @@ class RPC {
   }
 
   /**
-   * Execute code in the appropriate worker
-   */
+ * Execute code in the appropriate worker
+ * Includes rate limiting - cancels previous pending execution
+ */
   async execute(code: string, language: Language, options: ExecutionOptions = {}): Promise<ExecutionResult> {
     if (!window.codeRunner) {
       throw new Error('Code runner not available. Ensure you are running in Electron.')
     }
 
     const id = this.generateId()
+
+    // Cancel any previous pending execution (rate limiting)
+    if (this.currentExecutionId) {
+      this.cancel(this.currentExecutionId)
+    }
+    this.currentExecutionId = id
 
     // Update status to loading
     this.updateStatus(language, { loading: true, message: 'Executing...' })
@@ -102,7 +110,11 @@ class RPC {
         language
       })
 
-      this.updateStatus(language, { loading: false, ready: true })
+      // Only process if this is still the current execution
+      if (this.currentExecutionId === id) {
+        this.updateStatus(language, { loading: false, ready: true })
+        this.currentExecutionId = null
+      }
 
       if (!response.success) {
         throw new Error(response.error ?? 'Execution failed')
@@ -114,7 +126,10 @@ class RPC {
         data: response.data
       }
     } catch (error) {
-      this.updateStatus(language, { loading: false })
+      if (this.currentExecutionId === id) {
+        this.updateStatus(language, { loading: false })
+        this.currentExecutionId = null
+      }
       throw error
     }
   }
@@ -132,7 +147,7 @@ class RPC {
    */
   onResult(callback: ResultCallback): () => void {
     this.resultCallbacks.add(callback)
-    
+
     // Also subscribe to the underlying codeRunner
     const unsubscribe = window.codeRunner?.onResult((result: ExecutionResult) => {
       // Process status messages
@@ -146,7 +161,7 @@ class RPC {
           message: statusData?.message
         })
       }
-      
+
       callback(result)
     })
 
@@ -186,7 +201,7 @@ class RPC {
       ready: false,
       loading: false
     }
-    
+
     const newStatus = { ...current, ...update }
     this.workerStatus.set(language, newStatus)
     this.notifyStatusCallbacks(newStatus)

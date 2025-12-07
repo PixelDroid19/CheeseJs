@@ -11,6 +11,7 @@ const Settings = lazy(() => import('./components/Settings/Settings'))
 // and react-split needs direct children
 import CodeEditor from './components/Editor'
 import ResultDisplay from './components/Result'
+import { InputTooltip } from './components/InputTooltip'
 
 function App() {
   const { setMagicComments } = useSettingsStore()
@@ -54,6 +55,7 @@ function App() {
         <Settings />
       </Suspense>
       <FloatingToolbar />
+      <InputTooltip />
       <Layout>
         <CodeEditor />
         <ResultDisplay />

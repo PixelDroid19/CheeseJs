@@ -28,8 +28,12 @@ type ResultCallback = (result: ExecutionResult) => void
 interface CodeRunner {
   execute: (id: string, code: string, options?: ExecutionOptions) => Promise<{ success: boolean; data?: unknown; error?: string }>
   cancel: (id: string) => void
+  isReady: (language?: string) => Promise<boolean>
+  waitForReady: (language?: string) => Promise<boolean>
   onResult: (callback: ResultCallback) => () => void
   removeResultListener: (callback: ResultCallback) => void
+  onInputRequest: (callback: (request: { id: string; data: { prompt: string; line: number } }) => void) => () => void
+  sendInputResponse: (id: string, value: string) => void
 }
 
 // ============================================================================
