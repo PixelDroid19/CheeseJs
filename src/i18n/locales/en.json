@@ -12,8 +12,20 @@
       "appearance": "Appearance",
       "ai": "AI",
       "npm": "NPM",
+      "pypi": "PyPI (Python)",
       "snippets": "Snippets",
       "advanced": "Advanced"
+    },
+    "descriptions": {
+      "general": "Configure the editor's general behavior",
+      "compilation": "Compiler options and code transformations",
+      "formatting": "Customize how code output is displayed",
+      "appearance": "Customize the editor's appearance and theme",
+      "ai": "Configure AI features and assistants",
+      "npm": "Manage NPM packages and configuration",
+      "pypi": "Manage Python packages from PyPI",
+      "snippets": "Manage your reusable code snippets",
+      "advanced": "Advanced settings and developer options"
     },
     "snippets": {
       "description": "Save frequently used code snippets for quick access.",
@@ -67,6 +79,22 @@
         "manual": "You can also manually add packages here",
         "sandbox": "All packages run in a secure sandboxed VM environment"
       }
+    },
+    "pypi": {
+      "description": "Manage Python packages for your code. Packages are installed via micropip from PyPI.",
+      "installedPackages": "Installed Packages",
+      "placeholder": "Package name (e.g., numpy, pandas)",
+      "add": "Add",
+      "remove": "Remove package",
+      "empty": "No packages installed yet",
+      "loading": "Loading packages...",
+      "info": {
+        "title": "How it works:",
+        "auto": "Packages are detected from import statements",
+        "install": "They are installed automatically on first execution",
+        "manual": "You can also manually add packages here",
+        "sandbox": "All code runs in a secure WebAssembly sandbox"
+      }
     }
   },
   "editor": {
@@ -102,23 +130,5 @@
     "submit": "Submit",
     "cancel": "Cancel",
     "hint": "Press Enter to submit, Escape to cancel"
-  },
-  "settings.pypi": {
-    "description": "Manage Python packages for your code. Packages are installed via micropip from PyPI.",
-    "installedPackages": "Installed Packages",
-    "placeholder": "Package name (e.g., numpy, pandas)",
-    "add": "Add",
-    "remove": "Remove package",
-    "empty": "No packages installed yet",
-    "loading": "Loading packages...",
-    "info": {
-      "title": "How it works:",
-      "auto": "Packages are detected from import statements",
-      "install": "They are installed automatically on first execution",
-      "manual": "You can also manually add packages here",
-      "sandbox": "All code runs in a secure WebAssembly sandbox"
-    }
-  },
-  "settings.categories.pypi": "PyPI (Python)",
-  "settings.descriptions.pypi": "Manage Python packages from PyPI"
+  }
 }

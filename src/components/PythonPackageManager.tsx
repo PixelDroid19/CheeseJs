@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react'
 import { usePythonPackagesStore, type PythonPackageInfo } from '../store/usePythonPackagesStore'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
-import { Plus, Trash2, RefreshCw, Package } from 'lucide-react'
+import { Plus, Trash2, RefreshCw } from 'lucide-react'
 
 export function PythonPackageManager() {
     const { t } = useTranslation()
@@ -117,22 +117,17 @@ export function PythonPackageManager() {
                 </p>
             </div>
 
-            {/* Info Section */}
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <div className="flex items-start gap-3">
-                    <Package className="w-5 h-5 text-primary mt-0.5" />
-                    <div className="text-sm">
-                        <p className="font-medium text-foreground mb-2">
-                            {t('settings.pypi.info.title', 'How it works:')}
-                        </p>
-                        <ul className="space-y-1 text-muted-foreground">
-                            <li>• {t('settings.pypi.info.auto', 'Packages are detected from import statements')}</li>
-                            <li>• {t('settings.pypi.info.install', 'They are installed automatically on first execution')}</li>
-                            <li>• {t('settings.pypi.info.manual', 'You can also manually add packages here')}</li>
-                            <li>• {t('settings.pypi.info.sandbox', 'All code runs in a secure WebAssembly sandbox')}</li>
-                        </ul>
-                    </div>
-                </div>
+            {/* Info Section (match NPM layout) */}
+            <div>
+                <h3 className="text-sm font-semibold mb-3 text-foreground">
+                    {t('settings.pypi.info.title', 'How it works:')}
+                </h3>
+                <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
+                    <li>{t('settings.pypi.info.auto', 'Packages are detected from import statements')}</li>
+                    <li>{t('settings.pypi.info.install', 'They are installed automatically on first execution')}</li>
+                    <li>{t('settings.pypi.info.manual', 'You can also manually add packages here')}</li>
+                    <li>{t('settings.pypi.info.sandbox', 'All code runs in a secure WebAssembly sandbox')}</li>
+                </ul>
             </div>
 
             {/* Packages Section */}
