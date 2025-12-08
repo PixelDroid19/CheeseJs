@@ -164,22 +164,33 @@ export function useCodeRunner() {
                 });
               } else if (result.type === 'console') {
                 // Console output (log, warn, error, etc.)
-                const consolePrefix =
-                  result.consoleType === 'error'
-                    ? '❌ '
-                    : result.consoleType === 'warn'
-                      ? '⚠️ '
-                      : '';
-                appendResult({
-                  element: {
-                    content:
-                      consolePrefix +
-                      ((result.data as { content: string })?.content ??
-                        String(result.data)),
-                    consoleType: result.consoleType,
-                  },
-                  type: 'execution',
-                });
+                const consoleContent =
+                  (result.data as { content: string })?.content ??
+                  String(result.data);
+
+                // Filter out Python cancellation-related console messages
+                const isCancellationMessage =
+                  consoleContent.includes('KeyboardInterrupt') ||
+                  consoleContent.includes('Execution cancelled') ||
+                  consoleContent.includes('_pyodide/_future_helper.py') ||
+                  consoleContent.includes('pyodide/webloop.py') ||
+                  (consoleContent.includes('Traceback') && consoleContent.includes('cancelled'));
+
+                if (!isCancellationMessage) {
+                  const consolePrefix =
+                    result.consoleType === 'error'
+                      ? '❌ '
+                      : result.consoleType === 'warn'
+                        ? '⚠️ '
+                        : '';
+                  appendResult({
+                    element: {
+                      content: consolePrefix + consoleContent,
+                      consoleType: result.consoleType,
+                    },
+                    type: 'execution',
+                  });
+                }
               } else if (result.type === 'error') {
                 // Execution error
                 const errorData = result.data as {
@@ -188,12 +199,53 @@ export function useCodeRunner() {
                   stack?: string;
                 };
                 const errorMessage = errorData.message ?? String(result.data);
-                appendResult({
-                  element: {
-                    content: `❌ ${errorData.name ?? 'Error'}: ${errorMessage}`,
-                  },
-                  type: 'error',
-                });
+                const errorName = errorData.name ?? 'Error';
+
+                // Filter out cancellation-related errors for cleaner UX
+                // These occur when switching languages while Python is waiting for input
+                const isCancellationError =
+                  errorName === 'KeyboardInterrupt' ||
+                  errorName === 'CancelError' ||
+                  errorMessage.includes('KeyboardInterrupt') ||
+                  errorMessage.includes('Execution cancelled') ||
+                  errorMessage.includes('cancelled') ||
+                  (errorData.stack && errorData.stack.includes('KeyboardInterrupt'));
+
+                if (!isCancellationError) {
+                  // Format Python errors to be more user-friendly
+                  let friendlyMessage = `❌ ${errorName}: ${errorMessage}`;
+
+                  // ModuleNotFoundError - show friendly package install message
+                  const moduleMatch = errorMessage.match(/No module named ['\"]?(\w+)['\"]?/);
+                  if (errorName === 'ModuleNotFoundError' || moduleMatch) {
+                    const packageName = moduleMatch?.[1] || errorMessage.replace(/.*No module named ['\"]?(\w+)['\"]?.*/, '$1');
+                    friendlyMessage = `📦 Missing package: ${packageName}\n\nInstall it via Settings → PyPI or it will be installed automatically on next run.`;
+                  }
+
+                  // IndentationError/SyntaxError - simplify message
+                  else if (errorName === 'IndentationError' || errorName === 'SyntaxError') {
+                    const lineMatch = errorMessage.match(/line (\d+)/);
+                    const lineInfo = lineMatch ? ` (line ${lineMatch[1]})` : '';
+                    // Extract just the error description, not the full traceback
+                    const shortMessage = errorMessage.split('\n').pop() || errorMessage;
+                    friendlyMessage = `❌ ${errorName}${lineInfo}: ${shortMessage}`;
+                  }
+
+                  // Other Python errors - extract just the last relevant part
+                  else if (errorMessage.includes('Traceback')) {
+                    // Extract the actual error from the traceback
+                    const lines = errorMessage.split('\n');
+                    const lastLines = lines.slice(-3).filter(l => l.trim()).join('\n');
+                    friendlyMessage = `❌ ${lastLines}`;
+                  }
+
+                  appendResult({
+                    element: {
+                      content: friendlyMessage,
+                    },
+                    type: 'error',
+                  });
+                }
               } else if (result.type === 'complete') {
                 // Execution completed - clean up listener
                 if (unsubscribeRef.current) {

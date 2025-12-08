@@ -162,6 +162,47 @@ export function PythonPackageManager() {
         </ul>
       </div>
 
+      {/* Limitations Section */}
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+        <h3 className="text-sm font-semibold mb-2 text-amber-600 dark:text-amber-400">
+          ⚠️ {t('settings.pypi.limitations.title', 'Pyodide Limitations')}
+        </h3>
+        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+          <li>
+            {t(
+              'settings.pypi.limitations.sockets',
+              'No native sockets - packages like aiohttp cannot make HTTPS requests'
+            )}
+          </li>
+          <li>
+            {t(
+              'settings.pypi.limitations.ssl',
+              'SSL/TLS not supported - use pyodide.http.pyfetch for HTTP requests'
+            )}
+          </li>
+          <li>
+            {t(
+              'settings.pypi.limitations.threading',
+              'No threading/multiprocessing support'
+            )}
+          </li>
+          <li>
+            {t(
+              'settings.pypi.limitations.wheels',
+              'Only pure Python packages or packages with WebAssembly wheels work'
+            )}
+          </li>
+        </ul>
+        <a
+          href="https://pyodide.org/en/stable/usage/wasm-constraints.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-primary hover:underline mt-2 inline-block"
+        >
+          {t('settings.pypi.limitations.learnMore', 'Learn more →')}
+        </a>
+      </div>
+
       {/* Packages Section */}
       <div className="flex-1 flex flex-col min-h-0">
         <h3 className="text-sm font-semibold mb-3 text-foreground">

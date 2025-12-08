@@ -123,9 +123,11 @@ function ResultDisplay() {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData);
     });
 
-    // Access typescript defaults safely
-    const ts = monaco.languages.typescript;
-    if (ts) {
+    // Access typescript defaults safely through type casting
+    interface TSDefaults { setEagerModelSync(value: boolean): void; }
+    interface TSLanguages { javascriptDefaults?: TSDefaults; }
+    const ts = (monaco.languages as unknown as { typescript: TSLanguages }).typescript;
+    if (ts?.javascriptDefaults) {
       ts.javascriptDefaults.setEagerModelSync(true);
     }
   }

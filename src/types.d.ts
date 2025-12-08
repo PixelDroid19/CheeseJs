@@ -110,4 +110,9 @@ interface Window {
   codeRunner: CodeRunner;
   packageManager: PackageManager;
   pythonPackageManager: PythonPackageManager;
+  // E2E testing properties
+  monaco?: unknown;
+  editor?: unknown;
+  useCodeStore?: unknown;
 }
+

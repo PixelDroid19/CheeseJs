@@ -105,6 +105,14 @@
         "install": "Se instalan automáticamente en la primera ejecución",
         "manual": "También puedes agregar paquetes manualmente aquí",
         "sandbox": "Todo el código se ejecuta en un sandbox WebAssembly seguro"
+      },
+      "limitations": {
+        "title": "Limitaciones de Pyodide",
+        "sockets": "Sin sockets nativos - paquetes como aiohttp no pueden hacer peticiones HTTPS",
+        "ssl": "SSL/TLS no soportado - usa pyodide.http.pyfetch para peticiones HTTP",
+        "threading": "Sin soporte para threading/multiprocessing",
+        "wheels": "Solo funcionan paquetes Python puros o con wheels WebAssembly",
+        "learnMore": "Más información →"
       }
     }
   },

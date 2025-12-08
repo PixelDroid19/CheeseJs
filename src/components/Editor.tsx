@@ -220,11 +220,8 @@ function CodeEditor() {
 
       // Expose monaco to window for E2E testing
       // Always expose for Electron app (needed for Playwright E2E tests)
-      // @ts-expect-error - Exposing monaco to window for testing
       window.monaco = monaco;
-      // @ts-expect-error - Exposing editor to window for testing
       window.editor = editorInstance;
-      // @ts-expect-error - Exposing store to window for testing
       window.useCodeStore = useCodeStore;
 
       // Detect language from initial code using ML (async)

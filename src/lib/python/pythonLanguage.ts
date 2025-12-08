@@ -7,7 +7,7 @@
  * - Basic completion provider
  */
 
-import * as monaco from 'monaco-editor';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 // ============================================================================
 // PYTHON MONARCH TOKENIZER
@@ -157,7 +157,6 @@ const pythonLanguage: monaco.languages.IMonarchLanguage = {
 
       // Delimiters and operators
       [/[{}()[\]]/, '@brackets'],
-      [/[<>](?!@symbols)/, '@brackets'],
       [/@symbols/, 'operator'],
       [/[,;]/, 'delimiter'],
 

@@ -198,6 +198,16 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
     setTimeout(() => {
       if (pendingExecutions.has(id)) {
         pendingExecutions.delete(id)
+
+        // Send error result event to renderer so UI components can clean up
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('code-execution-result', {
+            type: 'error',
+            id,
+            data: { name: 'TimeoutError', message: 'Execution timeout' }
+          })
+        }
+
         reject(new Error('Execution timeout'))
       }
     }, (options.timeout ?? 30000) + 5000)
@@ -369,6 +379,16 @@ async function executePython(request: ExecutionRequest): Promise<unknown> {
     setTimeout(() => {
       if (pendingExecutions.has(id)) {
         pendingExecutions.delete(id)
+
+        // Send error result event to renderer so UI components (e.g., InputTooltip) can clean up
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('code-execution-result', {
+            type: 'error',
+            id,
+            data: { name: 'TimeoutError', message: 'Execution timeout' }
+          })
+        }
+
         reject(new Error('Execution timeout'))
       }
     }, (options.timeout ?? 30000) + 10000)

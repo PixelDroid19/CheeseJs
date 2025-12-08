@@ -214,15 +214,12 @@ async function initializePyodide(): Promise<PyodideInterface> {
             } as ResultMessage)
           }
         },
-        stderr: (text: string) => {
-          if (currentExecutionId) {
-            parentPort?.postMessage({
-              type: 'console',
-              id: currentExecutionId,
-              consoleType: 'error',
-              data: { content: text }
-            } as ResultMessage)
-          }
+        stderr: (_text: string) => {
+          // Suppress ALL stderr output during execution
+          // All Python errors/tracebacks will be captured and shown via the error handler
+          // This prevents duplicate error messages in the output
+          // (Regular warning output would also be suppressed, but this is acceptable trade-off)
+          return
         }
       })
 

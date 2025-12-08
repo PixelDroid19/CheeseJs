@@ -53,11 +53,11 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
             packages: state.packages.map((pkg) =>
               pkg.name === name
                 ? {
-                    ...pkg,
-                    error: undefined,
-                    installing: false,
-                    isInstalled: false,
-                  }
+                  ...pkg,
+                  error: undefined,
+                  installing: false,
+                  isInstalled: false,
+                }
                 : pkg
             ),
           };
@@ -98,13 +98,13 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       const updatedPackages = state.packages.map((pkg) =>
         pkg.name === name
           ? {
-              ...pkg,
-              installing: false,
-              isInstalled: true,
-              error: undefined,
-              version: version || pkg.version,
-              lastError: undefined,
-            }
+            ...pkg,
+            installing: false,
+            isInstalled: true,
+            error: undefined,
+            version: version || pkg.version,
+            lastError: undefined,
+          }
           : pkg
       );
       // Compute isInstalling from actual package states
@@ -121,18 +121,18 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       const updatedPackages = state.packages.map((pkg) =>
         pkg.name === name
           ? {
-              ...pkg,
-              error,
-              installing: false,
-              isInstalled: false,
-              lastError: error
-                ? {
-                    code: errorCode || 'INSTALL_ERROR',
-                    message: error,
-                    timestamp: Date.now(),
-                  }
-                : undefined,
-            }
+            ...pkg,
+            error,
+            installing: false,
+            isInstalled: false,
+            lastError: error
+              ? {
+                code: errorCode || 'INSTALL_ERROR',
+                message: error,
+                timestamp: Date.now(),
+              }
+              : undefined,
+          }
           : pkg
       );
       // Compute isInstalling from actual package states
@@ -155,11 +155,11 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       packages: state.packages.map((pkg) =>
         pkg.name === name
           ? {
-              ...pkg,
-              installAttempts: 0,
-              error: undefined,
-              lastError: undefined,
-            }
+            ...pkg,
+            installAttempts: 0,
+            error: undefined,
+            lastError: undefined,
+          }
           : pkg
       ),
     }));
@@ -186,3 +186,29 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
     return attempts;
   },
 }));
+
+// ============================================================================
+// SELECTORS (for optimized re-renders)
+// ============================================================================
+
+/**
+ * Select packages that are not yet installed (for showing toasts)
+ */
+export const selectPendingPackages = (state: PackagesState) =>
+  state.packages.filter((p) => !p.isInstalled);
+
+/**
+ * Select visible missing packages (not installed, not already managed)
+ */
+export const selectVisibleMissingPackages = (state: PackagesState) =>
+  state.detectedMissingPackages.filter((pkgName) => {
+    const existingPkg = state.packages.find((p) => p.name === pkgName);
+    return !existingPkg?.isInstalled && !existingPkg;
+  });
+
+/**
+ * Get package info by name
+ */
+export const selectPackageByName = (name: string) => (state: PackagesState) =>
+  state.packages.find((p) => p.name === name);
+

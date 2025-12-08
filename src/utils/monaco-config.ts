@@ -1,7 +1,37 @@
-import { Monaco } from '@monaco-editor/react';
-import { languages } from 'monaco-editor';
+import type { Monaco } from '@monaco-editor/react';
+import type { editor, languages } from 'monaco-editor';
 import { themes } from '../themes';
-import { editor } from 'monaco-editor';
+
+// TypeScript compiler options numeric values (to avoid deprecated type issues)
+// These values are from the TypeScript compiler API
+const ScriptTarget = {
+  ESNext: 99,
+};
+
+const ModuleResolutionKind = {
+  NodeJs: 2,
+};
+
+const ModuleKind = {
+  ESNext: 99,
+};
+
+const JsxEmit = {
+  React: 2,
+};
+
+// Interface for the TypeScript language defaults
+interface LanguageServiceDefaults {
+  setCompilerOptions(options: Record<string, unknown>): void;
+  setDiagnosticsOptions(options: { noSemanticValidation?: boolean; noSyntaxValidation?: boolean }): void;
+  setEagerModelSync(value: boolean): void;
+  addExtraLib(content: string, filePath?: string): void;
+}
+
+interface TypeScriptLanguages {
+  javascriptDefaults?: LanguageServiceDefaults;
+  typescriptDefaults?: LanguageServiceDefaults;
+}
 
 export const configureMonaco = (monaco: Monaco) => {
   // Register all themes
@@ -38,15 +68,13 @@ export const configureMonaco = (monaco: Monaco) => {
     ],
     folding: {
       markers: {
-        start: /^\s*\/\/#region\b/,
-        end: /^\s*\/\/#endregion\b/,
+        start: new RegExp('^\\s*//#region\\b'),
+        end: new RegExp('^\\s*//#endregion\\b'),
       },
     },
-    wordPattern: /(-?\d*\.\d\w*)|([^`~!@#%^&*()\-=[{\]}\\|;:'",.<>/?\s]+)/g,
     indentationRules: {
-      increaseIndentPattern:
-        /^((?!\/\/).)*(\{[^}"'`]*|\([^)"'`]*|\[[^\]"'`]*)$/,
-      decreaseIndentPattern: /^((?!.*?\/\*).*\*\/)?\s*[}\])].*$/,
+      increaseIndentPattern: new RegExp('^((?!//).)*({[^}"\'`]*|\\([^)"\'`]*|\\[[^\\]"\'`]*)$'),
+      decreaseIndentPattern: new RegExp('^((?!.*?/\\*).*\\*/)?\\s*[}\\])].*$'),
     },
   };
 
@@ -67,43 +95,40 @@ export const configureMonaco = (monaco: Monaco) => {
     ],
   });
 
-  const ts = monaco.languages.typescript;
+  // Access typescript namespace through proper casting
+  const ts = (monaco.languages as unknown as { typescript: TypeScriptLanguages }).typescript;
   if (!ts) return;
 
-  // Compiler options for both JS and TS
+  // Compiler options using numeric values directly
   const compilerOptions = {
-    target: ts.ScriptTarget.ESNext,
+    target: ScriptTarget.ESNext,
     allowNonTsExtensions: true,
-    moduleResolution: ts.ModuleResolutionKind.NodeJs,
-    module: ts.ModuleKind.ESNext,
+    moduleResolution: ModuleResolutionKind.NodeJs,
+    module: ModuleKind.ESNext,
     allowJs: true,
     checkJs: true,
     noEmit: true,
     esModuleInterop: true,
-    jsx: ts.JsxEmit.React,
+    jsx: JsxEmit.React,
     reactNamespace: 'React',
     allowSyntheticDefaultImports: true,
-    // Disable unused warnings as per user request
     noUnusedLocals: false,
     noUnusedParameters: false,
   };
 
-  ts.javascriptDefaults.setCompilerOptions(compilerOptions);
-  ts.typescriptDefaults.setCompilerOptions(compilerOptions);
+  ts.javascriptDefaults?.setCompilerOptions(compilerOptions);
+  ts.typescriptDefaults?.setCompilerOptions(compilerOptions);
 
-  // Eager sync for better performance in small files
-  ts.javascriptDefaults.setEagerModelSync(true);
-  ts.typescriptDefaults.setEagerModelSync(true);
+  ts.javascriptDefaults?.setEagerModelSync(true);
+  ts.typescriptDefaults?.setEagerModelSync(true);
 
-  // Diagnostics options
   const diagnosticsOptions = {
     noSemanticValidation: false,
     noSyntaxValidation: false,
   };
-  ts.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
-  ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
+  ts.javascriptDefaults?.setDiagnosticsOptions(diagnosticsOptions);
+  ts.typescriptDefaults?.setDiagnosticsOptions(diagnosticsOptions);
 
-  // Add Node.js globals (require, module, exports, etc.) to avoid TypeScript errors
   const nodeGlobalsLib = `
     declare function require(module: string): any;
     declare var module: { exports: any };
@@ -139,6 +164,6 @@ export const configureMonaco = (monaco: Monaco) => {
       clear(): void;
     };
   `;
-  ts.javascriptDefaults.addExtraLib(nodeGlobalsLib, 'ts:node-globals.d.ts');
-  ts.typescriptDefaults.addExtraLib(nodeGlobalsLib, 'ts:node-globals.d.ts');
+  ts.javascriptDefaults?.addExtraLib(nodeGlobalsLib, 'ts:node-globals.d.ts');
+  ts.typescriptDefaults?.addExtraLib(nodeGlobalsLib, 'ts:node-globals.d.ts');
 };
