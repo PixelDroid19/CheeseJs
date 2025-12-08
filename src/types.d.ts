@@ -32,8 +32,8 @@ interface CodeRunner {
   waitForReady: (language?: string) => Promise<boolean>
   onResult: (callback: ResultCallback) => () => void
   removeResultListener: (callback: ResultCallback) => void
-  onInputRequest: (callback: (request: { id: string; data: { prompt: string; line: number } }) => void) => () => void
-  sendInputResponse: (id: string, value: string) => void
+  onInputRequest: (callback: (request: { id: string; data: { prompt: string; line: number; requestId?: string } }) => void) => () => void
+  sendInputResponse: (id: string, value: string, requestId?: string) => void
 }
 
 // ============================================================================

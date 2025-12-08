@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { domReady, useLoading } from './utils'
+import { domReady, useLoading } from './utils/index.js'
 
 // eslint-disable-next-line react-hooks/rules-of-hooks
 const { appendLoading, removeLoading } = useLoading()
@@ -33,7 +33,7 @@ type ResultCallback = (result: ExecutionResult) => void
 // Input request types
 interface InputRequest {
   id: string
-  data: { prompt: string; line: number }
+  data: { prompt: string; line: number; requestId?: string }
 }
 type InputRequestCallback = (request: InputRequest) => void
 
@@ -45,12 +45,12 @@ const resultCallbacks = new Set<ResultCallback>()
 const inputRequestCallbacks = new Set<InputRequestCallback>()
 
 // Listen for execution results from main process
-ipcRenderer.on('code-execution-result', (_event, result: ExecutionResult) => {
+ipcRenderer.on('code-execution-result', (_event: unknown, result: ExecutionResult) => {
   resultCallbacks.forEach(callback => callback(result))
 })
 
 // Listen for Python input requests
-ipcRenderer.on('python-input-request', (_event, request: InputRequest) => {
+ipcRenderer.on('python-input-request', (_event: unknown, request: InputRequest) => {
   inputRequestCallbacks.forEach(callback => callback(request))
 })
 
@@ -135,8 +135,8 @@ contextBridge.exposeInMainWorld('codeRunner', {
   /**
    * Send input response back to Python
    */
-  sendInputResponse: (id: string, value: string) => {
-    ipcRenderer.send('python-input-response', { id, value })
+  sendInputResponse: (id: string, value: string, requestId?: string) => {
+    ipcRenderer.send('python-input-response', { id, value, requestId })
   }
 })
 

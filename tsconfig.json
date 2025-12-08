@@ -5,10 +5,10 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "types": ["vitest/globals"],
+    "types": ["vitest/globals", "node", "electron"],
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
+    /* Module resolution */
+    "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "allowImportingTsExtensions": true,

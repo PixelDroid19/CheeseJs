@@ -14,6 +14,7 @@ interface InputRequest {
     id: string
     prompt: string
     line: number
+    requestId?: string
 }
 
 interface InputTooltipProps {
@@ -33,7 +34,8 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
             setRequest({
                 id: req.id,
                 prompt: req.data.prompt || t('input.defaultPrompt', 'Enter value:'),
-                line: req.data.line
+                line: req.data.line,
+                requestId: req.data.requestId
             })
             setValue('')
         })
@@ -53,7 +55,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
     const handleSubmit = useCallback((e?: React.FormEvent) => {
         e?.preventDefault()
         if (request) {
-            window.codeRunner?.sendInputResponse(request.id, value)
+            window.codeRunner?.sendInputResponse(request.id, value, request.requestId)
             setRequest(null)
             setValue('')
         }
@@ -61,7 +63,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
 
     const handleCancel = useCallback(() => {
         if (request) {
-            window.codeRunner?.sendInputResponse(request.id, '')
+            window.codeRunner?.sendInputResponse(request.id, '', request.requestId)
             setRequest(null)
             setValue('')
         }

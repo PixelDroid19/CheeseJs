@@ -40,6 +40,7 @@ interface InputResponseMessage {
   type: 'input-response'
   id: string
   value: string
+  requestId?: string
 }
 
 type WorkerMessage = ExecuteMessage | CancelMessage | InstallPackageMessage | ListPackagesMessage | InputResponseMessage
@@ -63,13 +64,74 @@ let pyodide: PyodideInterface | null = null
 let isLoading = false
 let currentExecutionId: string | null = null
 let isInitializing = false // Flag to suppress init logs
+const PYODIDE_INIT_TIMEOUT_MS = 60000
+let pyodideLoadPromise: Promise<PyodideInterface> | null = null
 
 // Input handling
 interface PendingInput {
+  executionId: string
+  requestId: string
   resolve: (value: string) => void
   reject: (error: Error) => void
 }
-let pendingInputs: PendingInput[] = []
+const pendingInputs = new Map<string, PendingInput[]>()
+let inputRequestCounter = 0
+
+function addPendingInput(executionId: string, pending: PendingInput) {
+  const queue = pendingInputs.get(executionId) ?? []
+  queue.push(pending)
+  pendingInputs.set(executionId, queue)
+}
+
+function resolvePendingInput(executionId: string, requestId: string | undefined, value: string): boolean {
+  const queue = pendingInputs.get(executionId)
+  if (!queue || queue.length === 0) {
+    return false
+  }
+
+  let index = 0
+  if (requestId) {
+    index = queue.findIndex(item => item.requestId === requestId)
+  }
+
+  if (index < 0) {
+    return false
+  }
+
+  const [pending] = queue.splice(index, 1)
+
+  if (queue.length === 0) {
+    pendingInputs.delete(executionId)
+  } else {
+    pendingInputs.set(executionId, queue)
+  }
+
+  pending.resolve(value)
+  return true
+}
+
+function rejectPendingInputs(executionId: string, error: Error) {
+  const queue = pendingInputs.get(executionId)
+  if (!queue) return
+
+  queue.forEach(item => item.reject(error))
+  pendingInputs.delete(executionId)
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  let timer: NodeJS.Timeout | null = null
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  }
+}
 
 /**
  * Custom inspect function for formatting Python values
@@ -100,61 +162,62 @@ function serializeValue(val: unknown): { content: string; jsType: string } {
  */
 async function initializePyodide(): Promise<PyodideInterface> {
   if (pyodide) return pyodide
-  if (isLoading) {
-    // Wait for loading to complete
-    while (isLoading) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    if (pyodide) return pyodide
+
+  if (isLoading && !pyodideLoadPromise) {
+    throw new Error('Pyodide initialization already in progress')
+  }
+
+  if (pyodideLoadPromise) {
+    return withTimeout(pyodideLoadPromise, PYODIDE_INIT_TIMEOUT_MS, 'Pyodide initialization timed out')
   }
 
   isLoading = true
-
   isInitializing = true
 
-  try {
-    parentPort?.postMessage({
-      type: 'status',
-      id: 'init',
-      data: { message: 'Loading Python runtime...' }
-    })
+  pyodideLoadPromise = (async () => {
+    try {
+      parentPort?.postMessage({
+        type: 'status',
+        id: 'init',
+        data: { message: 'Loading Python runtime...' }
+      })
 
-    // Find pyodide package location - use path directly without file:// prefix
-    const pyodidePath = path.dirname(require.resolve('pyodide/package.json'))
+      // Find pyodide package location - use path directly without file:// prefix
+      const pyodidePath = path.dirname(require.resolve('pyodide/package.json'))
 
-    pyodide = await loadPyodide({
-      indexURL: pyodidePath,
-      stdout: (text: string) => {
-        // Suppress init messages like "Loading micropip", "Loaded micropip"
-        if (isInitializing && (text.includes('micropip') || text.includes('Loading') || text.includes('Loaded'))) {
-          return // Suppress during init
+      const instance = await loadPyodide({
+        indexURL: pyodidePath,
+        stdout: (text: string) => {
+          // Suppress init messages like "Loading micropip", "Loaded micropip"
+          if (isInitializing && (text.includes('micropip') || text.includes('Loading') || text.includes('Loaded'))) {
+            return // Suppress during init
+          }
+          if (currentExecutionId) {
+            parentPort?.postMessage({
+              type: 'console',
+              id: currentExecutionId,
+              consoleType: 'log',
+              data: { content: text }
+            } as ResultMessage)
+          }
+        },
+        stderr: (text: string) => {
+          if (currentExecutionId) {
+            parentPort?.postMessage({
+              type: 'console',
+              id: currentExecutionId,
+              consoleType: 'error',
+              data: { content: text }
+            } as ResultMessage)
+          }
         }
-        if (currentExecutionId) {
-          parentPort?.postMessage({
-            type: 'console',
-            id: currentExecutionId,
-            consoleType: 'log',
-            data: { content: text }
-          } as ResultMessage)
-        }
-      },
-      stderr: (text: string) => {
-        if (currentExecutionId) {
-          parentPort?.postMessage({
-            type: 'console',
-            id: currentExecutionId,
-            consoleType: 'error',
-            data: { content: text }
-          } as ResultMessage)
-        }
-      }
-    })
+      })
 
-    // Load micropip for package installation
-    await pyodide.loadPackage('micropip')
+      // Load micropip for package installation
+      await instance.loadPackage('micropip')
 
-    // Set up debug function in Python
-    pyodide.runPython(`
+      // Set up debug function in Python
+      instance.runPython(`
 import sys
 from io import StringIO
 
@@ -181,25 +244,32 @@ setattr(builtins, 'debug', debug)
 setattr(builtins, '_get_debug_outputs', _get_debug_outputs)
 `)
 
-    // Set up custom input handler
-    pyodide.globals.set('_js_request_input', (prompt: string, line: number) => {
-      const promise = new Promise<string>((resolve, reject) => {
-        pendingInputs.push({ resolve, reject })
+      // Set up custom input handler
+      instance.globals.set('_js_request_input', (prompt: string, line: number) => {
+        const executionId = currentExecutionId
+        if (!executionId) {
+          return Promise.reject(new Error('Input requested without active execution'))
+        }
 
-        // Send input request to main process
-        parentPort?.postMessage({
-          type: 'input-request',
-          id: currentExecutionId,
-          data: { prompt, line }
+        const requestId = `${executionId}-${Date.now()}-${inputRequestCounter++}`
+
+        const promise = new Promise<string>((resolve, reject) => {
+          addPendingInput(executionId, { executionId, requestId, resolve, reject })
+
+          // Send input request to main process
+          parentPort?.postMessage({
+            type: 'input-request',
+            id: executionId,
+            data: { prompt, line, requestId }
+          })
         })
+
+        return promise
       })
 
-      return promise
-    })
-
-    // Override Python's input function to use async JS integration
-    // In Pyodide, we need to use a special pattern to await JS promises from Python
-    pyodide.runPython(`
+      // Override Python's input function to use async JS integration
+      // In Pyodide, we need to use a special pattern to await JS promises from Python
+      instance.runPython(`
 import builtins
 import asyncio
 import sys
@@ -231,16 +301,29 @@ async def _async_input(prompt=""):
 # builtins.input = input
 `)
 
-    isInitializing = false
-    parentPort?.postMessage({
-      type: 'status',
-      id: 'init',
-      data: { message: 'Python runtime ready' }
-    })
+      isInitializing = false
+      pyodide = instance
+      parentPort?.postMessage({
+        type: 'status',
+        id: 'init',
+        data: { message: 'Python runtime ready' }
+      })
 
-    return pyodide
-  } finally {
-    isLoading = false
+      return instance
+    } finally {
+      isLoading = false
+      isInitializing = false
+    }
+  })()
+
+  try {
+    const instance = await withTimeout(pyodideLoadPromise, PYODIDE_INIT_TIMEOUT_MS, 'Pyodide initialization timed out')
+    pyodideLoadPromise = null
+    return instance
+  } catch (error) {
+    pyodide = null
+    pyodideLoadPromise = null
+    throw error instanceof Error ? error : new Error(String(error))
   }
 }
 
@@ -483,6 +566,7 @@ async function installPackage(message: InstallPackageMessage): Promise<void> {
 
   try {
     const py = await initializePyodide()
+    const safePackageLiteral = JSON.stringify(packageName)
 
     parentPort?.postMessage({
       type: 'status',
@@ -492,7 +576,7 @@ async function installPackage(message: InstallPackageMessage): Promise<void> {
 
     await py.runPythonAsync(`
 import micropip
-await micropip.install('${packageName}')
+await micropip.install(${safePackageLiteral})
 `)
 
     parentPort?.postMessage({
@@ -552,8 +636,7 @@ parentPort?.on('message', async (message: WorkerMessage) => {
   } else if (message.type === 'cancel') {
     if (message.id === currentExecutionId) {
       // Reject any pending inputs
-      pendingInputs.forEach(p => p.reject(new Error('Execution cancelled')))
-      pendingInputs = []
+      rejectPendingInputs(message.id, new Error('Execution cancelled'))
 
       parentPort?.postMessage({
         type: 'error',
@@ -567,10 +650,10 @@ parentPort?.on('message', async (message: WorkerMessage) => {
   } else if (message.type === 'list-packages') {
     await listInstalledPackages(message.id)
   } else if (message.type === 'input-response') {
-    // Resolve the pending input with the user's value
-    const pending = pendingInputs.shift()
-    if (pending) {
-      pending.resolve(message.value)
+    // Resolve the pending input with the user's value, matching by execution and request
+    const resolved = resolvePendingInput(message.id, message.requestId, message.value)
+    if (!resolved) {
+      console.warn('[PythonExecutor] Received input response with no pending request', { id: message.id, requestId: message.requestId })
     }
   }
 })

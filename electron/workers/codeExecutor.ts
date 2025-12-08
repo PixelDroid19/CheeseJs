@@ -76,10 +76,11 @@ function hashCode(str: string): string {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash // Convert to 32bit integer
+    // Mix bits with a 32-bit multiplicative hash to reduce collisions
+    hash = Math.imul((hash ^ char) + 0x9e3779b1, 0x85ebca6b)
   }
-  return hash.toString(36)
+  // Force unsigned 32-bit output for stable cache keys
+  return (hash >>> 0).toString(36)
 }
 
 /**

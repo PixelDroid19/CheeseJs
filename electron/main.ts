@@ -1,20 +1,20 @@
-import { app, BrowserWindow, ipcMain, nativeImage, Menu, MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, Menu } from 'electron'
 import path from 'node:path'
 import { Worker } from 'node:worker_threads'
 // Use TypeScript transpiler by default - SWC available as performance option once node_modules issue is resolved
-import { transformCode, type TransformOptions } from './transpiler/tsTranspiler'
+import { transformCode, type TransformOptions } from './transpiler/tsTranspiler.js'
 import {
   initPackagesDirectory,
   installPackage,
   uninstallPackage,
   listInstalledPackages,
   getNodeModulesPath
-} from './packages/packageManager'
+} from './packages/packageManager.js'
 
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
-let win: BrowserWindow | null
+let win: any | null
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
@@ -56,12 +56,21 @@ let pythonWorker: Worker | null = null
 let codeWorkerReady = false
 let pythonWorkerReady = false
 const pendingExecutions = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void }>()
+let codeWorkerInitPromise: Promise<void> | null = null
+let codeWorkerInitReject: ((error: Error) => void) | null = null
+let pythonWorkerInitPromise: Promise<void> | null = null
+let pythonWorkerInitReject: ((error: Error) => void) | null = null
 
 /**
  * Initialize the code executor worker
  */
 function initializeCodeWorker(): Promise<void> {
-  return new Promise((resolve) => {
+  if (codeWorkerInitPromise) {
+    return codeWorkerInitPromise
+  }
+
+  codeWorkerInitPromise = new Promise((resolve, reject) => {
+    codeWorkerInitReject = reject
     const workerPath = path.join(__dirname, 'codeExecutor.js')
 
     // Pass node_modules path to worker for package require support
@@ -76,6 +85,8 @@ function initializeCodeWorker(): Promise<void> {
         console.log('Code executor worker ready')
         codeWorkerReady = true
         resolve()
+        codeWorkerInitPromise = null
+        codeWorkerInitReject = null
         return
       }
 
@@ -106,18 +117,34 @@ function initializeCodeWorker(): Promise<void> {
         pending.reject(error)
         pendingExecutions.delete(id)
       }
+      if (codeWorkerInitReject) {
+        codeWorkerInitReject(error)
+      }
+      codeWorkerInitPromise = null
+      codeWorkerInitReject = null
     })
 
     codeWorker.on('exit', (code) => {
       console.log(`Worker exited with code ${code}`)
       codeWorker = null
       codeWorkerReady = false
-      // Reinitialize worker if it crashed
+      const wasInitializing = !!codeWorkerInitPromise
+
+      if (wasInitializing && codeWorkerInitReject) {
+        codeWorkerInitReject(new Error(`Code worker exited with code ${code}`))
+        codeWorkerInitPromise = null
+        codeWorkerInitReject = null
+        return
+      }
+
+      // Reinitialize worker if it crashed after being ready
       if (code !== 0) {
         setTimeout(() => initializeCodeWorker(), 1000)
       }
     })
   })
+
+  return codeWorkerInitPromise
 }
 
 /**
@@ -200,7 +227,12 @@ function cancelExecution(id: string): void {
  * Initialize the Python executor worker
  */
 function initializePythonWorker(): Promise<void> {
-  return new Promise((resolve) => {
+  if (pythonWorkerInitPromise) {
+    return pythonWorkerInitPromise
+  }
+
+  pythonWorkerInitPromise = new Promise((resolve, reject) => {
+    pythonWorkerInitReject = reject
     const workerPath = path.join(__dirname, 'pythonExecutor.js')
 
     pythonWorker = new Worker(workerPath)
@@ -210,6 +242,8 @@ function initializePythonWorker(): Promise<void> {
         console.log('Python executor worker ready')
         pythonWorkerReady = true
         resolve()
+        pythonWorkerInitPromise = null
+        pythonWorkerInitReject = null
         return
       }
 
@@ -256,17 +290,33 @@ function initializePythonWorker(): Promise<void> {
         pending.reject(error)
         pendingExecutions.delete(id)
       }
+      if (pythonWorkerInitReject) {
+        pythonWorkerInitReject(error)
+      }
+      pythonWorkerInitPromise = null
+      pythonWorkerInitReject = null
     })
 
     pythonWorker.on('exit', (code) => {
       console.log(`Python worker exited with code ${code}`)
       pythonWorker = null
       pythonWorkerReady = false
+      const wasInitializing = !!pythonWorkerInitPromise
+
+      if (wasInitializing && pythonWorkerInitReject) {
+        pythonWorkerInitReject(new Error(`Python worker exited with code ${code}`))
+        pythonWorkerInitPromise = null
+        pythonWorkerInitReject = null
+        return
+      }
+
       if (code !== 0) {
         setTimeout(() => initializePythonWorker(), 1000)
       }
     })
   })
+
+  return pythonWorkerInitPromise
 }
 
 /**
@@ -311,7 +361,7 @@ async function executePython(request: ExecutionRequest): Promise<unknown> {
 // IPC HANDLERS FOR CODE EXECUTION
 // ============================================================================
 
-ipcMain.handle('execute-code', async (_event, request: ExecutionRequest) => {
+ipcMain.handle('execute-code', async (_event: unknown, request: ExecutionRequest) => {
   try {
     // Route to appropriate executor based on language
     const language = request.language || 'javascript'
@@ -334,12 +384,12 @@ ipcMain.handle('execute-code', async (_event, request: ExecutionRequest) => {
   }
 })
 
-ipcMain.on('cancel-execution', (_event, id: string) => {
+ipcMain.on('cancel-execution', (_event: unknown, id: string) => {
   cancelExecution(id)
 })
 
 // Check if workers are ready for execution
-ipcMain.handle('is-worker-ready', async (_event, language: string) => {
+ipcMain.handle('is-worker-ready', async (_event: unknown, language: string) => {
   if (language === 'python') {
     return { ready: pythonWorkerReady }
   }
@@ -347,12 +397,13 @@ ipcMain.handle('is-worker-ready', async (_event, language: string) => {
 })
 
 // Handle input response from renderer to Python worker
-ipcMain.on('python-input-response', (_event, { id, value }: { id: string; value: string }) => {
+ipcMain.on('python-input-response', (_event: unknown, { id, value, requestId }: { id: string; value: string; requestId?: string }) => {
   if (pythonWorker) {
     pythonWorker.postMessage({
       type: 'input-response',
       id,
-      value
+      value,
+      requestId
     })
   }
 })
@@ -361,7 +412,7 @@ ipcMain.on('python-input-response', (_event, { id, value }: { id: string; value:
 // IPC HANDLERS FOR PACKAGE MANAGEMENT
 // ============================================================================
 
-ipcMain.handle('install-package', async (_event, packageName: string) => {
+ipcMain.handle('install-package', async (_event: unknown, packageName: string) => {
   try {
     const result = await installPackage(packageName)
     return result
@@ -371,7 +422,7 @@ ipcMain.handle('install-package', async (_event, packageName: string) => {
   }
 })
 
-ipcMain.handle('uninstall-package', async (_event, packageName: string) => {
+ipcMain.handle('uninstall-package', async (_event: unknown, packageName: string) => {
   try {
     const result = await uninstallPackage(packageName)
 
@@ -405,7 +456,7 @@ ipcMain.handle('get-node-modules-path', () => {
 // IPC HANDLERS FOR PYTHON PACKAGE MANAGEMENT
 // ============================================================================
 
-ipcMain.handle('install-python-package', async (_event, packageName: string) => {
+ipcMain.handle('install-python-package', async (_event: unknown, packageName: string) => {
   try {
     // Ensure Python worker is initialized
     if (!pythonWorker || !pythonWorkerReady) {
@@ -533,7 +584,7 @@ function createWindow() {
     menu?.popup({ window: win || undefined })
   })
 
-  const template: MenuItemConstructorOptions[] = [
+  const template = [
     {
       label: 'File',
       submenu: [
