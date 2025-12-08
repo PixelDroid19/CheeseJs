@@ -1,27 +1,27 @@
-import { useEffect } from 'react'
-import { useSettingsStore } from './store/useSettingsStore'
-import { themesConfig } from './themes'
-import ErrorBoundary from './components/ErrorBoundary'
-import { TitleBar } from './components/TitleBar'
-import App from './App'
+import { useEffect } from 'react';
+import { useSettingsStore } from './store/useSettingsStore';
+import { themesConfig } from './themes';
+import ErrorBoundary from './components/ErrorBoundary';
+import { TitleBar } from './components/TitleBar';
+import App from './App';
 
-function AppWrapper () {
-  const { themeName, uiFontSize } = useSettingsStore()
+function AppWrapper() {
+  const { themeName, uiFontSize } = useSettingsStore();
 
   // Apply theme and font size globally
   useEffect(() => {
-    const theme = themesConfig[themeName]
-    const isDark = theme?.type === 'dark'
-    
-    document.documentElement.classList.toggle('dark', isDark)
+    const theme = themesConfig[themeName];
+    const isDark = theme?.type === 'dark';
+
+    document.documentElement.classList.toggle('dark', isDark);
     if (theme) {
-      document.documentElement.setAttribute('data-theme', theme.name)
+      document.documentElement.setAttribute('data-theme', theme.name);
     }
-  }, [themeName])
+  }, [themeName]);
 
   useEffect(() => {
-    document.documentElement.style.fontSize = `${uiFontSize}px`
-  }, [uiFontSize])
+    document.documentElement.style.fontSize = `${uiFontSize}px`;
+  }, [uiFontSize]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -32,7 +32,7 @@ function AppWrapper () {
         </ErrorBoundary>
       </div>
     </div>
-  )
+  );
 }
 
-export default AppWrapper
+export default AppWrapper;

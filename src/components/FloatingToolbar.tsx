@@ -1,26 +1,26 @@
-import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Settings, Brush, Loader2 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { useCodeRunner } from '../hooks/useCodeRunner'
-import { useSettingsStore } from '../store/useSettingsStore'
-import { useRuntimeStatus } from '../hooks/useRuntimeStatus'
-import { useLanguageStore } from '../store/useLanguageStore'
-import { SnippetsMenu } from './SnippetsMenu'
-import clsx from 'clsx'
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Settings, Brush, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useCodeRunner } from '../hooks/useCodeRunner';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useRuntimeStatus } from '../hooks/useRuntimeStatus';
+import { useLanguageStore } from '../store/useLanguageStore';
+import { SnippetsMenu } from './SnippetsMenu';
+import clsx from 'clsx';
 
 export default function FloatingToolbar() {
-  const { t } = useTranslation()
-  const { runCode } = useCodeRunner()
-  const toggleSettings = useSettingsStore((state) => state.toggleSettings)
-  const currentLanguage = useLanguageStore((state) => state.currentLanguage)
+  const { t } = useTranslation();
+  const { runCode } = useCodeRunner();
+  const toggleSettings = useSettingsStore((state) => state.toggleSettings);
+  const currentLanguage = useLanguageStore((state) => state.currentLanguage);
   const { isLoading, message } = useRuntimeStatus(
     currentLanguage === 'python' ? 'python' : 'javascript'
-  )
+  );
 
   const handleLint = () => {
-    window.dispatchEvent(new CustomEvent('trigger-format'))
-  }
+    window.dispatchEvent(new CustomEvent('trigger-format'));
+  };
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
@@ -68,7 +68,7 @@ export default function FloatingToolbar() {
         />
       </motion.div>
     </div>
-  )
+  );
 }
 
 function ToolbarButton({
@@ -76,7 +76,7 @@ function ToolbarButton({
   onClick,
   label,
   isActive = false,
-  disabled = false
+  disabled = false,
 }: {
   icon: React.ReactNode;
   onClick: () => void;
@@ -102,5 +102,5 @@ function ToolbarButton({
     >
       {icon}
     </motion.button>
-  )
+  );
 }

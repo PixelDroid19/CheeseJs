@@ -1,48 +1,51 @@
-import React, { useState } from 'react'
-import { usePackagesStore } from '../store/usePackagesStore'
-import { useSettingsStore } from '../store/useSettingsStore'
-import { usePackageInstaller } from '../hooks/usePackageInstaller'
-import { useTranslation } from 'react-i18next'
-import clsx from 'clsx'
-import { Plus, Trash2, RefreshCw } from 'lucide-react'
+import React, { useState } from 'react';
+import { usePackagesStore } from '../store/usePackagesStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { usePackageInstaller } from '../hooks/usePackageInstaller';
+import { useTranslation } from 'react-i18next';
+import clsx from 'clsx';
+import { Plus, Trash2, RefreshCw } from 'lucide-react';
 
-export function PackageManager () {
-  const { t } = useTranslation()
-  const [packageName, setPackageName] = useState('')
-  const packages = usePackagesStore((state) => state.packages)
-  const { npmRcContent, setNpmRcContent } = useSettingsStore()
-  const { installPackage, uninstallPackage } = usePackageInstaller()
+export function PackageManager() {
+  const { t } = useTranslation();
+  const [packageName, setPackageName] = useState('');
+  const packages = usePackagesStore((state) => state.packages);
+  const { npmRcContent, setNpmRcContent } = useSettingsStore();
+  const { installPackage, uninstallPackage } = usePackageInstaller();
 
   const handleAddPackage = async () => {
-    if (!packageName.trim()) return
+    if (!packageName.trim()) return;
 
-    const name = packageName.trim()
-    setPackageName('')
-    
+    const name = packageName.trim();
+    setPackageName('');
+
     // Install the package via Electron IPC
-    await installPackage(name)
-  }
+    await installPackage(name);
+  };
 
   const handleRemovePackage = async (pkg: string) => {
-    await uninstallPackage(pkg)
-  }
+    await uninstallPackage(pkg);
+  };
 
   const handleRetryInstall = async (pkg: string) => {
-    await installPackage(pkg)
-  }
+    await installPackage(pkg);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleAddPackage()
+      handleAddPackage();
     }
-  }
+  };
 
   return (
     <div className="flex flex-col h-full space-y-6">
       {/* Header */}
       <div>
         <p className="text-sm text-muted-foreground">
-          {t('settings.npm.description', 'Manage npm packages for your code. Packages are automatically installed when detected in imports.')}
+          {t(
+            'settings.npm.description',
+            'Manage npm packages for your code. Packages are automatically installed when detected in imports.'
+          )}
         </p>
       </div>
 
@@ -55,10 +58,13 @@ export function PackageManager () {
           value={npmRcContent}
           onChange={(e) => setNpmRcContent(e.target.value)}
           className={clsx(
-            "w-full h-32 px-3 py-2 text-sm rounded-md font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring",
-            "bg-background text-foreground border-border border"
+            'w-full h-32 px-3 py-2 text-sm rounded-md font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring',
+            'bg-background text-foreground border-border border'
           )}
-          placeholder={t('settings.npm.registryPlaceholder', 'registry=https://registry.npmjs.org/')}
+          placeholder={t(
+            'settings.npm.registryPlaceholder',
+            'registry=https://registry.npmjs.org/'
+          )}
           spellCheck={false}
         />
       </div>
@@ -76,20 +82,23 @@ export function PackageManager () {
             value={packageName}
             onChange={(e) => setPackageName(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t('settings.npm.placeholder', 'Package name (e.g., lodash)')}
+            placeholder={t(
+              'settings.npm.placeholder',
+              'Package name (e.g., lodash)'
+            )}
             className={clsx(
-              "flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring",
-              "bg-background text-foreground border-border"
+              'flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring',
+              'bg-background text-foreground border-border'
             )}
           />
           <button
             onClick={handleAddPackage}
             disabled={!packageName.trim()}
             className={clsx(
-              "px-3 py-2 rounded-md transition-colors flex items-center justify-center",
-              packageName.trim() 
-                ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
-                : "bg-muted text-muted-foreground cursor-not-allowed"
+              'px-3 py-2 rounded-md transition-colors flex items-center justify-center',
+              packageName.trim()
+                ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
             )}
             title={t('settings.npm.add', 'Add')}
           >
@@ -98,10 +107,12 @@ export function PackageManager () {
         </div>
 
         {/* Packages List */}
-        <div className={clsx(
-          "flex-1 overflow-auto border rounded-md",
-          "border-border bg-background"
-        )}>
+        <div
+          className={clsx(
+            'flex-1 overflow-auto border rounded-md',
+            'border-border bg-background'
+          )}
+        >
           {packages.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               {t('settings.npm.empty', 'No packages installed yet')}
@@ -147,9 +158,7 @@ export function PackageManager () {
                           <span className="text-xs">Retry</span>
                         </button>
                       ) : pkg.isInstalled ? (
-                        <div className="text-success">
-                          ✓
-                        </div>
+                        <div className="text-success">✓</div>
                       ) : (
                         <div className="text-muted-foreground text-xs">
                           Pending
@@ -172,5 +181,5 @@ export function PackageManager () {
         </div>
       </div>
     </div>
-  )
+  );
 }

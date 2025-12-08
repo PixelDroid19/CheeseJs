@@ -1,5 +1,5 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface Theme {
   name: string;
@@ -39,7 +39,9 @@ interface SettingsState {
   setAlignResults: (align: boolean) => void;
   setShowUndefined: (show: boolean) => void;
   setLoopProtection: (protect: boolean) => void;
-  setInternalLogLevel: (level: 'none' | 'error' | 'warn' | 'info' | 'debug') => void;
+  setInternalLogLevel: (
+    level: 'none' | 'error' | 'warn' | 'info' | 'debug'
+  ) => void;
   setNpmRcContent: (content: string) => void;
   setMagicComments: (enabled: boolean) => void;
   setExecutionEnvironment: (env: 'node' | 'browser') => void;
@@ -80,9 +82,12 @@ export const useSettingsStore = create<SettingsState>()(
       setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
       setNpmRcContent: (npmRcContent) => set({ npmRcContent }),
       setMagicComments: (magicComments) => set({ magicComments }),
-      setExecutionEnvironment: (executionEnvironment) => set({ executionEnvironment }),
-      setAutoRunAfterInstall: (autoRunAfterInstall) => set({ autoRunAfterInstall }),
-      setAutoInstallPackages: (autoInstallPackages) => set({ autoInstallPackages }),
+      setExecutionEnvironment: (executionEnvironment) =>
+        set({ executionEnvironment }),
+      setAutoRunAfterInstall: (autoRunAfterInstall) =>
+        set({ autoRunAfterInstall }),
+      setAutoInstallPackages: (autoInstallPackages) =>
+        set({ autoInstallPackages }),
     }),
     {
       name: 'settings-storage',
@@ -100,8 +105,8 @@ export const useSettingsStore = create<SettingsState>()(
         uiFontSize: state.uiFontSize,
         executionEnvironment: state.executionEnvironment,
         autoRunAfterInstall: state.autoRunAfterInstall,
-        autoInstallPackages: state.autoInstallPackages
-      })
+        autoInstallPackages: state.autoInstallPackages,
+      }),
     }
   )
-)
+);

@@ -1,5 +1,5 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface Snippet {
   id: string;
@@ -22,22 +22,22 @@ export const useSnippetsStore = create<SnippetsState>()(
         set((state) => ({
           snippets: [
             ...state.snippets,
-            { ...snippet, id: crypto.randomUUID() }
-          ]
+            { ...snippet, id: crypto.randomUUID() },
+          ],
         })),
       removeSnippet: (id) =>
         set((state) => ({
-          snippets: state.snippets.filter((s) => s.id !== id)
+          snippets: state.snippets.filter((s) => s.id !== id),
         })),
       updateSnippet: (id, updates) =>
         set((state) => ({
           snippets: state.snippets.map((s) =>
             s.id === id ? { ...s, ...updates } : s
-          )
-        }))
+          ),
+        })),
     }),
     {
-      name: 'snippets-storage'
+      name: 'snippets-storage',
     }
   )
-)
+);

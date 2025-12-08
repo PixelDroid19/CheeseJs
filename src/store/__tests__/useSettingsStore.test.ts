@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { useSettingsStore } from '../useSettingsStore'
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useSettingsStore } from '../useSettingsStore';
 
 describe('useSettingsStore', () => {
   beforeEach(() => {
@@ -9,32 +9,32 @@ describe('useSettingsStore', () => {
       internalLogLevel: 'none',
       showUndefined: false,
       loopProtection: true,
-      showTopLevelResults: true
-    })
-    
+      showTopLevelResults: true,
+    });
+
     // Clear localStorage to simulate fresh start
-    localStorage.clear()
-  })
+    localStorage.clear();
+  });
 
   it('should have alignResults disabled by default', () => {
-    const state = useSettingsStore.getState()
-    expect(state.alignResults).toBe(false)
-  })
+    const state = useSettingsStore.getState();
+    expect(state.alignResults).toBe(false);
+  });
 
   it('should have internalLogLevel set to none by default', () => {
-    const state = useSettingsStore.getState()
-    expect(state.internalLogLevel).toBe('none')
-  })
+    const state = useSettingsStore.getState();
+    expect(state.internalLogLevel).toBe('none');
+  });
 
   it('should update alignResults', () => {
-    const { setAlignResults } = useSettingsStore.getState()
-    setAlignResults(true)
-    expect(useSettingsStore.getState().alignResults).toBe(true)
-  })
+    const { setAlignResults } = useSettingsStore.getState();
+    setAlignResults(true);
+    expect(useSettingsStore.getState().alignResults).toBe(true);
+  });
 
   it('should update internalLogLevel', () => {
-    const { setInternalLogLevel } = useSettingsStore.getState()
-    setInternalLogLevel('debug')
-    expect(useSettingsStore.getState().internalLogLevel).toBe('debug')
-  })
-})
+    const { setInternalLogLevel } = useSettingsStore.getState();
+    setInternalLogLevel('debug');
+    expect(useSettingsStore.getState().internalLogLevel).toBe('debug');
+  });
+});

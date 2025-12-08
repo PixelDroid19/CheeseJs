@@ -1,1 +1,1 @@
-export * from './packageLogger'
+export * from './packageLogger';

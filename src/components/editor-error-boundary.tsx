@@ -1,35 +1,35 @@
-import { Component, ErrorInfo, ReactNode } from 'react'
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Props {
-  children: ReactNode
+  children: ReactNode;
 }
 
 interface State {
-  hasError: boolean
-  error: Error | null
+  hasError: boolean;
+  error: Error | null;
 }
 
 export class EditorErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    error: null
+    error: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
-  public static getDerivedStateFromError (error: Error): State {
-    return { hasError: true, error }
-  }
-
-  public componentDidCatch (error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error in Editor:', error, errorInfo)
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error in Editor:', error, errorInfo);
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: null })
-    window.location.reload()
-  }
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
 
-  public render () {
+  public render() {
     if (this.state.hasError) {
       return (
         <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-background p-4 text-muted-foreground">
@@ -38,7 +38,8 @@ export class EditorErrorBoundary extends Component<Props, State> {
             <h2 className="text-lg font-semibold">Editor crashed</h2>
           </div>
           <p className="max-w-md text-center text-sm">
-            Something went wrong with the code editor. This might be due to a complex operation or an internal error.
+            Something went wrong with the code editor. This might be due to a
+            complex operation or an internal error.
           </p>
           {this.state.error && (
             <pre className="max-w-md overflow-auto rounded bg-muted p-2 text-xs text-destructive">
@@ -53,9 +54,9 @@ export class EditorErrorBoundary extends Component<Props, State> {
             Reload Page
           </button>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }

@@ -25,8 +25,15 @@
     { "token": "support.type", "foreground": "e5c07b" },
     { "token": "support.class", "foreground": "e5c07b" },
     { "token": "invalid", "foreground": "f8f8f0", "background": "f92672" },
-    { "token": "invalid.deprecated", "foreground": "f8f8f0", "background": "ae81ff" },
-    { "token": "meta.structure.dictionary.json string.quoted.double.json", "foreground": "e06c75" },
+    {
+      "token": "invalid.deprecated",
+      "foreground": "f8f8f0",
+      "background": "ae81ff"
+    },
+    {
+      "token": "meta.structure.dictionary.json string.quoted.double.json",
+      "foreground": "e06c75"
+    },
     { "token": "meta.diff", "foreground": "75715e" },
     { "token": "meta.diff.header", "foreground": "75715e" }
   ],

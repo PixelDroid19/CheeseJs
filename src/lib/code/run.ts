@@ -1,13 +1,15 @@
-import { registerPlugins, transform } from '@babel/standalone'
-import logPlugin from '../babel/log-babel'
-import strayExpression from '../babel/stray-expression'
-import topLevelThis from '../babel/top-level-this'
-import loopProtection from '../babel/loop-protection'
-import magicComments from '../babel/magic-comments'
+import { registerPlugins, transform } from '@babel/standalone';
+import logPlugin from '../babel/log-babel';
+import strayExpression from '../babel/stray-expression';
+import topLevelThis from '../babel/top-level-this';
+import loopProtection from '../babel/loop-protection';
+import magicComments from '../babel/magic-comments';
 
-import { Colors, stringify, type ColoredElement } from '../elementParser'
+import { Colors, stringify, type ColoredElement } from '../elementParser';
 
-const AsyncFunction = Object.getPrototypeOf(async () => { return undefined }).constructor
+const AsyncFunction = Object.getPrototypeOf(async () => {
+  return undefined;
+}).constructor;
 
 interface Result {
   lineNumber?: number;
@@ -25,8 +27,7 @@ registerPlugins({
   'top-level-this': topLevelThis,
   'loop-protection': loopProtection,
   'magic-comments': magicComments,
-})
-
+});
 
 interface TransformOptions {
   showTopLevelResults?: boolean;
@@ -35,7 +36,7 @@ interface TransformOptions {
   magicComments?: boolean;
 }
 
-export function transformCode (
+export function transformCode(
   code: string,
   options: TransformOptions = {}
 ): string {
@@ -48,19 +49,22 @@ export function transformCode (
     'proposal-throw-expressions',
     'proposal-export-default-from',
     'top-level-this',
-    'log-transform'
-  ]
+    'log-transform',
+  ];
 
   if (options.magicComments) {
-    plugins.push('magic-comments')
+    plugins.push('magic-comments');
   }
 
   if (options.showTopLevelResults !== false) {
-    plugins.push(['stray-expression-babel', { internalLogLevel: options.internalLogLevel }])
+    plugins.push([
+      'stray-expression-babel',
+      { internalLogLevel: options.internalLogLevel },
+    ]);
   }
 
   if (options.loopProtection) {
-    plugins.push('loop-protection')
+    plugins.push('loop-protection');
   }
 
   const result = transform(code, {
@@ -70,68 +74,72 @@ export function transformCode (
         'typescript',
         {
           allowDeclareFields: true,
-          onlyRemoveTypeImports: true
-        }
-      ]
+          onlyRemoveTypeImports: true,
+        },
+      ],
     ],
     sourceType: 'module',
     parserOpts: {
       allowAwaitOutsideFunction: true,
-      plugins: ['decorators-legacy']
+      plugins: ['decorators-legacy'],
     },
     targets: {
-      esmodules: true
+      esmodules: true,
     },
     sourceMaps: true,
-    plugins
-  })
+    plugins,
+  });
 
   if (!result.code || code.trim() === '') {
-    return ''
+    return '';
   }
 
-  return result.code
+  return result.code;
 }
 
 interface RunOptions {
   showUndefined?: boolean;
 }
 
-export async function run (
+export async function run(
   string: string,
   onResult: (result: Result) => void,
   options: RunOptions = {}
 ): Promise<void> {
-  if (string === '') return
+  if (string === '') return;
   try {
-    const asyncFunction = AsyncFunction('debug', string)
+    const asyncFunction = AsyncFunction('debug', string);
 
     await asyncFunction(async (lineNumber: number, ...args: unknown[]) => {
       // Check showUndefined setting
-      if (!options.showUndefined && args.length === 1 && args[0] === undefined) {
-        return
+      if (
+        !options.showUndefined &&
+        args.length === 1 &&
+        args[0] === undefined
+      ) {
+        return;
       }
-      const content = args.length > 1 ? args : args[0]
-      
+      const content = args.length > 1 ? args : args[0];
+
       try {
-        const stringifiedContent = await stringify(content)
+        const stringifiedContent = await stringify(content);
         if (stringifiedContent) {
           onResult({
             lineNumber,
             element: stringifiedContent,
-            type: 'execution'
-          })
+            type: 'execution',
+          });
         }
       } catch (_err) {
         // Ignore stringify errors
       }
-    })
+    });
   } catch (e: unknown) {
     const errorMessage =
-      e instanceof Error ? e.message : 'Unknown error occurred'
+      e instanceof Error ? e.message : 'Unknown error occurred';
     onResult({
       element: { content: errorMessage, color: Colors.ERROR },
-      type: 'error'
-    })
+      type: 'error',
+    });
   }
 }

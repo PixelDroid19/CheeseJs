@@ -1,24 +1,24 @@
 /**
  * Python Service
- * 
+ *
  * Centralized service for Python support in CheeseJS:
  * - Language registration in Monaco
  * - Code execution via Pyodide
  * - Language detection
  */
 
-import * as monaco from 'monaco-editor'
-import { registerPythonLanguage, isPythonRegistered } from './pythonLanguage'
+import * as monaco from 'monaco-editor';
+import { registerPythonLanguage, isPythonRegistered } from './pythonLanguage';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export interface PythonExecutionResult {
-  success: boolean
-  output: string
-  error?: string
-  debugValues?: Map<number, unknown>
+  success: boolean;
+  output: string;
+  error?: string;
+  debugValues?: Map<number, unknown>;
 }
 
 // ============================================================================
@@ -71,7 +71,7 @@ const PYTHON_PATTERNS = [
   // Python type hints
   /\)\s*->\s*\w+\s*:/,
   /:\s*(int|str|float|bool|list|dict|tuple|set|None)\b/,
-]
+];
 
 /**
  * Patterns that indicate NOT Python (JavaScript/TypeScript)
@@ -81,9 +81,9 @@ const NON_PYTHON_PATTERNS = [
   /\bconst\s+\w+\s*=/,
   /\blet\s+\w+\s*=/,
   /\bvar\s+\w+\s*=/,
-  /\bfunction\s+\w+\s*\(/,  // function name( - clear JS
-  /\bfunction\s*\(/,         // function( - anonymous
-  /=>/,                     // Arrow function
+  /\bfunction\s+\w+\s*\(/, // function name( - clear JS
+  /\bfunction\s*\(/, // function( - anonymous
+  /=>/, // Arrow function
   /console\.log\s*\(/,
   /\bnew\s+\w+\(/,
   /\bthis\./,
@@ -91,32 +91,32 @@ const NON_PYTHON_PATTERNS = [
   /\bexport\s+(default\s+)?/,
   /\binterface\s+\w+/,
   /\btype\s+\w+\s*=/,
-  /\{\s*[\w,\s]+\s*\}/,  // Destructuring (more common in JS)
-  /===|!==/,             // Strict equality (JS only)
-  /\?\./,                // Optional chaining
-  /\?\?/,                // Nullish coalescing
-]
+  /\{\s*[\w,\s]+\s*\}/, // Destructuring (more common in JS)
+  /===|!==/, // Strict equality (JS only)
+  /\?\./, // Optional chaining
+  /\?\?/, // Nullish coalescing
+];
 
 /**
  * Detect if code is Python
  */
 export function isPythonCode(code: string): boolean {
-  if (!code || code.trim().length === 0) return false
+  if (!code || code.trim().length === 0) return false;
 
-  let pythonScore = 0
-  let jsScore = 0
+  let pythonScore = 0;
+  let jsScore = 0;
 
   // Check Python patterns
   for (const pattern of PYTHON_PATTERNS) {
     if (pattern.test(code)) {
-      pythonScore += 2
+      pythonScore += 2;
     }
   }
 
   // Check non-Python patterns
   for (const pattern of NON_PYTHON_PATTERNS) {
     if (pattern.test(code)) {
-      jsScore += 2
+      jsScore += 2;
     }
   }
 
@@ -124,30 +124,32 @@ export function isPythonCode(code: string): boolean {
 
   // Indentation-based structure (Python uses : and indentation)
   if (/:\s*\n\s+\S/.test(code)) {
-    pythonScore += 3
+    pythonScore += 3;
   }
 
   // Semicolons at end of lines (more common in JS)
-  const semicolonLines = (code.match(/;\s*$/gm) || []).length
-  const totalLines = code.split('\n').length
+  const semicolonLines = (code.match(/;\s*$/gm) || []).length;
+  const totalLines = code.split('\n').length;
   if (semicolonLines > totalLines * 0.3) {
-    jsScore += 3
+    jsScore += 3;
   }
 
   // Curly braces for blocks (JS style)
   if (/\{\s*\n/.test(code) && /\n\s*\}/.test(code)) {
-    jsScore += 2
+    jsScore += 2;
   }
 
-  return pythonScore > jsScore && pythonScore >= 2
+  return pythonScore > jsScore && pythonScore >= 2;
 }
 
 /**
  * Get detected language as string
  */
-export function detectLanguage(code: string): 'python' | 'typescript' | 'javascript' {
+export function detectLanguage(
+  code: string
+): 'python' | 'typescript' | 'javascript' {
   if (isPythonCode(code)) {
-    return 'python'
+    return 'python';
   }
 
   // Check for TypeScript-specific patterns
@@ -155,17 +157,17 @@ export function detectLanguage(code: string): 'python' | 'typescript' | 'javascr
     /\binterface\s+\w+/,
     /\btype\s+\w+\s*=/,
     /:\s*(string|number|boolean|any|void|never|unknown)\b/,
-    /<\w+>/,  // Generics
-    /as\s+(string|number|boolean|any|\w+)/,  // Type assertions
-  ]
+    /<\w+>/, // Generics
+    /as\s+(string|number|boolean|any|\w+)/, // Type assertions
+  ];
 
   for (const pattern of tsPatterns) {
     if (pattern.test(code)) {
-      return 'typescript'
+      return 'typescript';
     }
   }
 
-  return 'typescript' // Default to TypeScript
+  return 'typescript'; // Default to TypeScript
 }
 
 // ============================================================================
@@ -177,7 +179,7 @@ export function detectLanguage(code: string): 'python' | 'typescript' | 'javascr
  */
 export function initializePythonSupport(monacoInstance: typeof monaco): void {
   if (!isPythonRegistered()) {
-    registerPythonLanguage(monacoInstance)
+    registerPythonLanguage(monacoInstance);
   }
 }
 
@@ -188,22 +190,22 @@ export function updateEditorLanguage(
   editor: monaco.editor.IStandaloneCodeEditor,
   code: string
 ): string {
-  const language = detectLanguage(code)
-  const model = editor.getModel()
+  const language = detectLanguage(code);
+  const model = editor.getModel();
 
   if (model) {
-    const currentLang = model.getLanguageId()
+    const currentLang = model.getLanguageId();
     if (currentLang !== language) {
-      monaco.editor.setModelLanguage(model, language)
-      console.log(`[Python] Language changed: ${currentLang} -> ${language}`)
+      monaco.editor.setModelLanguage(model, language);
+      console.log(`[Python] Language changed: ${currentLang} -> ${language}`);
     }
   }
 
-  return language
+  return language;
 }
 
 // ============================================================================
 // EXPORT
 // ============================================================================
 
-export { registerPythonLanguage, isPythonRegistered }
+export { registerPythonLanguage, isPythonRegistered };

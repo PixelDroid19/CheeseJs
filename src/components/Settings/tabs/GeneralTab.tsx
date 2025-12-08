@@ -1,18 +1,18 @@
-import { motion } from 'framer-motion'
-import { useTranslation } from 'react-i18next'
-import { useSettingsStore } from '../../../store/useSettingsStore'
-import { Select } from '../ui/Select'
-import { SectionHeader } from '../ui/SectionHeader'
-import clsx from 'clsx'
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { useSettingsStore } from '../../../store/useSettingsStore';
+import { Select } from '../ui/Select';
+import { SectionHeader } from '../ui/SectionHeader';
+import clsx from 'clsx';
 
-export function GeneralTab () {
-  const { t, i18n } = useTranslation()
-  const { language, setLanguage } = useSettingsStore()
+export function GeneralTab() {
+  const { t, i18n } = useTranslation();
+  const { language, setLanguage } = useSettingsStore();
 
   const handleLanguageChange = (lang: string) => {
-    setLanguage(lang)
-    i18n.changeLanguage(lang)
-  }
+    setLanguage(lang);
+    i18n.changeLanguage(lang);
+  };
 
   return (
     <motion.div
@@ -23,7 +23,7 @@ export function GeneralTab () {
       <div>
         <SectionHeader title={t('settings.categories.general')} />
         <div className="flex items-center justify-between">
-          <label className={clsx("text-sm font-medium", "text-foreground")}>
+          <label className={clsx('text-sm font-medium', 'text-foreground')}>
             {t('settings.language')}
           </label>
           <Select
@@ -37,6 +37,5 @@ export function GeneralTab () {
         </div>
       </div>
     </motion.div>
-  )
+  );
 }
-

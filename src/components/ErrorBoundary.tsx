@@ -1,46 +1,47 @@
-import { Component, ErrorInfo, ReactNode } from 'react'
-import i18n from '../i18n'
+import { Component, ErrorInfo, ReactNode } from 'react';
+import i18n from '../i18n';
 
 interface Props {
-  children: ReactNode
-  fallback?: (error: Error, errorInfo: ErrorInfo) => ReactNode
+  children: ReactNode;
+  fallback?: (error: Error, errorInfo: ErrorInfo) => ReactNode;
 }
 
 interface State {
-  hasError: boolean
-  error: Error | null
-  errorInfo: ErrorInfo | null
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
 }
 
 // Helper to get translations in class component
-const t = (key: string, fallback: string) => i18n.t(key, { defaultValue: fallback })
+const t = (key: string, fallback: string) =>
+  i18n.t(key, { defaultValue: fallback });
 
 class ErrorBoundary extends Component<Props, State> {
-  constructor (props: Props) {
-    super(props)
+  constructor(props: Props) {
+    super(props);
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null
-    }
+      errorInfo: null,
+    };
   }
 
-  static getDerivedStateFromError (_error: Error): Partial<State> {
-    return { hasError: true }
+  static getDerivedStateFromError(_error: Error): Partial<State> {
+    return { hasError: true };
   }
 
-  componentDidCatch (error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({
       error,
-      errorInfo
-    })
+      errorInfo,
+    });
   }
 
-  render () {
+  render() {
     if (this.state.hasError) {
       if (this.props.fallback && this.state.error && this.state.errorInfo) {
-        return this.props.fallback(this.state.error, this.state.errorInfo)
+        return this.props.fallback(this.state.error, this.state.errorInfo);
       }
 
       return (
@@ -67,7 +68,10 @@ class ErrorBoundary extends Component<Props, State> {
 
             <div className="mb-4">
               <p className="text-foreground mb-2">
-                {t('errors.description', 'An unexpected error occurred in the application. Please try reloading.')}
+                {t(
+                  'errors.description',
+                  'An unexpected error occurred in the application. Please try reloading.'
+                )}
               </p>
               <button
                 onClick={() => window.location.reload()}
@@ -96,11 +100,11 @@ class ErrorBoundary extends Component<Props, State> {
             )}
           </div>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
-export default ErrorBoundary
+export default ErrorBoundary;

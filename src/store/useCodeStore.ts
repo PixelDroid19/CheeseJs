@@ -1,6 +1,6 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { MAX_RESULTS, type ConsoleType } from '../types/workerTypes'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { MAX_RESULTS, type ConsoleType } from '../types/workerTypes';
 
 // ============================================================================
 // TYPES
@@ -53,20 +53,19 @@ export const useCodeStore = create<CodeState>()(
 
       setResult: (result) => {
         // Enforce max results on direct set
-        const limited = result.length > MAX_RESULTS
-          ? result.slice(-MAX_RESULTS)
-          : result
-        set({ result: limited })
+        const limited =
+          result.length > MAX_RESULTS ? result.slice(-MAX_RESULTS) : result;
+        set({ result: limited });
       },
 
       appendResult: (resultItem) =>
         set((state) => {
-          const newResults = [...state.result, resultItem]
+          const newResults = [...state.result, resultItem];
           // Auto-prune if exceeding limit
           if (newResults.length > MAX_RESULTS) {
-            return { result: newResults.slice(-MAX_RESULTS) }
+            return { result: newResults.slice(-MAX_RESULTS) };
           }
-          return { result: newResults }
+          return { result: newResults };
         }),
 
       clearResult: () => set({ result: [] }),
@@ -77,16 +76,15 @@ export const useCodeStore = create<CodeState>()(
 
       // Manual pruning for explicit cleanup
       pruneOldResults: () => {
-        const { result } = get()
+        const { result } = get();
         if (result.length > MAX_RESULTS) {
-          set({ result: result.slice(-MAX_RESULTS) })
+          set({ result: result.slice(-MAX_RESULTS) });
         }
-      }
+      },
     }),
     {
       name: 'code-storage',
       partialize: (state) => ({ code: state.code }), // Only persist code
     }
   )
-)
-
+);

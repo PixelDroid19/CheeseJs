@@ -1,28 +1,37 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Book, Play, Plus, X, Copy, Trash2, ChevronLeft, Save } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
-import { useSnippetsStore, Snippet } from '../store/useSnippetsStore'
-import { useCodeStore } from '../store/useCodeStore'
-import clsx from 'clsx'
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Book,
+  Play,
+  Plus,
+  X,
+  Copy,
+  Trash2,
+  ChevronLeft,
+  Save,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useSnippetsStore, Snippet } from '../store/useSnippetsStore';
+import { useCodeStore } from '../store/useCodeStore';
+import clsx from 'clsx';
 
 export function SnippetsMenu() {
-  const { t } = useTranslation()
-  const [isOpen, setIsOpen] = useState(false)
-  const [view, setView] = useState<'list' | 'add'>('list')
-  const [newSnippetName, setNewSnippetName] = useState('')
-  const { snippets, addSnippet, removeSnippet } = useSnippetsStore()
-  const { code, setCode } = useCodeStore()
-  
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({})
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'add'>('list');
+  const [newSnippetName, setNewSnippetName] = useState('');
+  const { snippets, addSnippet, removeSnippet } = useSnippetsStore();
+  const { code, setCode } = useCodeStore();
+
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
 
   // Update position when opening
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const updatePosition = () => {
-        const rect = buttonRef.current!.getBoundingClientRect()
+        const rect = buttonRef.current!.getBoundingClientRect();
         setMenuStyle({
           position: 'fixed',
           bottom: window.innerHeight - rect.top + 16, // 16px offset from top of button
@@ -31,51 +40,51 @@ export function SnippetsMenu() {
           zIndex: 9999,
           maxHeight: '30rem',
           width: '22rem',
-        })
-      }
-      
-      updatePosition()
-      window.addEventListener('resize', updatePosition)
-      window.addEventListener('scroll', updatePosition, true)
-      
+        });
+      };
+
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
+
       return () => {
-        window.removeEventListener('resize', updatePosition)
-        window.removeEventListener('scroll', updatePosition, true)
-      }
+        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', updatePosition, true);
+      };
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   const toggleOpen = () => {
     if (!isOpen) {
-      setView('list')
-      setNewSnippetName('')
+      setView('list');
+      setNewSnippetName('');
     }
-    setIsOpen(!isOpen)
-  }
+    setIsOpen(!isOpen);
+  };
 
   const handleSave = () => {
     if (newSnippetName.trim()) {
-      addSnippet({ name: newSnippetName.trim(), code })
-      setView('list')
-      setNewSnippetName('')
+      addSnippet({ name: newSnippetName.trim(), code });
+      setView('list');
+      setNewSnippetName('');
     }
-  }
+  };
 
   const handleLoad = (snippet: Snippet) => {
     // Removed confirm dialog to prevent focus stealing issues
-    setCode(snippet.code)
-    setIsOpen(false)
-  }
+    setCode(snippet.code);
+    setIsOpen(false);
+  };
 
   const handleAppend = (snippet: Snippet) => {
-    setCode(code + '\n' + snippet.code)
-    setIsOpen(false)
-  }
+    setCode(code + '\n' + snippet.code);
+    setIsOpen(false);
+  };
 
   const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text);
     // Optional: show toast
-  }
+  };
 
   return (
     <>
@@ -98,11 +107,11 @@ export function SnippetsMenu() {
           {isOpen && (
             <>
               {/* Backdrop */}
-              <div 
-                className="fixed inset-0 z-[9998]" 
-                onClick={() => setIsOpen(false)} 
+              <div
+                className="fixed inset-0 z-[9998]"
+                onClick={() => setIsOpen(false)}
               />
-              
+
               {/* Menu */}
               <motion.div
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -117,11 +126,14 @@ export function SnippetsMenu() {
                 <div className="p-4 border-b border-border flex justify-between items-center bg-muted/50">
                   {view === 'add' ? (
                     <div className="flex items-center gap-2">
-                      <button 
+                      <button
                         onClick={() => setView('list')}
                         className="p-1 -ml-1 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
                       >
-                        <ChevronLeft size={18} className="text-muted-foreground" />
+                        <ChevronLeft
+                          size={18}
+                          className="text-muted-foreground"
+                        />
                       </button>
                       <h3 className="font-semibold text-foreground">
                         {t('settings.snippets.add', 'New Snippet')}
@@ -133,7 +145,7 @@ export function SnippetsMenu() {
                       {t('settings.categories.snippets', 'Snippets')}
                     </h3>
                   )}
-                  
+
                   <div className="flex items-center gap-1">
                     {view === 'list' && (
                       <button
@@ -144,7 +156,7 @@ export function SnippetsMenu() {
                         <Plus size={18} />
                       </button>
                     )}
-                    <button 
+                    <button
                       onClick={() => setIsOpen(false)}
                       className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                     >
@@ -169,18 +181,22 @@ export function SnippetsMenu() {
                           className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                           autoFocus
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSave()
-                            if (e.key === 'Escape') setView('list')
+                            if (e.key === 'Enter') handleSave();
+                            if (e.key === 'Escape') setView('list');
                           }}
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                           {t('common.preview', 'Code Preview')}
                         </label>
                         <div className="text-xs font-mono p-3 rounded-lg bg-muted text-muted-foreground border border-border max-h-32 overflow-y-auto whitespace-pre-wrap">
-                          {code || <span className="text-muted-foreground/50 italic">No code to save</span>}
+                          {code || (
+                            <span className="text-muted-foreground/50 italic">
+                              No code to save
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -201,7 +217,9 @@ export function SnippetsMenu() {
                         <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                           <Book className="w-12 h-12 mb-3 opacity-20" />
                           <p className="text-sm font-medium">No snippets yet</p>
-                          <p className="text-xs opacity-70 mt-1">Save your code to reuse it later</p>
+                          <p className="text-xs opacity-70 mt-1">
+                            Save your code to reuse it later
+                          </p>
                           <button
                             onClick={() => setView('add')}
                             className="mt-4 px-4 py-2 text-xs font-medium text-primary bg-primary/10 rounded-full hover:bg-primary/20 transition-colors"
@@ -229,8 +247,9 @@ export function SnippetsMenu() {
                                 </button>
                                 <button
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    if(confirm('Delete snippet?')) removeSnippet(snippet.id)
+                                    e.stopPropagation();
+                                    if (confirm('Delete snippet?'))
+                                      removeSnippet(snippet.id);
                                   }}
                                   className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-background shadow-sm"
                                   title={t('common.delete', 'Delete')}
@@ -239,7 +258,7 @@ export function SnippetsMenu() {
                                 </button>
                               </div>
                             </div>
-                            
+
                             <div className="relative">
                               <pre className="text-xs font-mono text-muted-foreground bg-muted p-2 rounded border border-border line-clamp-3 overflow-hidden">
                                 {snippet.code}
@@ -275,5 +294,5 @@ export function SnippetsMenu() {
         document.body
       )}
     </>
-  )
+  );
 }

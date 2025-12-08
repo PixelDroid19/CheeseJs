@@ -1,18 +1,18 @@
-import { Minus, Maximize, X, Zap } from 'lucide-react'
+import { Minus, Maximize, X, Zap } from 'lucide-react';
 
 export function TitleBar() {
   const handleMinimize = () => {
-    window.electronAPI.minimizeApp()
-  }
+    window.electronAPI.minimizeApp();
+  };
 
   const handleMaximize = () => {
     // Toggles maximize/unmaximize in the main process
-    window.electronAPI.maximizeApp()
-  }
+    window.electronAPI.maximizeApp();
+  };
 
   const handleClose = () => {
-    window.electronAPI.closeApp()
-  }
+    window.electronAPI.closeApp();
+  };
 
   return (
     <header className="titlebar select-none">
@@ -26,29 +26,29 @@ export function TitleBar() {
           </div>
         </div>
         <div className="flex items-center h-full text-muted-foreground">
-           <button 
-             onClick={handleMinimize} 
-             className="hover:bg-accent w-[46px] h-full flex items-center justify-center transition-colors cursor-default"
-             title="Minimize"
-           >
-             <Minus size={18} />
-           </button>
-           <button 
-             onClick={handleMaximize} 
-             className="hover:bg-accent w-[46px] h-full flex items-center justify-center transition-colors cursor-default"
-             title="Maximize"
-           >
-             <Maximize size={18} />
-           </button>
-           <button 
-             onClick={handleClose} 
-             className="hover:bg-destructive w-[46px] h-full flex items-center justify-center hover:text-destructive-foreground transition-colors cursor-default"
-             title="Close"
-           >
-             <X size={18} />
-           </button>
+          <button
+            onClick={handleMinimize}
+            className="hover:bg-accent w-[46px] h-full flex items-center justify-center transition-colors cursor-default"
+            title="Minimize"
+          >
+            <Minus size={18} />
+          </button>
+          <button
+            onClick={handleMaximize}
+            className="hover:bg-accent w-[46px] h-full flex items-center justify-center transition-colors cursor-default"
+            title="Maximize"
+          >
+            <Maximize size={18} />
+          </button>
+          <button
+            onClick={handleClose}
+            className="hover:bg-destructive w-[46px] h-full flex items-center justify-center hover:text-destructive-foreground transition-colors cursor-default"
+            title="Close"
+          >
+            <X size={18} />
+          </button>
         </div>
       </nav>
     </header>
-  )
+  );
 }

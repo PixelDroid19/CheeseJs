@@ -1,50 +1,51 @@
-import { motion } from 'framer-motion'
-import { useTranslation } from 'react-i18next'
-import { HelpCircle } from 'lucide-react'
-import { useSettingsStore } from '../../../store/useSettingsStore'
-import clsx from 'clsx'
-import { Toggle } from '../ui/Toggle'
-import { Tooltip } from '../ui/Tooltip'
-import { Select } from '../ui/Select'
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { HelpCircle } from 'lucide-react';
+import { useSettingsStore } from '../../../store/useSettingsStore';
+import clsx from 'clsx';
+import { Toggle } from '../ui/Toggle';
+import { Tooltip } from '../ui/Tooltip';
+import { Select } from '../ui/Select';
 
 const HelpIcon = ({ content }: { content: string }) => {
   return (
     <Tooltip content={content}>
-      <HelpCircle size={15} className={clsx("transition-colors text-muted-foreground hover:text-foreground")} />
+      <HelpCircle
+        size={15}
+        className={clsx(
+          'transition-colors text-muted-foreground hover:text-foreground'
+        )}
+      />
     </Tooltip>
-  )
-}
+  );
+};
 
-const AdvancedRow = ({ 
-  label, 
+const AdvancedRow = ({
+  label,
   helpContent,
-  children, 
-  className = "" 
-}: { 
-  label?: string, 
-  helpContent?: string,
-  children: React.ReactNode, 
-  className?: string 
+  children,
+  className = '',
+}: {
+  label?: string;
+  helpContent?: string;
+  children: React.ReactNode;
+  className?: string;
 }) => {
   return (
-    <div className={clsx("flex items-center justify-between min-h-10", className)}>
+    <div
+      className={clsx('flex items-center justify-between min-h-10', className)}
+    >
       <div className="flex items-center gap-2">
-        {label && (
-          <span className="text-sm text-foreground">
-            {label}
-          </span>
-        )}
+        {label && <span className="text-sm text-foreground">{label}</span>}
         {helpContent && <HelpIcon content={helpContent} />}
       </div>
-      <div className="flex items-center gap-3">
-        {children}
-      </div>
+      <div className="flex items-center gap-3">{children}</div>
     </div>
-  )
-}
+  );
+};
 
-export function AdvancedTab () {
-  const { t } = useTranslation()
+export function AdvancedTab() {
+  const { t } = useTranslation();
   const {
     showTopLevelResults,
     setShowTopLevelResults,
@@ -61,8 +62,8 @@ export function AdvancedTab () {
     autoRunAfterInstall,
     setAutoRunAfterInstall,
     autoInstallPackages,
-    setAutoInstallPackages
-  } = useSettingsStore()
+    setAutoInstallPackages,
+  } = useSettingsStore();
 
   return (
     <motion.div
@@ -81,20 +82,14 @@ export function AdvancedTab () {
             label={t('settings.advanced.loopProtection')}
             helpContent={t('settings.advanced.loopProtectionTooltip')}
           >
-            <Toggle
-              checked={loopProtection}
-              onChange={setLoopProtection}
-            />
+            <Toggle checked={loopProtection} onChange={setLoopProtection} />
           </AdvancedRow>
 
           <AdvancedRow
             label={t('settings.advanced.magicComments')}
             helpContent={t('settings.advanced.magicCommentsTooltip')}
           >
-            <Toggle
-              checked={magicComments}
-              onChange={setMagicComments}
-            />
+            <Toggle checked={magicComments} onChange={setMagicComments} />
           </AdvancedRow>
         </div>
       </div>
@@ -106,7 +101,7 @@ export function AdvancedTab () {
         </h4>
 
         <div className="space-y-6">
-           <AdvancedRow
+          <AdvancedRow
             label={t('settings.advanced.showTopLevelResults')}
             helpContent={t('settings.advanced.showTopLevelResultsTooltip')}
           >
@@ -120,23 +115,17 @@ export function AdvancedTab () {
             label={t('settings.advanced.alignResults')}
             helpContent={t('settings.advanced.alignResultsTooltip')}
           >
-            <Toggle
-              checked={alignResults}
-              onChange={setAlignResults}
-            />
+            <Toggle checked={alignResults} onChange={setAlignResults} />
           </AdvancedRow>
 
           <AdvancedRow
             label={t('settings.advanced.showUndefined')}
             helpContent={t('settings.advanced.showUndefinedTooltip')}
           >
-            <Toggle
-              checked={showUndefined}
-              onChange={setShowUndefined}
-            />
+            <Toggle checked={showUndefined} onChange={setShowUndefined} />
           </AdvancedRow>
 
-           <AdvancedRow
+          <AdvancedRow
             label={t('settings.advanced.internalLogLevel')}
             helpContent={t('settings.advanced.internalLogLevelTooltip')}
           >
@@ -171,7 +160,7 @@ export function AdvancedTab () {
             />
           </AdvancedRow>
 
-           <AdvancedRow
+          <AdvancedRow
             label={t('settings.advanced.autoRunAfterInstall')}
             helpContent={t('settings.advanced.autoRunAfterInstallTooltip')}
           >
@@ -183,5 +172,5 @@ export function AdvancedTab () {
         </div>
       </div>
     </motion.div>
-  )
+  );
 }
