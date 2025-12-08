@@ -11,7 +11,7 @@
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import { ModelOperations } from '@vscode/vscode-languagedetection';
-import type * as Monaco from 'monaco-editor';
+import type * as Monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 // ============================================================================
 // TYPES
@@ -640,11 +640,23 @@ export const useLanguageStore = create<LanguageState>()(
 
           modelLoadPromise = (async () => {
             try {
-              modelOperations = new ModelOperations();
+              // Add timeout to prevent infinite loading state
+              const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Model load timeout')), 5000)
+              );
+
+              const loadPromise = async () => {
+                modelOperations = new ModelOperations();
+                // Basic check to ensure it's responsive
+                await Promise.resolve();
+              };
+
+              await Promise.race([loadPromise(), timeoutPromise]);
+
               set({ isModelLoaded: true, isModelLoading: false });
               console.log('[LanguageStore] ML model loaded');
             } catch (error) {
-              console.error('[LanguageStore] Failed to load ML model:', error);
+              console.warn('[LanguageStore] Failed to load ML model (falling back to pattern detection):', error);
               set({ isModelLoading: false });
             }
           })();

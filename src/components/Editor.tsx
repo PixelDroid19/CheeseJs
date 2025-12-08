@@ -1,4 +1,5 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
+import LoadingIndicator from './LoadingIndicator';
 import Editor, { Monaco, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
@@ -52,6 +53,7 @@ function CodeEditor() {
   const code = useCodeStore((state: CodeState) => state.code);
   const setCode = useCodeStore((state: CodeState) => state.setCode);
   const { themeName, fontSize } = useSettingsStore();
+  const [_isEditorReady, setIsEditorReady] = useState(false);
 
   // Use centralized language store
   const language = useLanguageStore((state) => state.currentLanguage);
@@ -193,8 +195,14 @@ function CodeEditor() {
       // Register Python language with syntax highlighting
       registerPythonLanguage(monaco);
 
-      // Pre-initialize ML language detection model
-      initializeModel().catch(console.error);
+      // Initialize ML model without blocking
+      initializeModel().catch((err) => {
+        console.warn(
+          '[Editor] Language detection model initialization failed:',
+          err
+        );
+        // Non-critical error, continue
+      });
     },
     [setMonacoInstance, initializeModel]
   );
@@ -202,6 +210,13 @@ function CodeEditor() {
   const handleEditorDidMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
       monacoRef.current = editorInstance;
+      setIsEditorReady(true);
+
+      // Initial language application
+      const model = editorInstance.getModel();
+      if (model) {
+        applyLanguageToMonaco(model);
+      }
 
       // Expose monaco to window for E2E testing
       // Always expose for Electron app (needed for Playwright E2E tests)
@@ -535,6 +550,7 @@ function CodeEditor() {
         // Pass language prop to help Monaco - but we also set it manually
         language={language}
         theme={themeName}
+        loading={<LoadingIndicator message="Initializing Editor..." />}
         options={{
           automaticLayout: true,
           dragAndDrop: true,
