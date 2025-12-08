@@ -1,6 +1,13 @@
 name: Build/release
 
-on: push
+on: 
+  push:
+    branches:
+      - master
+      - main
+      - 'feature/python-experimental-support'
+    tags:
+      - 'v*'
 
 jobs:
   release:
@@ -36,8 +43,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
 
-      - name: Release Electron app
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release Electron app (stable)
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'beta')
         run: pnpm exec electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+
+      - name: Release Electron app (beta)
+        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref, 'beta')
+        run: pnpm exec electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+          EP_PRE_RELEASE: true
+
+      - name: Upload Beta Artifacts
+        if: github.ref == 'refs/heads/feature/python-experimental-support'
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-build-${{ matrix.os }}
+          path: |
+            release/**/*.exe
+            release/**/*.dmg
+            release/**/*.AppImage
+            release/**/*.deb
+          retention-days: 30

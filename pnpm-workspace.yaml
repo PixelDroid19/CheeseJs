@@ -1,11 +1,5 @@
-packages:
-  - .
-
-ignoredBuiltDependencies:
-  - electron
-  - esbuild
-
 onlyBuiltDependencies:
+  - '@swc/core'
   - electron
   - electron-winstaller
   - esbuild

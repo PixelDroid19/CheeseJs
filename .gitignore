@@ -21,6 +21,7 @@ test-results
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+.github/copilot-instructions.md
 .idea
 .DS_Store
 *.suo

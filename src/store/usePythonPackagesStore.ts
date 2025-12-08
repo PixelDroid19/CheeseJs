@@ -2,24 +2,24 @@ import { create } from 'zustand'
 
 export const MAX_INSTALL_ATTEMPTS = 3
 
-export interface PackageError {
+export interface PythonPackageError {
   code: string
   message: string
   timestamp: number
 }
 
-export interface PackageInfo {
+export interface PythonPackageInfo {
   name: string
   version?: string
   installing: boolean
   isInstalled: boolean
   error?: string
   installAttempts: number
-  lastError?: PackageError
+  lastError?: PythonPackageError
 }
 
-export interface PackagesState {
-  packages: PackageInfo[]
+export interface PythonPackagesState {
+  packages: PythonPackageInfo[]
   detectedMissingPackages: string[]
   isInstalling: boolean
   addPackage: (name: string, version?: string) => void
@@ -33,7 +33,7 @@ export interface PackagesState {
   incrementInstallAttempt: (name: string) => number
 }
 
-export const usePackagesStore = create<PackagesState>((set, get) => ({
+export const usePythonPackagesStore = create<PythonPackagesState>((set, get) => ({
   packages: [],
   detectedMissingPackages: [],
   isInstalling: false,

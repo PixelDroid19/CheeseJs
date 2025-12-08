@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react'
 import { useCodeStore } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { usePackagesStore } from '../store/usePackagesStore'
+import { usePythonPackagesStore } from '../store/usePythonPackagesStore'
 import { themes } from '../themes'
 import Editor, { Monaco } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
@@ -9,22 +10,36 @@ import { Download, AlertCircle, Loader2, Package as PackageIcon, X } from 'lucid
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { usePackageMetadata } from '../hooks/usePackageMetadata'
+import { usePythonPackageMetadata } from '../hooks/usePythonPackageMetadata'
 
 function ResultDisplay() {
   const elements = useCodeStore((state) => state.result)
   const code = useCodeStore((state) => state.code)
   const { themeName, fontSize, alignResults } = useSettingsStore()
   const { packages, addPackage, setPackageInstalling, setPackageInstalled, setPackageError, detectedMissingPackages } = usePackagesStore()
+  const {
+    packages: pythonPackages,
+    addPackage: addPythonPackage,
+    setPackageInstalling: setPythonPackageInstalling,
+    setPackageInstalled: setPythonPackageInstalled,
+    setPackageError: setPythonPackageError,
+    detectedMissingPackages: detectedMissingPythonPackages
+  } = usePythonPackagesStore()
   const { t } = useTranslation()
 
   const { packageMetadata, dismissedPackages, setDismissedPackages } = usePackageMetadata(detectedMissingPackages)
+  const {
+    packageMetadata: pythonPackageMetadata,
+    dismissedPackages: dismissedPythonPackages,
+    setDismissedPackages: setDismissedPythonPackages
+  } = usePythonPackageMetadata(detectedMissingPythonPackages)
 
   // Handle package installation using native Electron API
   const handleInstallPackage = useCallback(async (packageName: string) => {
     console.log('[Result] Installing package:', packageName)
     addPackage(packageName)
     setPackageInstalling(packageName, true)
-    
+
     if (window.packageManager) {
       try {
         const result = await window.packageManager.install(packageName)
@@ -42,12 +57,35 @@ function ResultDisplay() {
     }
   }, [addPackage, setPackageInstalling, setPackageInstalled, setPackageError])
 
+  // Handle Python package installation using micropip
+  const handleInstallPythonPackage = useCallback(async (packageName: string) => {
+    console.log('[Result] Installing Python package via micropip:', packageName)
+    addPythonPackage(packageName)
+    setPythonPackageInstalling(packageName, true)
+
+    if (window.pythonPackageManager) {
+      try {
+        const result = await window.pythonPackageManager.install(packageName)
+        if (result.success) {
+          setPythonPackageInstalled(packageName, result.version)
+        } else {
+          setPythonPackageError(packageName, result.error)
+        }
+      } catch (error) {
+        setPythonPackageError(packageName, error instanceof Error ? error.message : 'Installation failed')
+      }
+    } else {
+      console.warn('[Result] window.pythonPackageManager not available')
+      setPythonPackageError(packageName, 'Python package manager not available')
+    }
+  }, [addPythonPackage, setPythonPackageInstalling, setPythonPackageInstalled, setPythonPackageError])
+
   function handleEditorWillMount(monaco: Monaco) {
     // Register all themes
     Object.entries(themes).forEach(([name, themeData]) => {
       monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData)
     })
-    
+
     // Access typescript defaults safely
     const ts = monaco.languages.typescript
     if (ts) {
@@ -92,56 +130,87 @@ function ResultDisplay() {
   }, [elements, alignResults, code])
 
   // Memoize action results filtering
-  const actionResults = useMemo(() => 
+  const actionResults = useMemo(() =>
     elements.filter(e => e.action),
     [elements]
   )
 
   // Memoize combined action items from multiple sources
   const allActionItems = useMemo(() => [
-    // 1. Action results from code execution
+    // 1. Action results from code execution (npm)
     ...actionResults.map(r => ({
       pkgName: r.action?.payload as string,
       message: r.element?.content || '',
-      isActionResult: true
+      isActionResult: true,
+      isPython: false
     })),
-    // 2. Packages already managed (installing/error) - FILTER OUT INSTALLED
+    // 2. npm packages already managed (installing/error) - FILTER OUT INSTALLED
     ...packages
       .filter(p => !actionResults.some(r => r.action?.payload === p.name))
-      // Hide installed packages from the interface as requested
       .filter(p => !p.isInstalled)
       .map(p => ({
         pkgName: p.name,
         message: `Package "${p.name}"`,
-        isActionResult: false
+        isActionResult: false,
+        isPython: false
       })),
-    // 3. Detected missing packages (not in packages store yet OR not installed)
+    // 3. Detected missing npm packages
     ...detectedMissingPackages
       .filter(pkgName => {
-        // Skip if already shown in action results
         if (actionResults.some(r => r.action?.payload === pkgName)) return false
-        // Skip if package is already installed
         const existingPkg = packages.find(p => p.name === pkgName)
         if (existingPkg?.isInstalled) return false
-        // Skip if already in the packages list (will be shown from packages array)
         if (existingPkg) return false
         return true
       })
       .map(pkgName => ({
         pkgName,
         message: `Package "${pkgName}" is missing`,
-        isActionResult: false
+        isActionResult: false,
+        isPython: false
+      })),
+    // 4. Python packages already managed (installing/error) - FILTER OUT INSTALLED
+    ...pythonPackages
+      .filter(p => !p.isInstalled)
+      .map(p => ({
+        pkgName: p.name,
+        message: `Python package "${p.name}"`,
+        isActionResult: false,
+        isPython: true
+      })),
+    // 5. Detected missing Python packages
+    ...detectedMissingPythonPackages
+      .filter(pkgName => {
+        const existingPkg = pythonPackages.find(p => p.name === pkgName)
+        if (existingPkg?.isInstalled) return false
+        if (existingPkg) return false
+        return true
+      })
+      .map(pkgName => ({
+        pkgName,
+        message: `Python package "${pkgName}" is missing`,
+        isActionResult: false,
+        isPython: true
       }))
-  ], [actionResults, packages, detectedMissingPackages])
+  ], [actionResults, packages, detectedMissingPackages, pythonPackages, detectedMissingPythonPackages])
 
-  // Memoize visible items after filtering dismissed packages
-  const visibleActionItems = useMemo(() => 
-    allActionItems.filter(item => !dismissedPackages.includes(item.pkgName)),
-    [allActionItems, dismissedPackages]
+  // Memoize visible items after filtering dismissed packages (both npm and Python)
+  const visibleActionItems = useMemo(() =>
+    allActionItems.filter(item => {
+      if (item.isPython) {
+        return !dismissedPythonPackages.includes(item.pkgName)
+      }
+      return !dismissedPackages.includes(item.pkgName)
+    }),
+    [allActionItems, dismissedPackages, dismissedPythonPackages]
   )
 
-  const handleDismiss = (pkgName: string) => {
-    setDismissedPackages(prev => [...prev, pkgName])
+  const handleDismiss = (pkgName: string, isPython: boolean) => {
+    if (isPython) {
+      setDismissedPythonPackages(prev => [...prev, pkgName])
+    } else {
+      setDismissedPackages(prev => [...prev, pkgName])
+    }
   }
 
   return (
@@ -181,14 +250,27 @@ function ResultDisplay() {
       <div className="absolute bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
         <AnimatePresence mode="popLayout">
           {visibleActionItems.map((item, index) => {
-            const { pkgName } = item
-            const pkgInfo = packages.find(p => p.name === pkgName)
-            const metadata = packageMetadata[pkgName]
+            const { pkgName, isPython } = item
+            const pkgInfo = isPython
+              ? pythonPackages.find(p => p.name === pkgName)
+              : packages.find(p => p.name === pkgName)
+            const metadata = isPython
+              ? pythonPackageMetadata[pkgName]
+              : packageMetadata[pkgName]
 
             // Determine if package exists and what version
             const isUnknown = !metadata || metadata.loading
             const doesNotExist = metadata?.error || (metadata && !metadata.version && !metadata.name)
             const version = metadata?.version || pkgInfo?.version
+
+            // Handler for install button
+            const handleInstall = () => {
+              if (isPython) {
+                handleInstallPythonPackage(pkgName)
+              } else {
+                handleInstallPackage(pkgName)
+              }
+            }
 
             return (
               <motion.div
@@ -204,7 +286,9 @@ function ResultDisplay() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="p-2 bg-muted rounded-md">
-                        <PackageIcon className="size-4.5 text-primary" />
+                        {isPython
+                          ? <span className="text-lg">🐍</span>
+                          : <PackageIcon className="size-4.5 text-primary" />}
                       </div>
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2">
@@ -224,7 +308,7 @@ function ResultDisplay() {
                     </div>
 
                     <button
-                      onClick={() => handleDismiss(pkgName)}
+                      onClick={() => handleDismiss(pkgName, isPython)}
                       className="text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-muted rounded"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -247,7 +331,7 @@ function ResultDisplay() {
                               <span className="truncate">{pkgInfo.error}</span>
                             </span>
                             <button
-                              onClick={() => pkgName && handleInstallPackage(pkgName)}
+                              onClick={handleInstall}
                               className="w-full px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                             >
                               <Download className="w-3.5 h-3.5" /> {t('packages.retry', 'Retry')}
@@ -268,10 +352,10 @@ function ResultDisplay() {
                             )
                             : (
                               <button
-                                onClick={() => pkgName && handleInstallPackage(pkgName)}
+                                onClick={handleInstall}
                                 className="w-full px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
                               >
-                                <Download className="w-3.5 h-3.5" /> {t('packages.install', 'Install Package')}
+                                <Download className="w-3.5 h-3.5" /> {isPython ? t('packages.installPython', 'Install via micropip') : t('packages.install', 'Install Package')}
                               </button>
                             )}
                   </div>

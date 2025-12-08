@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { useCodeStore, type CodeState } from '../store/useCodeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import { detectLanguage, isLanguageExecutable } from '../lib/languageDetector'
+import { useLanguageStore, isLanguageExecutable, getLanguageDisplayName } from '../store/useLanguageStore'
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -47,8 +47,6 @@ export function useCodeRunner() {
   const setResult = useCodeStore((state: CodeState) => state.setResult)
   const appendResult = useCodeStore((state: CodeState) => state.appendResult)
   const clearResult = useCodeStore((state: CodeState) => state.clearResult)
-  const language = useCodeStore((state: CodeState) => state.language)
-  const setLanguage = useCodeStore((state: CodeState) => state.setLanguage)
   const setIsExecuting = useCodeStore((state: CodeState) => state.setIsExecuting)
 
   const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
@@ -89,19 +87,19 @@ export function useCodeRunner() {
           unsubscribeRef.current = null
         }
 
-        // Detect language
-        const detectedLang = detectLanguage(sourceCode)
-        if (detectedLang !== language) {
-          setLanguage(detectedLang)
-        }
+        // IMPORTANT: Detect language directly from source code to avoid race conditions
+        // The store language might not be updated yet when auto-run triggers
+        const detectLanguage = useLanguageStore.getState().detectLanguage
+        const detected = detectLanguage(sourceCode)
+        const currentLang = detected.monacoId
 
         // Validate that language is executable
-        if (!isLanguageExecutable(detectedLang)) {
+        if (!isLanguageExecutable(currentLang)) {
           setIsExecuting(false)
           setResult([
             {
               element: {
-                content: `❌ Unsupported Language: ${detectedLang}\n\nThis editor can only execute JavaScript and TypeScript code.\n\nDetected language: ${detectedLang}\nSupported languages: javascript, typescript`
+                content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)}\n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang}\nSupported languages: javascript, typescript, python`
               },
               type: 'error'
             }
@@ -121,7 +119,16 @@ export function useCodeRunner() {
             throw new WorkerUnavailableError()
           }
 
-          // Subscribe to results for this execution
+          // Wait for worker to be ready before executing
+          const execLanguage = currentLang === 'python' ? 'python' :
+            currentLang === 'typescript' ? 'typescript' : 'javascript'
+
+          const isReady = await window.codeRunner.waitForReady(execLanguage)
+          if (!isReady) {
+            throw new Error(`Worker for ${execLanguage} failed to initialize`)
+          }
+
+          // Subscribe to results BEFORE executing to avoid race condition
           unsubscribeRef.current = window.codeRunner.onResult((result: ExecutionResultData) => {
             // Only process results for current execution
             if (result.id !== executionId) return
@@ -130,7 +137,7 @@ export function useCodeRunner() {
               // Line-numbered output
               appendResult({
                 lineNumber: result.line,
-                element: { 
+                element: {
                   content: (result.data as { content: string })?.content ?? String(result.data),
                   jsType: result.jsType
                 },
@@ -139,9 +146,9 @@ export function useCodeRunner() {
             } else if (result.type === 'console') {
               // Console output (log, warn, error, etc.)
               const consolePrefix = result.consoleType === 'error' ? '❌ ' :
-                                   result.consoleType === 'warn' ? '⚠️ ' : ''
+                result.consoleType === 'warn' ? '⚠️ ' : ''
               appendResult({
-                element: { 
+                element: {
                   content: consolePrefix + ((result.data as { content: string })?.content ?? String(result.data)),
                   consoleType: result.consoleType
                 },
@@ -156,19 +163,25 @@ export function useCodeRunner() {
                 type: 'error'
               })
             } else if (result.type === 'complete') {
-              // Execution completed
+              // Execution completed - clean up listener
+              if (unsubscribeRef.current) {
+                unsubscribeRef.current()
+                unsubscribeRef.current = null
+              }
               setIsExecuting(false)
               currentExecutionIdRef.current = null
             }
           })
 
-          // Execute code via IPC
+          // Execute code via IPC - language already determined above
+
           const response = await window.codeRunner.execute(executionId, sourceCode, {
             timeout: 30000,
             showUndefined,
             showTopLevelResults,
             loopProtection,
-            magicComments
+            magicComments,
+            language: execLanguage
           })
 
           if (!response.success) {
@@ -180,7 +193,7 @@ export function useCodeRunner() {
         } catch (error: unknown) {
           let errorMessage: string
           let errorIcon = '❌'
-          
+
           if (error instanceof WorkerUnavailableError) {
             errorMessage = `${error.message}\n\nPlease restart the application.`
             errorIcon = '🔌'
@@ -194,11 +207,19 @@ export function useCodeRunner() {
           } else {
             errorMessage = 'An unknown error occurred'
           }
-          
+
           setResult([{ element: { content: `${errorIcon} ${errorMessage}` }, type: 'error' }])
         } finally {
-          setIsExecuting(false)
-          currentExecutionIdRef.current = null
+          // DON'T clean up listener here - it will be cleaned up when 'complete' message arrives
+          // This prevents race condition where messages arrive after execute() returns but before 'complete'
+          // The listener cleanup happens in the onResult callback when type === 'complete'
+
+          // Only set isExecuting to false if we didn't set up a listener
+          // (e.g., if an error occurred before setting up the listener)
+          if (!unsubscribeRef.current) {
+            setIsExecuting(false)
+            currentExecutionIdRef.current = null
+          }
         }
 
         if (codeToRun !== undefined) {
@@ -207,12 +228,10 @@ export function useCodeRunner() {
       }, 300)
     },
     [
-      language,
       setResult,
       setCode,
       appendResult,
       clearResult,
-      setLanguage,
       setIsExecuting,
       code,
       showTopLevelResults,

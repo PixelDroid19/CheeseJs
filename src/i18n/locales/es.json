@@ -12,6 +12,7 @@
       "appearance": "Personalización Visual",
       "ai": "IA",
       "npm": "Integración NPM",
+      "pypi": "PyPI (Python)",
       "snippets": "Fragmentos (Snippets)",
       "advanced": "Opciones Avanzadas"
     },
@@ -22,6 +23,7 @@
       "appearance": "Personaliza la apariencia y el tema del editor",
       "ai": "Configuración de las características de Inteligencia Artificial",
       "npm": "Gestiona los paquetes y la configuración de NPM",
+      "pypi": "Administra paquetes Python desde PyPI",
       "snippets": "Administra tus fragmentos de código reutilizables",
       "advanced": "Configuraciones avanzadas y opciones de desarrollador"
     },
@@ -88,6 +90,22 @@
         "manual": "También puedes agregar paquetes manualmente aquí",
         "sandbox": "Todos los paquetes se ejecutan en un entorno VM aislado y seguro"
       }
+    },
+    "pypi": {
+      "description": "Administra paquetes Python para tu código. Los paquetes se instalan vía micropip desde PyPI.",
+      "installedPackages": "Paquetes Instalados",
+      "placeholder": "Nombre del paquete (ej: numpy, pandas)",
+      "add": "Agregar",
+      "remove": "Eliminar paquete",
+      "empty": "No hay paquetes instalados aún",
+      "loading": "Cargando paquetes...",
+      "info": {
+        "title": "Cómo funciona:",
+        "auto": "Los paquetes se detectan desde las declaraciones import",
+        "install": "Se instalan automáticamente en la primera ejecución",
+        "manual": "También puedes agregar paquetes manualmente aquí",
+        "sandbox": "Todo el código se ejecuta en un sandbox WebAssembly seguro"
+      }
     }
   },
   "editor": {
@@ -111,9 +129,17 @@
     "checking": "Verificando...",
     "notFound": "Paquete no encontrado",
     "install": "Instalar Paquete",
+    "installPython": "Instalar via micropip",
     "retry": "Reintentar"
   },
   "common": {
     "comingSoon": "Próximamente..."
+  },
+  "input": {
+    "defaultPrompt": "Ingresa un valor:",
+    "placeholder": "Ingresa un valor...",
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "hint": "Enter para enviar, Escape para cancelar"
   }
 }

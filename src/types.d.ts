@@ -11,6 +11,7 @@ interface ExecutionOptions {
   showTopLevelResults?: boolean
   loopProtection?: boolean
   magicComments?: boolean
+  language?: 'javascript' | 'typescript' | 'python'
 }
 
 interface ExecutionResult {
@@ -27,8 +28,12 @@ type ResultCallback = (result: ExecutionResult) => void
 interface CodeRunner {
   execute: (id: string, code: string, options?: ExecutionOptions) => Promise<{ success: boolean; data?: unknown; error?: string }>
   cancel: (id: string) => void
+  isReady: (language?: string) => Promise<boolean>
+  waitForReady: (language?: string) => Promise<boolean>
   onResult: (callback: ResultCallback) => () => void
   removeResultListener: (callback: ResultCallback) => void
+  onInputRequest: (callback: (request: { id: string; data: { prompt: string; line: number; requestId?: string } }) => void) => () => void
+  sendInputResponse: (id: string, value: string, requestId?: string) => void
 }
 
 // ============================================================================
@@ -56,6 +61,23 @@ interface PackageManager {
 }
 
 // ============================================================================
+// PYTHON PACKAGE MANAGER TYPES
+// ============================================================================
+
+interface PythonPackageInstallResult {
+  success: boolean
+  packageName: string
+  version?: string
+  error?: string
+}
+
+interface PythonPackageManager {
+  install: (packageName: string) => Promise<PythonPackageInstallResult>
+  listInstalled: () => Promise<{ success: boolean; packages: string[]; error?: string }>
+  resetRuntime: () => Promise<{ success: boolean; error?: string }>
+}
+
+// ============================================================================
 // WINDOW INTERFACE
 // ============================================================================
 
@@ -70,4 +92,5 @@ interface Window {
   }
   codeRunner: CodeRunner
   packageManager: PackageManager
+  pythonPackageManager: PythonPackageManager
 }
