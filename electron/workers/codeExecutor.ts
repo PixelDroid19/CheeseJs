@@ -10,6 +10,7 @@
  */
 
 import { parentPort, workerData } from 'worker_threads'
+import crypto from 'crypto'
 import vm from 'vm'
 import util from 'util'
 import path from 'path'
@@ -64,23 +65,17 @@ let isExecuting = false
 interface CachedScript {
   script: vm.Script
   lastUsed: number
+  code: string
 }
 
 const SCRIPT_CACHE_MAX_SIZE = 50
 const scriptCache = new Map<string, CachedScript>()
 
 /**
- * Simple hash function for code strings
+ * Cryptographic hash for code strings to avoid collisions
  */
 function hashCode(str: string): string {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i)
-    // Mix bits with a 32-bit multiplicative hash to reduce collisions
-    hash = Math.imul((hash ^ char) + 0x9e3779b1, 0x85ebca6b)
-  }
-  // Force unsigned 32-bit output for stable cache keys
-  return (hash >>> 0).toString(36)
+  return crypto.createHash('sha256').update(str, 'utf8').digest('hex')
 }
 
 /**
@@ -90,7 +85,7 @@ function getOrCreateScript(code: string): vm.Script {
   const cacheKey = hashCode(code)
   const cached = scriptCache.get(cacheKey)
 
-  if (cached) {
+  if (cached && cached.code === code) {
     cached.lastUsed = Date.now()
     return cached.script
   }
@@ -119,7 +114,7 @@ function getOrCreateScript(code: string): vm.Script {
     }
   }
 
-  scriptCache.set(cacheKey, { script, lastUsed: Date.now() })
+  scriptCache.set(cacheKey, { script, lastUsed: Date.now(), code })
   return script
 }
 
