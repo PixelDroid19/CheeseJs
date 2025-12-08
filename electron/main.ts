@@ -61,6 +61,9 @@ let codeWorkerInitReject: ((error: Error) => void) | null = null
 let pythonWorkerInitPromise: Promise<void> | null = null
 let pythonWorkerInitReject: ((error: Error) => void) | null = null
 
+// Interrupt buffer for Python execution cancellation (P2)
+let pythonInterruptBuffer: SharedArrayBuffer | null = null
+
 /**
  * Initialize the code executor worker
  */
@@ -208,7 +211,15 @@ function cancelExecution(id: string): void {
   if (codeWorker) {
     codeWorker.postMessage({ type: 'cancel', id })
   }
+
   if (pythonWorker) {
+    // Signal interrupt via SharedArrayBuffer first (SIGINT = 2) (P2)
+    // This allows Python code to be interrupted even in tight loops
+    if (pythonInterruptBuffer) {
+      const view = new Uint8Array(pythonInterruptBuffer)
+      view[0] = 2  // SIGINT - will raise KeyboardInterrupt in Python
+    }
+
     pythonWorker.postMessage({ type: 'cancel', id })
   }
 
@@ -236,6 +247,13 @@ function initializePythonWorker(): Promise<void> {
     const workerPath = path.join(__dirname, 'pythonExecutor.js')
 
     pythonWorker = new Worker(workerPath)
+
+    // Create and share interrupt buffer for execution cancellation (P2)
+    pythonInterruptBuffer = new SharedArrayBuffer(1)
+    pythonWorker.postMessage({
+      type: 'set-interrupt-buffer',
+      buffer: pythonInterruptBuffer
+    })
 
     pythonWorker.on('message', (message: WorkerResult) => {
       if (message.type === 'ready') {
@@ -540,6 +558,50 @@ ipcMain.handle('list-python-packages', async () => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     return { success: false, packages: [], error: errorMessage }
+  }
+})
+
+// Reset Python runtime (P1-B) - clears all state and reinitializes
+ipcMain.handle('reset-python-runtime', async () => {
+  try {
+    // Ensure Python worker is initialized
+    if (!pythonWorker || !pythonWorkerReady) {
+      await initializePythonWorker()
+    }
+
+    const id = `python-reset-${Date.now()}`
+
+    return new Promise((resolve) => {
+      if (!pythonWorker) {
+        resolve({ success: false, error: 'Python worker not available' })
+        return
+      }
+
+      const handleMessage = (message: WorkerResult) => {
+        if (message.id !== id) return
+
+        if (message.type === 'complete') {
+          pythonWorker?.off('message', handleMessage)
+          resolve({ success: true })
+        } else if (message.type === 'error') {
+          pythonWorker?.off('message', handleMessage)
+          const errorData = message.data as { message: string }
+          resolve({ success: false, error: errorData.message })
+        }
+      }
+
+      pythonWorker.on('message', handleMessage)
+      pythonWorker.postMessage({ type: 'reset-runtime', id })
+
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        pythonWorker?.off('message', handleMessage)
+        resolve({ success: false, error: 'Reset timeout' })
+      }, 30000)
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: errorMessage }
   }
 })
 

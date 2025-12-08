@@ -43,7 +43,17 @@ interface InputResponseMessage {
   requestId?: string
 }
 
-type WorkerMessage = ExecuteMessage | CancelMessage | InstallPackageMessage | ListPackagesMessage | InputResponseMessage
+interface SetInterruptBufferMessage {
+  type: 'set-interrupt-buffer'
+  buffer: SharedArrayBuffer
+}
+
+interface ResetRuntimeMessage {
+  type: 'reset-runtime'
+  id: string
+}
+
+type WorkerMessage = ExecuteMessage | CancelMessage | InstallPackageMessage | ListPackagesMessage | InputResponseMessage | SetInterruptBufferMessage | ResetRuntimeMessage
 
 interface ExecuteOptions {
   timeout?: number
@@ -66,6 +76,9 @@ let currentExecutionId: string | null = null
 let isInitializing = false // Flag to suppress init logs
 const PYODIDE_INIT_TIMEOUT_MS = 60000
 let pyodideLoadPromise: Promise<PyodideInterface> | null = null
+
+// Interrupt buffer for execution cancellation (P2)
+let interruptBuffer: Uint8Array | null = null
 
 // Input handling
 interface PendingInput {
@@ -301,6 +314,169 @@ async def _async_input(prompt=""):
 # builtins.input = input
 `)
 
+      // Set up AST-based transformer for smart async conversion (P1-A)
+      // This respects decorators like @property, @staticmethod, etc.
+      instance.runPython(`
+import ast
+import builtins
+
+# Decorators that should NOT have their functions made async
+_SYNC_DECORATORS = {'property', 'staticmethod', 'classmethod', 'cached_property', 'abstractmethod'}
+
+class _CallGraphBuilder(ast.NodeVisitor):
+    """Build a call graph: which functions call which other functions"""
+    
+    def __init__(self):
+        self.current_function = None
+        self.calls = {}  # function_name -> set of called functions
+        self.uses_input = set()  # functions that directly use input()
+        self.all_functions = set()  # all defined function names
+        self.sync_decorated = set()  # functions with @property etc
+        
+    def visit_FunctionDef(self, node):
+        self.all_functions.add(node.name)
+        
+        # Check for sync decorators
+        for dec in node.decorator_list:
+            if isinstance(dec, ast.Name) and dec.id in _SYNC_DECORATORS:
+                self.sync_decorated.add(node.name)
+            elif isinstance(dec, ast.Attribute) and dec.attr in _SYNC_DECORATORS:
+                self.sync_decorated.add(node.name)
+            elif isinstance(dec, ast.Call):
+                if isinstance(dec.func, ast.Name) and dec.func.id in _SYNC_DECORATORS:
+                    self.sync_decorated.add(node.name)
+                elif isinstance(dec.func, ast.Attribute) and dec.func.attr in _SYNC_DECORATORS:
+                    self.sync_decorated.add(node.name)
+        
+        old_function = self.current_function
+        self.current_function = node.name
+        self.calls[node.name] = set()
+        self.generic_visit(node)
+        self.current_function = old_function
+        
+    def visit_AsyncFunctionDef(self, node):
+        # Treat same as FunctionDef
+        self.visit_FunctionDef(node)
+        
+    def visit_Call(self, node):
+        if self.current_function:
+            # Check if calling input()
+            if isinstance(node.func, ast.Name):
+                if node.func.id == 'input':
+                    self.uses_input.add(self.current_function)
+                else:
+                    self.calls[self.current_function].add(node.func.id)
+        self.generic_visit(node)
+
+def _compute_async_functions(calls, uses_input, all_functions, sync_decorated):
+    """Compute which functions need to be async (transitive closure)"""
+    async_funcs = set(uses_input) - sync_decorated
+    
+    # Iteratively add functions that call async functions
+    changed = True
+    while changed:
+        changed = False
+        for func, called in calls.items():
+            if func in async_funcs or func in sync_decorated:
+                continue
+            # If this function calls any async function, it must also be async
+            if called & async_funcs:
+                async_funcs.add(func)
+                changed = True
+    
+    return async_funcs
+
+class _AsyncTransformer(ast.NodeTransformer):
+    """Transform functions to async based on precomputed set"""
+    
+    def __init__(self, async_functions):
+        self.async_functions = async_functions
+        
+    def visit_FunctionDef(self, node):
+        # First recurse
+        self.generic_visit(node)
+        
+        if node.name in self.async_functions:
+            new_node = ast.AsyncFunctionDef(
+                name=node.name,
+                args=node.args,
+                body=node.body,
+                decorator_list=node.decorator_list,
+                returns=node.returns,
+                type_comment=getattr(node, 'type_comment', None)
+            )
+            ast.copy_location(new_node, node)
+            return new_node
+        return node
+
+class _AwaitTransformer(ast.NodeTransformer):
+    """Add await to input() calls and calls to async user functions"""
+    
+    def __init__(self, async_functions):
+        self.async_functions = async_functions
+        
+    def visit_Call(self, node):
+        # First transform children
+        self.generic_visit(node)
+        
+        if isinstance(node.func, ast.Name):
+            # Replace input() with await _async_input()
+            if node.func.id == 'input':
+                node.func.id = '_async_input'
+                await_node = ast.Await(value=node)
+                ast.copy_location(await_node, node)
+                return await_node
+            
+            # Await calls to async user functions
+            if node.func.id in self.async_functions:
+                await_node = ast.Await(value=node)
+                ast.copy_location(await_node, node)
+                return await_node
+            
+        return node
+
+def _transform_for_async_input(code):
+    """Main entry point for AST-based async transformation"""
+    if 'input(' not in code:
+        return code  # No transformation needed
+    
+    try:
+        tree = ast.parse(code)
+        
+        # Step 1: Build call graph and find functions using input
+        builder = _CallGraphBuilder()
+        builder.visit(tree)
+        
+        # Step 2: Compute transitive closure of async requirement
+        async_functions = _compute_async_functions(
+            builder.calls, 
+            builder.uses_input, 
+            builder.all_functions,
+            builder.sync_decorated
+        )
+        
+        # Step 3: Transform functions to async
+        async_transformer = _AsyncTransformer(async_functions)
+        tree = async_transformer.visit(tree)
+        
+        # Step 4: Add await to calls
+        await_transformer = _AwaitTransformer(async_functions)
+        tree = await_transformer.visit(tree)
+        
+        ast.fix_missing_locations(tree)
+        return ast.unparse(tree)
+    except SyntaxError:
+        # If AST parsing fails, return original code
+        return code
+
+setattr(builtins, '_transform_for_async_input', _transform_for_async_input)
+`)
+
+      // Set up interrupt buffer if available (P2)
+      if (interruptBuffer) {
+        instance.setInterruptBuffer(interruptBuffer)
+      }
+
       isInitializing = false
       pyodide = instance
       parentPort?.postMessage({
@@ -329,21 +505,14 @@ async def _async_input(prompt=""):
 
 /**
  * Transform Python code to inject debug calls for expressions with #? comments
- * Also transforms code to support async input() for proper JS promise integration
+ * Also transforms code to support async input() using AST-based transformation (P1-A)
  */
-function transformPythonCode(code: string): string {
+async function transformPythonCode(py: PyodideInterface, code: string): Promise<string> {
   const DEBUG_TRANSFORM = false // Set to true to see transformation logs
 
+  // Step 1: Handle magic comments (#?) - keep this in TypeScript
   const lines = code.split('\n')
   const result: string[] = []
-  const hasInput = code.includes('input(')
-
-  if (DEBUG_TRANSFORM) {
-    console.log('\n' + '='.repeat(60))
-    console.log('[PythonTransform] Starting code transformation')
-    console.log('[PythonTransform] Has input():', hasInput)
-    console.log('='.repeat(60))
-  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -374,98 +543,75 @@ function transformPythonCode(code: string): string {
 
   let transformedCode = result.join('\n')
 
-  // If code uses input(), we need to transform it for async execution
-  // Pyodide's runPythonAsync supports top-level await, so we can use await directly
-  // without wrapping in asyncio.run_until_complete (which doesn't work with JS promises)
+  // Step 2: If code uses input(), use AST-based transformation (P1-A)
+  // This respects decorators like @property, @staticmethod, etc.
+  const hasInput = code.includes('input(')
+
   if (hasInput) {
     if (DEBUG_TRANSFORM) {
-      console.log('\n[PythonTransform] Step 1: Replacing input() with await _async_input()')
-    }
-
-    // Step 1: Replace input( with await _async_input(
-    const beforeStep1 = transformedCode
-    transformedCode = transformedCode.replace(/\binput\s*\(/g, 'await _async_input(')
-
-    if (DEBUG_TRANSFORM) {
-      const inputMatches = beforeStep1.match(/\binput\s*\(/g)
-      console.log('[PythonTransform]   Found input() calls:', inputMatches?.length ?? 0)
-    }
-
-    if (DEBUG_TRANSFORM) {
-      console.log('\n[PythonTransform] Step 2: Converting def to async def')
-    }
-
-    // Step 2: Find all function definitions and make them async
-    const beforeStep2 = transformedCode
-    transformedCode = transformedCode.replace(/^(\s*)def\s+(\w+)\s*\(/gm, '$1async def $2(')
-
-    if (DEBUG_TRANSFORM) {
-      const defMatches = beforeStep2.match(/^(\s*)def\s+(\w+)\s*\(/gm)
-      console.log('[PythonTransform]   Found def statements:', defMatches?.length ?? 0, defMatches)
-    }
-
-    // Step 3: Find all function calls to user-defined functions and await them
-    const funcNames = [...transformedCode.matchAll(/async def (\w+)\s*\(/g)].map(m => m[1])
-
-    if (DEBUG_TRANSFORM) {
-      console.log('\n[PythonTransform] Step 3: Adding await to user function calls')
-      console.log('[PythonTransform]   Detected async functions:', funcNames)
-    }
-
-    // Built-in functions that should NOT be awaited
-    const builtins = ['print', 'len', 'range', 'str', 'int', 'float', 'list', 'dict', 'set',
-      'tuple', 'bool', 'type', 'isinstance', 'hasattr', 'getattr', 'setattr',
-      'open', 'input', 'sorted', 'reversed', 'enumerate', 'zip', 'map', 'filter',
-      'sum', 'min', 'max', 'abs', 'round', 'pow', 'divmod', 'hex', 'oct', 'bin',
-      'ord', 'chr', 'repr', 'format', 'iter', 'next', 'slice', 'super', '_async_input']
-
-    // Await calls to user-defined functions
-    for (const funcName of funcNames) {
-      if (!builtins.includes(funcName)) {
-        // Match function calls anywhere (not just at start of statement)
-        // Use negative lookbehinds to:
-        // 1. Avoid double-await ((?<!await\s))
-        // 2. Avoid matching function definitions ((?<!def\s))
-        const callPattern = new RegExp(`(?<!await\\s)(?<!def\\s)\\b${funcName}\\s*\\(`, 'g')
-        const beforeAwait = transformedCode
-        transformedCode = transformedCode.replace(callPattern, `await ${funcName}(`)
-
-        if (DEBUG_TRANSFORM) {
-          const callMatches = beforeAwait.match(callPattern)
-          console.log(`[PythonTransform]   ${funcName}(): found ${callMatches?.length ?? 0} call(s) to await`)
-        }
-      }
-    }
-
-    // Step 4: Handle "if __name__ == '__main__':" - just use top-level await
-    // Pyodide's runPythonAsync supports this natively!
-    if (transformedCode.includes('if __name__')) {
-      if (DEBUG_TRANSFORM) {
-        console.log('\n[PythonTransform] Step 4: Transforming if __name__ block')
-      }
-
-      const beforeMainBlock = transformedCode
-      // Replace the if __name__ block with top-level await call
-      // Match: if __name__ == "__main__":\n    main() OR if __name__ == "__main__":\n    await main()
-      // (Step 3 may have already added "await" before the function name)
-      transformedCode = transformedCode.replace(
-        /if\s+__name__\s*==\s*["']__main__["']\s*:\s*\n(\s+)(await\s+)?(\w+)\s*\(\)/g,
-        '# Top-level await (transformed for async input)\nawait $3()'
-      )
-
-      if (DEBUG_TRANSFORM) {
-        const didTransform = beforeMainBlock !== transformedCode
-        console.log('[PythonTransform]   Transformed if __name__ block:', didTransform)
-      }
-    }
-
-    if (DEBUG_TRANSFORM) {
       console.log('\n' + '='.repeat(60))
-      console.log('[PythonTransform] FINAL TRANSFORMED CODE:')
+      console.log('[PythonTransform] Using AST-based transformation')
       console.log('='.repeat(60))
-      console.log(transformedCode)
-      console.log('='.repeat(60) + '\n')
     }
+
+    try {
+      // Use the Python AST transformer we set up during initialization
+      py.globals.set('_code_to_transform', transformedCode)
+      const astTransformed = py.runPython('_transform_for_async_input(_code_to_transform)')
+      transformedCode = astTransformed as string
+
+      if (DEBUG_TRANSFORM) {
+        console.log('[PythonTransform] AST transformation successful')
+        console.log('='.repeat(60))
+        console.log(transformedCode)
+        console.log('='.repeat(60) + '\n')
+      }
+    } catch (astError) {
+      // Fallback to regex-based transformation if AST fails
+      console.warn('[PythonTransform] AST transformation failed, using regex fallback:', astError)
+      transformedCode = regexFallbackTransform(transformedCode)
+    }
+  }
+
+  return transformedCode
+}
+
+/**
+ * Fallback regex-based transformation (legacy, used if AST fails)
+ */
+function regexFallbackTransform(code: string): string {
+  let transformedCode = code
+
+  // Step 1: Replace input( with await _async_input(
+  transformedCode = transformedCode.replace(/\binput\s*\(/g, 'await _async_input(')
+
+  // Step 2: Find all function definitions and make them async
+  transformedCode = transformedCode.replace(/^(\s*)def\s+(\w+)\s*\(/gm, '$1async def $2(')
+
+  // Step 3: Find all function calls to user-defined functions and await them
+  const funcNames = [...transformedCode.matchAll(/async def (\w+)\s*\(/g)].map(m => m[1])
+
+  // Built-in functions that should NOT be awaited
+  const builtins = ['print', 'len', 'range', 'str', 'int', 'float', 'list', 'dict', 'set',
+    'tuple', 'bool', 'type', 'isinstance', 'hasattr', 'getattr', 'setattr',
+    'open', 'input', 'sorted', 'reversed', 'enumerate', 'zip', 'map', 'filter',
+    'sum', 'min', 'max', 'abs', 'round', 'pow', 'divmod', 'hex', 'oct', 'bin',
+    'ord', 'chr', 'repr', 'format', 'iter', 'next', 'slice', 'super', '_async_input']
+
+  // Await calls to user-defined functions
+  for (const funcName of funcNames) {
+    if (!builtins.includes(funcName)) {
+      const callPattern = new RegExp(`(?<!await\\s)(?<!def\\s)\\b${funcName}\\s*\\(`, 'g')
+      transformedCode = transformedCode.replace(callPattern, `await ${funcName}(`)
+    }
+  }
+
+  // Step 4: Handle "if __name__ == '__main__':"
+  if (transformedCode.includes('if __name__')) {
+    transformedCode = transformedCode.replace(
+      /if\s+__name__\s*==\s*["']__main__["']\s*:\s*\n(\s+)(await\s+)?(\w+)\s*\(\)/g,
+      '# Top-level await (transformed for async input)\nawait $3()'
+    )
   }
 
   return transformedCode
@@ -488,8 +634,13 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
     // Initialize Pyodide if needed
     const py = await initializePyodide()
 
-    // Transform code to handle magic comments
-    const transformedCode = transformPythonCode(code)
+    // Clear interrupt buffer before execution (P2)
+    if (interruptBuffer) {
+      interruptBuffer[0] = 0
+    }
+
+    // Transform code to handle magic comments and async input (P1-A)
+    const transformedCode = await transformPythonCode(py, code)
 
     // Create timeout promise
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -629,26 +780,120 @@ list(micropip.list().keys())
   }
 }
 
+/**
+ * Reset Pyodide runtime - clears all state (P1-B)
+ * This helps prevent memory accumulation and variable persistence
+ */
+async function resetPyodide(id: string): Promise<void> {
+  try {
+    if (pyodide) {
+      // Clear all user-defined globals
+      try {
+        pyodide.runPython(`
+# Get list of user-defined names (exclude builtins and system modules)
+import sys
+import gc
+
+# Names to preserve (system and our custom functions)
+_preserve = {
+    'sys', 'gc', 'builtins', 'ast', 'asyncio', 'traceback',
+    '_debug_outputs', 'debug', '_get_debug_outputs',
+    '_async_input', '_js_request_input', '_original_input',
+    '_transform_for_async_input', '_AsyncTransformer', '_AwaitTransformer', '_InputUsageVisitor',
+    '_SYNC_DECORATORS', '_code_to_transform'
+}
+
+# Delete user-defined variables from globals
+_to_delete = [
+    name for name in list(globals().keys())
+    if not name.startswith('_') 
+    and name not in _preserve
+    and name not in sys.builtin_module_names
+]
+
+for name in _to_delete:
+    try:
+        del globals()[name]
+    except:
+        pass
+
+# Force garbage collection
+gc.collect()
+`)
+      } catch (e) {
+        console.warn('[PythonExecutor] Error clearing globals:', e)
+      }
+    }
+
+    // Full reset: null the instance and reinitialize
+    pyodide = null
+    pyodideLoadPromise = null
+    isLoading = false
+
+    // Reinitialize
+    await initializePyodide()
+
+    parentPort?.postMessage({
+      type: 'complete',
+      id,
+      data: { success: true, message: 'Python runtime reset successfully' }
+    } as ResultMessage)
+
+  } catch (error) {
+    parentPort?.postMessage({
+      type: 'error',
+      id,
+      data: {
+        name: 'ResetError',
+        message: `Failed to reset Python runtime: ${error instanceof Error ? error.message : String(error)}`
+      }
+    } as ResultMessage)
+  }
+}
+
 // Message handler
 parentPort?.on('message', async (message: WorkerMessage) => {
+  // Handle interrupt buffer setup (P2)
+  if (message.type === 'set-interrupt-buffer') {
+    const bufferMessage = message as SetInterruptBufferMessage
+    interruptBuffer = new Uint8Array(bufferMessage.buffer)
+
+    // If Pyodide is already initialized, set the interrupt buffer
+    if (pyodide) {
+      pyodide.setInterruptBuffer(interruptBuffer)
+    }
+    return
+  }
+
   if (message.type === 'execute') {
     await executeCode(message)
   } else if (message.type === 'cancel') {
     if (message.id === currentExecutionId) {
+      // Signal interrupt via SharedArrayBuffer (SIGINT = 2) (P2)
+      if (interruptBuffer) {
+        interruptBuffer[0] = 2  // SIGINT - will raise KeyboardInterrupt in Python
+      }
+
       // Reject any pending inputs
       rejectPendingInputs(message.id, new Error('Execution cancelled'))
 
-      parentPort?.postMessage({
-        type: 'error',
-        id: message.id,
-        data: { name: 'CancelError', message: 'Execution cancelled by user' }
-      } as ResultMessage)
-      currentExecutionId = null
+      // Send error response after short delay to allow interrupt to process
+      setTimeout(() => {
+        parentPort?.postMessage({
+          type: 'error',
+          id: message.id,
+          data: { name: 'CancelError', message: 'Execution cancelled by user' }
+        } as ResultMessage)
+        currentExecutionId = null
+      }, 100)
     }
   } else if (message.type === 'install-package') {
     await installPackage(message)
   } else if (message.type === 'list-packages') {
     await listInstalledPackages(message.id)
+  } else if (message.type === 'reset-runtime') {
+    // Reset Pyodide runtime (P1-B)
+    await resetPyodide(message.id)
   } else if (message.type === 'input-response') {
     // Resolve the pending input with the user's value, matching by execution and request
     const resolved = resolvePendingInput(message.id, message.requestId, message.value)

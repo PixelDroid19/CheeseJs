@@ -27,10 +27,19 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
     const [request, setRequest] = useState<InputRequest | null>(null)
     const [value, setValue] = useState('')
     const inputRef = useRef<HTMLInputElement>(null)
+    const currentExecutionIdRef = useRef<string | null>(null)
 
-    // Subscribe to input requests
+    // Subscribe to input requests AND execution results
     useEffect(() => {
-        const unsubscribe = window.codeRunner?.onInputRequest((req) => {
+        const unsubscribeInput = window.codeRunner?.onInputRequest((req) => {
+            // Check if this is a different execution - if so, clear previous request
+            if (currentExecutionIdRef.current && currentExecutionIdRef.current !== req.id) {
+                // New execution started, clear old tooltip
+                setRequest(null)
+                setValue('')
+            }
+
+            currentExecutionIdRef.current = req.id
             setRequest({
                 id: req.id,
                 prompt: req.data.prompt || t('input.defaultPrompt', 'Enter value:'),
@@ -40,8 +49,21 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
             setValue('')
         })
 
+        // Subscribe to execution results to dismiss tooltip when execution ends
+        // Clear on ANY complete or error since only one execution is active at a time
+        const unsubscribeResult = window.codeRunner?.onResult((result) => {
+            if (result.type === 'complete' || result.type === 'error') {
+                // Always clear the tooltip when any execution finishes
+                // This handles: same execution completing, cancellation, language switch
+                setRequest(null)
+                setValue('')
+                currentExecutionIdRef.current = null
+            }
+        })
+
         return () => {
-            unsubscribe?.()
+            unsubscribeInput?.()
+            unsubscribeResult?.()
         }
     }, [t])
 

@@ -211,6 +211,14 @@ contextBridge.exposeInMainWorld('pythonPackageManager', {
    */
   listInstalled: async (): Promise<{ success: boolean; packages: string[]; error?: string }> => {
     return ipcRenderer.invoke('list-python-packages')
+  },
+
+  /**
+   * Reset the Python runtime - clears all state and reinitializes (P1-B)
+   * Use this to free memory or clear variables between executions
+   */
+  resetRuntime: async (): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('reset-python-runtime')
   }
 })
 

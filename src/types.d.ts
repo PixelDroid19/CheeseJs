@@ -74,6 +74,7 @@ interface PythonPackageInstallResult {
 interface PythonPackageManager {
   install: (packageName: string) => Promise<PythonPackageInstallResult>
   listInstalled: () => Promise<{ success: boolean; packages: string[]; error?: string }>
+  resetRuntime: () => Promise<{ success: boolean; error?: string }>
 }
 
 // ============================================================================
