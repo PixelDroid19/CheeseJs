@@ -4,6 +4,67 @@ import { usePackagesStore } from '../store/usePackagesStore';
 // Cache for fetched types to avoid redundant network requests
 const fetchedTypes = new Set<string>();
 
+// Node.js built-in modules that should not be fetched from esm.sh
+const NODE_BUILTIN_MODULES = new Set([
+  'assert',
+  'async_hooks',
+  'buffer',
+  'child_process',
+  'cluster',
+  'console',
+  'constants',
+  'crypto',
+  'dgram',
+  'diagnostics_channel',
+  'dns',
+  'domain',
+  'events',
+  'fs',
+  'fs/promises',
+  'http',
+  'http2',
+  'https',
+  'inspector',
+  'module',
+  'net',
+  'os',
+  'path',
+  'perf_hooks',
+  'process',
+  'punycode',
+  'querystring',
+  'readline',
+  'repl',
+  'stream',
+  'stream/promises',
+  'string_decoder',
+  'sys',
+  'timers',
+  'timers/promises',
+  'tls',
+  'trace_events',
+  'tty',
+  'url',
+  'util',
+  'v8',
+  'vm',
+  'wasi',
+  'worker_threads',
+  'zlib',
+]);
+
+/**
+ * Check if a package name is a Node.js built-in module
+ */
+function isNodeBuiltin(packageName: string): boolean {
+  // Handle node: protocol prefix
+  const normalizedName = packageName.startsWith('node:')
+    ? packageName.slice(5)
+    : packageName;
+  
+  return NODE_BUILTIN_MODULES.has(normalizedName);
+}
+
 export function setupTypeAcquisition(monaco: Monaco) {
   // Initial check
   checkAndFetchTypes(monaco);
@@ -45,6 +106,12 @@ async function fetchAndAddTypes(
   packageName: string,
   version?: string
 ): Promise<boolean> {
+  // Skip Node.js built-in modules - they don't exist on esm.sh
+  if (isNodeBuiltin(packageName)) {
+    addNodeBuiltinDeclaration(monaco, packageName);
+    return true;
+  }
+
   try {
     // 1. Get the entry point and type definition URL from esm.sh
     // We use esm.sh because it reliably provides the X-TypeScript-Types header
@@ -129,6 +196,15 @@ async function fetchAndAddTypes(
 }
 
 async function checkAndFetchTypesForDep(monaco: Monaco, packageName: string) {
+  // Skip Node.js built-in modules
+  if (isNodeBuiltin(packageName)) {
+    if (!fetchedTypes.has(packageName)) {
+      fetchedTypes.add(packageName);
+      addNodeBuiltinDeclaration(monaco, packageName);
+    }
+    return;
+  }
+
   if (!fetchedTypes.has(packageName)) {
     fetchedTypes.add(packageName);
     await fetchAndAddTypes(monaco, packageName);
@@ -139,6 +215,37 @@ function addFallbackDeclaration(monaco: Monaco, packageName: string) {
   // Declare the module as any to suppress "Cannot find module" errors
   const content = `declare module "${packageName}" { const value: any; export default value; export = value; }`;
   const libPath = `file:///node_modules/${packageName}/fallback.d.ts`;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ts = (monaco as any).typescript;
+  ts.javascriptDefaults.addExtraLib(content, libPath);
+  ts.typescriptDefaults.addExtraLib(content, libPath);
+}
+
+/**
+ * Add type declarations for Node.js built-in modules
+ */
+function addNodeBuiltinDeclaration(monaco: Monaco, packageName: string) {
+  // Normalize the package name (remove node: prefix if present)
+  const normalizedName = packageName.startsWith('node:')
+    ? packageName.slice(5)
+    : packageName;
+
+  // Declare both the regular module name and the node: prefixed version
+  const content = `
+declare module "${normalizedName}" {
+  const value: any;
+  export default value;
+  export = value;
+}
+declare module "node:${normalizedName}" {
+  const value: any;
+  export default value;
+  export = value;
+}
+`;
+
+  const libPath = `file:///node_modules/@types/node/${normalizedName}.d.ts`;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ts = (monaco as any).typescript;

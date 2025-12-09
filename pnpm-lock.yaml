@@ -17,6 +17,9 @@ importers:
       '@babel/plugin-transform-async-generator-functions':
         specifier: ^7.28.0
         version: 7.28.0(@babel/core@7.28.5)
+      '@babel/standalone':
+        specifier: ^7.28.5
+        version: 7.28.5
       '@emotion/is-prop-valid':
         specifier: ^1.4.0
         version: 1.4.0
@@ -87,9 +90,6 @@ importers:
       '@babel/plugin-syntax-unicode-sets-regex':
         specifier: ^7.18.6
         version: 7.18.6(@babel/core@7.28.5)
-      '@babel/standalone':
-        specifier: ^7.28.5
-        version: 7.28.5
       '@babel/traverse':
         specifier: ^7.28.5
         version: 7.28.5
