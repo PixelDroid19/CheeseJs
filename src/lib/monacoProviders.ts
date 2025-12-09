@@ -19,8 +19,9 @@ let hoverProvider: IDisposable | null = null;
 let codeActionProvider: IDisposable | null = null;
 let completionProvider: IDisposable | null = null;
 
-// Track pending validation to avoid duplicate work
+// Track pending validation and queued request
 let pendingValidation: Promise<void> | null = null;
+let queuedValidation: { model: editor.ITextModel; monaco: Monaco } | null = null;
 
 // Extract package name from import statement at cursor position
 function getPackageAtPosition(
@@ -150,17 +151,39 @@ async function validateImportsAsync(
 /**
  * Wrapper to handle concurrent validation requests.
  * Ensures only one validation runs at a time and queues the latest request.
+ * When a validation completes, it checks for queued requests and processes them.
  */
 function validateImports(model: editor.ITextModel, monaco: Monaco): void {
-  // If a validation is already pending, it will use the latest model state
-  // when it completes, so we can skip this call
+  // If a validation is already pending, queue this request (replacing any previous queued)
   if (pendingValidation) {
+    queuedValidation = { model, monaco };
     return;
   }
 
-  pendingValidation = validateImportsAsync(model, monaco).finally(() => {
-    pendingValidation = null;
-  });
+  const runValidation = (): Promise<void> => {
+    return validateImportsAsync(model, monaco).finally(() => {
+      pendingValidation = null;
+
+      // Check if there's a queued request to process
+      if (queuedValidation) {
+        const { model: queuedModel, monaco: queuedMonaco } = queuedValidation;
+        queuedValidation = null;
+
+        // Only process if model is still valid
+        if (!queuedModel.isDisposed()) {
+          pendingValidation = validateImportsAsync(queuedModel, queuedMonaco).finally(() => {
+            pendingValidation = null;
+            // Recursively check for more queued requests
+            if (queuedValidation) {
+              validateImports(queuedValidation.model, queuedValidation.monaco);
+            }
+          });
+        }
+      }
+    });
+  };
+
+  pendingValidation = runValidation();
 }
 
 export function registerMonacoProviders(
@@ -641,6 +664,7 @@ export function disposeMonacoProviders() {
   codeActionProvider = null;
   completionProvider = null;
   pendingValidation = null;
+  queuedValidation = null;
   clearPackageInfoCache();
   // Note: We don't dispose the worker here as it's a singleton
   // that can be reused. It will be disposed when the page unloads.
