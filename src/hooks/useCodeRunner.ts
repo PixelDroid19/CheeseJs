@@ -6,6 +6,13 @@ import {
   isLanguageExecutable,
   getLanguageDisplayName,
 } from '../store/useLanguageStore';
+import {
+  createExecutionError,
+  shouldDisplayError,
+  ErrorCategory,
+  type ExecutionError as ExecutionErrorType,
+} from '../lib/errors';
+import { getMetrics, MetricType } from '../lib/metrics';
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -43,6 +50,25 @@ class ExecutionTimeoutError extends CodeRunnerError {
     super('Code execution timed out.', 'EXECUTION_TIMEOUT');
     this.name = 'ExecutionTimeoutError';
   }
+}
+
+/**
+ * Format execution error for display using unified error system
+ */
+function formatExecutionError(
+  error: unknown,
+  language: 'javascript' | 'typescript' | 'python'
+): { message: string; shouldDisplay: boolean } {
+  const execError = createExecutionError(error, language);
+  
+  if (!shouldDisplayError(execError)) {
+    return { message: '', shouldDisplay: false };
+  }
+
+  return {
+    message: execError.getFormattedMessage(),
+    shouldDisplay: true,
+  };
 }
 
 // Generate unique execution IDs
@@ -125,6 +151,10 @@ export function useCodeRunner() {
         const executionId = generateExecutionId();
         currentExecutionIdRef.current = executionId;
 
+        // Start metrics timer
+        const metrics = getMetrics();
+        const executionStartTime = Date.now();
+
         try {
           // Check if codeRunner is available (Electron environment)
           if (!window.codeRunner) {
@@ -192,61 +222,29 @@ export function useCodeRunner() {
                   });
                 }
               } else if (result.type === 'error') {
-                // Execution error
-                const errorData = result.data as {
-                  name?: string;
-                  message?: string;
-                  stack?: string;
-                };
-                const errorMessage = errorData.message ?? String(result.data);
-                const errorName = errorData.name ?? 'Error';
+                // Use unified error handling system
+                const { message, shouldDisplay } = formatExecutionError(
+                  result.data,
+                  execLanguage
+                );
 
-                // Filter out cancellation-related errors for cleaner UX
-                // These occur when switching languages while Python is waiting for input
-                const isCancellationError =
-                  errorName === 'KeyboardInterrupt' ||
-                  errorName === 'CancelError' ||
-                  errorMessage.includes('KeyboardInterrupt') ||
-                  errorMessage.includes('Execution cancelled') ||
-                  errorMessage.includes('cancelled') ||
-                  (errorData.stack && errorData.stack.includes('KeyboardInterrupt'));
-
-                if (!isCancellationError) {
-                  // Format Python errors to be more user-friendly
-                  let friendlyMessage = `❌ ${errorName}: ${errorMessage}`;
-
-                  // ModuleNotFoundError - show friendly package install message
-                  const moduleMatch = errorMessage.match(/No module named ['\"]?(\w+)['\"]?/);
-                  if (errorName === 'ModuleNotFoundError' || moduleMatch) {
-                    const packageName = moduleMatch?.[1] || errorMessage.replace(/.*No module named ['\"]?(\w+)['\"]?.*/, '$1');
-                    friendlyMessage = `📦 Missing package: ${packageName}\n\nInstall it via Settings → PyPI or it will be installed automatically on next run.`;
-                  }
-
-                  // IndentationError/SyntaxError - simplify message
-                  else if (errorName === 'IndentationError' || errorName === 'SyntaxError') {
-                    const lineMatch = errorMessage.match(/line (\d+)/);
-                    const lineInfo = lineMatch ? ` (line ${lineMatch[1]})` : '';
-                    // Extract just the error description, not the full traceback
-                    const shortMessage = errorMessage.split('\n').pop() || errorMessage;
-                    friendlyMessage = `❌ ${errorName}${lineInfo}: ${shortMessage}`;
-                  }
-
-                  // Other Python errors - extract just the last relevant part
-                  else if (errorMessage.includes('Traceback')) {
-                    // Extract the actual error from the traceback
-                    const lines = errorMessage.split('\n');
-                    const lastLines = lines.slice(-3).filter(l => l.trim()).join('\n');
-                    friendlyMessage = `❌ ${lastLines}`;
-                  }
-
+                if (shouldDisplay) {
                   appendResult({
                     element: {
-                      content: friendlyMessage,
+                      content: message,
                     },
                     type: 'error',
                   });
                 }
               } else if (result.type === 'complete') {
+                // Record successful execution metrics
+                metrics.recordExecution({
+                  language: execLanguage,
+                  duration: Date.now() - executionStartTime,
+                  success: true,
+                  codeLength: sourceCode.length,
+                });
+
                 // Execution completed - clean up listener
                 if (unsubscribeRef.current) {
                   unsubscribeRef.current();
@@ -280,29 +278,30 @@ export function useCodeRunner() {
             });
           }
         } catch (error: unknown) {
-          let errorMessage: string;
-          let errorIcon = '❌';
+          // Record failed execution metrics
+          const execError = createExecutionError(error, execLanguage);
+          metrics.recordExecution({
+            language: execLanguage,
+            duration: Date.now() - executionStartTime,
+            success: false,
+            error: execError.originalMessage,
+            codeLength: sourceCode.length,
+          });
 
-          if (error instanceof WorkerUnavailableError) {
-            errorMessage = `${error.message}\n\nPlease restart the application.`;
-            errorIcon = '🔌';
-          } else if (error instanceof ExecutionTimeoutError) {
-            errorMessage = `${error.message}\n\nTry breaking your code into smaller chunks.`;
-            errorIcon = '⏱️';
-          } else if (error instanceof CodeRunnerError) {
-            errorMessage = error.message;
-          } else if (error instanceof Error) {
-            errorMessage = error.message;
-          } else {
-            errorMessage = 'An unknown error occurred';
+          // Use unified error handling system
+          const { message, shouldDisplay } = formatExecutionError(
+            error,
+            execLanguage
+          );
+
+          if (shouldDisplay) {
+            setResult([
+              {
+                element: { content: message },
+                type: 'error',
+              },
+            ]);
           }
-
-          setResult([
-            {
-              element: { content: `${errorIcon} ${errorMessage}` },
-              type: 'error',
-            },
-          ]);
         } finally {
           // DON'T clean up listener here - it will be cleaned up when 'complete' message arrives
           // This prevents race condition where messages arrive after execute() returns but before 'complete'

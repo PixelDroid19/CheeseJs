@@ -198,6 +198,16 @@ interface PythonPackageInstallResult {
   error?: string
 }
 
+// Memory stats interface
+interface PythonMemoryStats {
+  heapUsed: number
+  heapTotal: number
+  executionsSinceCleanup: number
+  lastCleanupTime: number
+  pyObjects: number
+  executionCount: number
+}
+
 contextBridge.exposeInMainWorld('pythonPackageManager', {
   /**
    * Install a Python package using micropip
@@ -219,6 +229,22 @@ contextBridge.exposeInMainWorld('pythonPackageManager', {
    */
   resetRuntime: async (): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('reset-python-runtime')
+  },
+
+  /**
+   * Get Python memory statistics
+   * Useful for monitoring memory usage and debugging memory leaks
+   */
+  getMemoryStats: async (): Promise<{ success: boolean; stats?: PythonMemoryStats; error?: string }> => {
+    return ipcRenderer.invoke('get-python-memory-stats')
+  },
+
+  /**
+   * Manually cleanup Python namespace
+   * Removes user-defined variables while preserving system functions
+   */
+  cleanupNamespace: async (): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('cleanup-python-namespace')
   }
 })
 

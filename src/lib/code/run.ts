@@ -6,6 +6,7 @@ import loopProtection from '../babel/loop-protection';
 import magicComments from '../babel/magic-comments';
 
 import { Colors, stringify, type ColoredElement } from '../elementParser';
+import { getTranspileCache } from '../cache';
 
 const AsyncFunction = Object.getPrototypeOf(async () => {
   return undefined;
@@ -40,6 +41,20 @@ export function transformCode(
   code: string,
   options: TransformOptions = {}
 ): string {
+  // Check cache first
+  const cache = getTranspileCache();
+  const cacheOptions = {
+    showTopLevelResults: options.showTopLevelResults,
+    loopProtection: options.loopProtection,
+    magicComments: options.magicComments,
+    language: 'typescript' as const,
+  };
+  
+  const cached = cache.get(code, cacheOptions);
+  if (cached) {
+    return cached;
+  }
+
   const plugins: Array<string | [string, object]> = [
     ['proposal-decorators', { legacy: true }],
     ['proposal-pipeline-operator', { proposal: 'minimal' }],
@@ -93,6 +108,9 @@ export function transformCode(
   if (!result.code || code.trim() === '') {
     return '';
   }
+
+  // Store in cache
+  cache.set(code, result.code, cacheOptions);
 
   return result.code;
 }

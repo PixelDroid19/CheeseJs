@@ -100,6 +100,9 @@ function initializeCodeWorker(): Promise<void> {
 
       // Handle completion
       if (message.type === 'complete' || message.type === 'error') {
+        // Clear any pending forced cancellation timeout
+        clearPendingCancellation(message.id)
+        
         const pending = pendingExecutions.get(message.id)
         if (pending) {
           if (message.type === 'error') {
@@ -214,16 +217,31 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
   })
 }
 
+// Track pending cancellations for forced termination
+const pendingCancellations = new Map<string, NodeJS.Timeout>()
+
+// Timeout before forcing worker termination (ms)
+const FORCE_TERMINATION_TIMEOUT = 2000
+
 /**
  * Cancel a running execution
+ * Uses cooperative cancellation first, then falls back to forced termination
  */
 function cancelExecution(id: string): void {
+  // First, try cooperative cancellation
   if (codeWorker) {
     codeWorker.postMessage({ type: 'cancel', id })
+    
+    // Set up forced termination fallback
+    const forceTimeout = setTimeout(() => {
+      forceTerminateCodeWorker(id)
+    }, FORCE_TERMINATION_TIMEOUT)
+    
+    pendingCancellations.set(`js-${id}`, forceTimeout)
   }
 
   if (pythonWorker) {
-    // Signal interrupt via SharedArrayBuffer first (SIGINT = 2) (P2)
+    // Signal interrupt via SharedArrayBuffer first (SIGINT = 2)
     // This allows Python code to be interrupted even in tight loops
     if (pythonInterruptBuffer) {
       const view = new Uint8Array(pythonInterruptBuffer)
@@ -231,6 +249,13 @@ function cancelExecution(id: string): void {
     }
 
     pythonWorker.postMessage({ type: 'cancel', id })
+    
+    // Set up forced termination fallback for Python
+    const forceTimeout = setTimeout(() => {
+      forceTerminatePythonWorker(id)
+    }, FORCE_TERMINATION_TIMEOUT)
+    
+    pendingCancellations.set(`py-${id}`, forceTimeout)
   }
 
   const pending = pendingExecutions.get(id)
@@ -238,6 +263,92 @@ function cancelExecution(id: string): void {
     pending.reject(new Error('Execution cancelled'))
     pendingExecutions.delete(id)
   }
+}
+
+/**
+ * Clear pending cancellation timeout when execution completes or errors
+ */
+function clearPendingCancellation(id: string): void {
+  const jsKey = `js-${id}`
+  const pyKey = `py-${id}`
+  
+  const jsTimeout = pendingCancellations.get(jsKey)
+  if (jsTimeout) {
+    clearTimeout(jsTimeout)
+    pendingCancellations.delete(jsKey)
+  }
+  
+  const pyTimeout = pendingCancellations.get(pyKey)
+  if (pyTimeout) {
+    clearTimeout(pyTimeout)
+    pendingCancellations.delete(pyKey)
+  }
+}
+
+/**
+ * Force terminate the code worker and recreate it
+ * Called when cooperative cancellation fails
+ */
+async function forceTerminateCodeWorker(id: string): Promise<void> {
+  console.log(`[CodeWorker] Force terminating worker for execution ${id}`)
+  
+  if (codeWorker) {
+    try {
+      await codeWorker.terminate()
+    } catch (e) {
+      console.error('[CodeWorker] Error during termination:', e)
+    }
+    codeWorker = null
+    codeWorkerReady = false
+  }
+  
+  pendingCancellations.delete(`js-${id}`)
+  
+  // Send error to renderer
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('code-execution-result', {
+      type: 'error',
+      id,
+      data: { name: 'CancelError', message: 'Execution forcibly terminated' }
+    })
+  }
+  
+  // Recreate the worker
+  console.log('[CodeWorker] Recreating worker after forced termination')
+  await initializeCodeWorker()
+}
+
+/**
+ * Force terminate the Python worker and recreate it
+ * Called when cooperative cancellation fails
+ */
+async function forceTerminatePythonWorker(id: string): Promise<void> {
+  console.log(`[PythonWorker] Force terminating worker for execution ${id}`)
+  
+  if (pythonWorker) {
+    try {
+      await pythonWorker.terminate()
+    } catch (e) {
+      console.error('[PythonWorker] Error during termination:', e)
+    }
+    pythonWorker = null
+    pythonWorkerReady = false
+    pythonInterruptBuffer = null
+  }
+  
+  pendingCancellations.delete(`py-${id}`)
+  
+  // Send error to renderer
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('code-execution-result', {
+      type: 'error',
+      id,
+      data: { name: 'CancelError', message: 'Execution forcibly terminated' }
+    })
+  }
+  
+  // Recreate the worker (lazy initialization on next Python execution)
+  console.log('[PythonWorker] Worker will be recreated on next Python execution')
 }
 
 // ============================================================================
@@ -299,6 +410,9 @@ function initializePythonWorker(): Promise<void> {
 
       // Handle completion
       if (message.type === 'complete' || message.type === 'error') {
+        // Clear any pending forced cancellation timeout
+        clearPendingCancellation(message.id)
+        
         const pending = pendingExecutions.get(message.id)
         if (pending) {
           if (message.type === 'error') {
@@ -578,6 +692,90 @@ ipcMain.handle('list-python-packages', async () => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     return { success: false, packages: [], error: errorMessage }
+  }
+})
+
+// Get Python memory statistics
+ipcMain.handle('get-python-memory-stats', async () => {
+  try {
+    if (!pythonWorker || !pythonWorkerReady) {
+      return { success: false, error: 'Python worker not available' }
+    }
+
+    const id = `python-memory-${Date.now()}`
+
+    return new Promise((resolve) => {
+      if (!pythonWorker) {
+        resolve({ success: false, error: 'Python worker not available' })
+        return
+      }
+
+      const handleMessage = (message: WorkerResult) => {
+        if (message.id !== id) return
+
+        if (message.type === 'complete') {
+          pythonWorker?.off('message', handleMessage)
+          resolve({ success: true, stats: message.data })
+        } else if (message.type === 'error') {
+          pythonWorker?.off('message', handleMessage)
+          const errorData = message.data as { message: string }
+          resolve({ success: false, error: errorData.message })
+        }
+      }
+
+      pythonWorker.on('message', handleMessage)
+      pythonWorker.postMessage({ type: 'get-memory-stats', id })
+
+      setTimeout(() => {
+        pythonWorker?.off('message', handleMessage)
+        resolve({ success: false, error: 'Timeout getting memory stats' })
+      }, 5000)
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: errorMessage }
+  }
+})
+
+// Cleanup Python namespace manually
+ipcMain.handle('cleanup-python-namespace', async () => {
+  try {
+    if (!pythonWorker || !pythonWorkerReady) {
+      return { success: false, error: 'Python worker not available' }
+    }
+
+    const id = `python-cleanup-${Date.now()}`
+
+    return new Promise((resolve) => {
+      if (!pythonWorker) {
+        resolve({ success: false, error: 'Python worker not available' })
+        return
+      }
+
+      const handleMessage = (message: WorkerResult) => {
+        if (message.id !== id) return
+
+        if (message.type === 'complete') {
+          pythonWorker?.off('message', handleMessage)
+          resolve({ success: true })
+        } else if (message.type === 'error') {
+          pythonWorker?.off('message', handleMessage)
+          const errorData = message.data as { message: string }
+          resolve({ success: false, error: errorData.message })
+        }
+      }
+
+      pythonWorker.on('message', handleMessage)
+      pythonWorker.postMessage({ type: 'cleanup-namespace', id })
+
+      setTimeout(() => {
+        pythonWorker?.off('message', handleMessage)
+        resolve({ success: false, error: 'Cleanup timeout' })
+      }, 10000)
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: errorMessage }
   }
 })
 

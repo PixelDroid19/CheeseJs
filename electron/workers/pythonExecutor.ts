@@ -53,7 +53,17 @@ interface ResetRuntimeMessage {
   id: string
 }
 
-type WorkerMessage = ExecuteMessage | CancelMessage | InstallPackageMessage | ListPackagesMessage | InputResponseMessage | SetInterruptBufferMessage | ResetRuntimeMessage
+interface GetMemoryStatsMessage {
+  type: 'get-memory-stats'
+  id: string
+}
+
+interface CleanupNamespaceMessage {
+  type: 'cleanup-namespace'
+  id: string
+}
+
+type WorkerMessage = ExecuteMessage | CancelMessage | InstallPackageMessage | ListPackagesMessage | InputResponseMessage | SetInterruptBufferMessage | ResetRuntimeMessage | GetMemoryStatsMessage | CleanupNamespaceMessage
 
 interface ExecuteOptions {
   timeout?: number
@@ -79,6 +89,33 @@ let pyodideLoadPromise: Promise<PyodideInterface> | null = null
 
 // Interrupt buffer for execution cancellation (P2)
 let interruptBuffer: Uint8Array | null = null
+
+// ============================================================================
+// MEMORY MANAGEMENT
+// ============================================================================
+
+// Execution counter for automatic cleanup
+let executionCounter = 0
+const AUTO_CLEANUP_INTERVAL = 10 // Clean up namespace every N executions
+const GC_INTERVAL = 5 // Force garbage collection every N executions
+
+// Memory usage tracking
+interface MemoryStats {
+  heapUsed: number
+  heapTotal: number
+  executionsSinceCleanup: number
+  lastCleanupTime: number
+}
+
+let memoryStats: MemoryStats = {
+  heapUsed: 0,
+  heapTotal: 0,
+  executionsSinceCleanup: 0,
+  lastCleanupTime: Date.now()
+}
+
+// Memory warning threshold (in bytes) - 500MB
+const MEMORY_WARNING_THRESHOLD = 500 * 1024 * 1024
 
 // Input handling
 interface PendingInput {
@@ -143,6 +180,134 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessa
     if (timer) {
       clearTimeout(timer)
     }
+  }
+}
+
+// ============================================================================
+// MEMORY MANAGEMENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Clean up user-defined variables from Python namespace
+ * Preserves system functions and our custom utilities
+ */
+async function cleanupPythonNamespace(py: PyodideInterface): Promise<void> {
+  try {
+    py.runPython(`
+import sys
+import gc
+
+# Names to preserve (system and our custom functions)
+_preserve = {
+    'sys', 'gc', 'builtins', 'ast', 'asyncio', 'traceback', 'io',
+    '_debug_outputs', 'debug', '_get_debug_outputs',
+    '_async_input', '_js_request_input', '_original_input',
+    '_transform_for_async_input', '_AsyncTransformer', '_AwaitTransformer',
+    '_CallGraphBuilder', '_compute_async_functions', '_SYNC_DECORATORS',
+    '_code_to_transform', 'micropip', 'StringIO'
+}
+
+# Get all current global names
+_all_names = list(globals().keys())
+
+# Delete user-defined variables
+for _name in _all_names:
+    if (_name not in _preserve and 
+        not _name.startswith('_') and 
+        _name not in sys.builtin_module_names):
+        try:
+            del globals()[_name]
+        except:
+            pass
+
+# Clear any remaining references
+del _all_names
+del _name
+`)
+    console.log('[PythonExecutor] Namespace cleanup completed')
+  } catch (error) {
+    console.warn('[PythonExecutor] Namespace cleanup error:', error)
+  }
+}
+
+/**
+ * Force garbage collection in Python
+ */
+async function forceGarbageCollection(py: PyodideInterface): Promise<void> {
+  try {
+    const collected = py.runPython(`
+import gc
+gc.collect()
+gc.collect()  # Run twice to collect circular references
+len(gc.garbage)  # Return number of uncollectable objects
+`)
+    console.log(`[PythonExecutor] GC completed, uncollectable: ${collected}`)
+  } catch (error) {
+    console.warn('[PythonExecutor] GC error:', error)
+  }
+}
+
+/**
+ * Get current memory usage estimate from Python
+ */
+async function getMemoryUsage(py: PyodideInterface): Promise<{ pyObjects: number }> {
+  try {
+    const result = py.runPython(`
+import sys
+import gc
+
+# Count live Python objects
+_obj_count = len(gc.get_objects())
+_obj_count
+`)
+    return { pyObjects: result as number }
+  } catch {
+    return { pyObjects: 0 }
+  }
+}
+
+/**
+ * Check if memory cleanup is needed and perform it
+ */
+async function checkAndCleanMemory(py: PyodideInterface): Promise<void> {
+  executionCounter++
+  memoryStats.executionsSinceCleanup++
+
+  // Force GC periodically
+  if (executionCounter % GC_INTERVAL === 0) {
+    await forceGarbageCollection(py)
+  }
+
+  // Full namespace cleanup periodically
+  if (executionCounter % AUTO_CLEANUP_INTERVAL === 0) {
+    await cleanupPythonNamespace(py)
+    await forceGarbageCollection(py)
+    memoryStats.executionsSinceCleanup = 0
+    memoryStats.lastCleanupTime = Date.now()
+    console.log(`[PythonExecutor] Automatic cleanup after ${AUTO_CLEANUP_INTERVAL} executions`)
+  }
+
+  // Check memory usage
+  const usage = await getMemoryUsage(py)
+  
+  // Update memory stats
+  if (typeof process !== 'undefined' && process.memoryUsage) {
+    const mem = process.memoryUsage()
+    memoryStats.heapUsed = mem.heapUsed
+    memoryStats.heapTotal = mem.heapTotal
+  }
+
+  // Warn if memory is high
+  if (memoryStats.heapUsed > MEMORY_WARNING_THRESHOLD) {
+    console.warn(`[PythonExecutor] High memory usage: ${Math.round(memoryStats.heapUsed / 1024 / 1024)}MB`)
+    parentPort?.postMessage({
+      type: 'status',
+      id: 'memory-warning',
+      data: { 
+        message: `High memory usage detected (${Math.round(memoryStats.heapUsed / 1024 / 1024)}MB). Consider resetting the Python runtime.`,
+        memoryStats
+      }
+    })
   }
 }
 
@@ -684,6 +849,9 @@ sys.stderr.flush()
       console.warn('[PythonExecutor] Debug outputs unavailable:', debugError)
     }
 
+    // Check and clean memory after execution
+    await checkAndCleanMemory(py)
+
     // Send completion
     parentPort?.postMessage({
       type: 'complete',
@@ -896,6 +1064,42 @@ parentPort?.on('message', async (message: WorkerMessage) => {
     const resolved = resolvePendingInput(message.id, message.requestId, message.value)
     if (!resolved) {
       console.warn('[PythonExecutor] Received input response with no pending request', { id: message.id, requestId: message.requestId })
+    }
+  } else if (message.type === 'get-memory-stats') {
+    // Return current memory statistics
+    const pyObjects = pyodide ? (await getMemoryUsage(pyodide)).pyObjects : 0
+    parentPort?.postMessage({
+      type: 'complete',
+      id: message.id,
+      data: {
+        ...memoryStats,
+        pyObjects,
+        executionCount: executionCounter
+      }
+    } as ResultMessage)
+  } else if (message.type === 'cleanup-namespace') {
+    // Manual namespace cleanup request
+    try {
+      if (pyodide) {
+        await cleanupPythonNamespace(pyodide)
+        await forceGarbageCollection(pyodide)
+        memoryStats.executionsSinceCleanup = 0
+        memoryStats.lastCleanupTime = Date.now()
+      }
+      parentPort?.postMessage({
+        type: 'complete',
+        id: message.id,
+        data: { success: true, message: 'Namespace cleanup completed' }
+      } as ResultMessage)
+    } catch (error) {
+      parentPort?.postMessage({
+        type: 'error',
+        id: message.id,
+        data: {
+          name: 'CleanupError',
+          message: `Failed to cleanup namespace: ${error instanceof Error ? error.message : String(error)}`
+        }
+      } as ResultMessage)
     }
   }
 })

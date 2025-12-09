@@ -84,6 +84,15 @@ interface PythonPackageInstallResult {
   error?: string;
 }
 
+interface PythonMemoryStats {
+  heapUsed: number;
+  heapTotal: number;
+  executionsSinceCleanup: number;
+  lastCleanupTime: number;
+  pyObjects: number;
+  executionCount: number;
+}
+
 interface PythonPackageManager {
   install: (packageName: string) => Promise<PythonPackageInstallResult>;
   listInstalled: () => Promise<{
@@ -92,6 +101,12 @@ interface PythonPackageManager {
     error?: string;
   }>;
   resetRuntime: () => Promise<{ success: boolean; error?: string }>;
+  getMemoryStats: () => Promise<{
+    success: boolean;
+    stats?: PythonMemoryStats;
+    error?: string;
+  }>;
+  cleanupNamespace: () => Promise<{ success: boolean; error?: string }>;
 }
 
 // ============================================================================

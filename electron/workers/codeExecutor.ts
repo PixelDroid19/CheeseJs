@@ -56,6 +56,7 @@ interface ResultMessage {
 // Active execution tracking for cancellation
 let currentExecutionId: string | null = null
 let isExecuting = false
+let cancellationRequested = false
 
 // ============================================================================
 // SCRIPT CACHE - LRU cache for compiled vm.Script objects
@@ -315,12 +316,23 @@ function clearRequireCache(packageName?: string): void {
 }
 
 /**
+ * Create cancellation check function for cooperative cancellation
+ * This is called periodically by loop-protected code to check if execution should stop
+ */
+function createCancellationCheckFunction(): () => boolean {
+  return () => {
+    return cancellationRequested
+  }
+}
+
+/**
  * Create the sandboxed context with safe globals
  */
 function createSandboxContext(executionId: string, options: ExecuteOptions): vm.Context {
   const console = createSandboxConsole(executionId)
   const debug = createDebugFunction(executionId, options.showUndefined ?? false)
   const require = createRequireFunction()
+  const checkCancellation = createCancellationCheckFunction()
 
   // CommonJS module support
   const moduleExports = {}
@@ -331,6 +343,9 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     // Console and debug
     console,
     debug,
+
+    // Cancellation checkpoint for cooperative cancellation
+    __checkCancellation__: checkCancellation,
 
     // Package require and CommonJS module support
     require,
@@ -465,6 +480,7 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
 
   currentExecutionId = id
   isExecuting = true
+  cancellationRequested = false // Reset cancellation flag
 
   try {
     const context = createSandboxContext(id, options)
@@ -520,12 +536,20 @@ parentPort?.on('message', async (message: WorkerMessage) => {
     await executeCode(message)
   } else if (message.type === 'cancel') {
     if (message.id === currentExecutionId && isExecuting) {
-      // Force termination - the main process will handle this
+      // Set cancellation flag for cooperative cancellation via checkpoints
+      cancellationRequested = true
+      
+      // Send cancellation response
+      // The loop-protection checkpoints will throw an error when they detect cancellation
       parentPort?.postMessage({
         type: 'error',
         id: message.id,
         data: { name: 'CancelError', message: 'Execution cancelled by user' }
       } as ResultMessage)
+      
+      // Reset state
+      currentExecutionId = null
+      isExecuting = false
     }
   } else if (message.type === 'clear-cache') {
     clearRequireCache(message.packageName)

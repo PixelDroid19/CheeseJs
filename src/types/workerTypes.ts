@@ -61,16 +61,29 @@ export interface ExecutionResult {
   consoleType?: ConsoleType;
 }
 
-export interface ExecutionError {
+export interface ExecutionErrorData {
   name: string;
   message: string;
   stack?: string;
+  category?: string;
+  severity?: string;
+  location?: {
+    line: number;
+    column?: number;
+    file?: string;
+  };
+  suggestions?: Array<{
+    title: string;
+    description?: string;
+    code?: string;
+  }>;
 }
 
 export interface ExecutionResponse {
   success: boolean;
   data?: unknown;
   error?: string;
+  errorData?: ExecutionErrorData;
 }
 
 // ============================================================================

@@ -140,9 +140,11 @@ function transformConsoleTodebug(code: string): string {
 
 /**
  * Add loop protection to prevent infinite loops
+ * Includes cancellation checkpoints for cooperative cancellation
  */
 function addLoopProtection(code: string): string {
   const MAX_ITERATIONS = 10000
+  const CANCELLATION_CHECK_INTERVAL = 100 // Check for cancellation every 100 iterations
   let loopCounter = 0
 
   // Match while, for, do-while loops
@@ -150,7 +152,10 @@ function addLoopProtection(code: string): string {
 
   return code.replace(loopPattern, (match) => {
     const counterVar = `__loopCounter${loopCounter++}`
-    const checkCode = `let ${counterVar} = 0; if (++${counterVar} > ${MAX_ITERATIONS}) throw new Error("Loop limit exceeded (${MAX_ITERATIONS} iterations)"); `
+    // Combined check: loop limit + cancellation checkpoint
+    const checkCode = `let ${counterVar} = 0; 
+if (++${counterVar} > ${MAX_ITERATIONS}) throw new Error("Loop limit exceeded (${MAX_ITERATIONS} iterations)"); 
+if (${counterVar} % ${CANCELLATION_CHECK_INTERVAL} === 0 && typeof __checkCancellation__ !== 'undefined' && __checkCancellation__()) throw new Error("Execution cancelled"); `
     
     // Insert the check after the opening brace
     const braceIndex = match.lastIndexOf('{')
