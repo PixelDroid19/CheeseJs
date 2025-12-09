@@ -38,10 +38,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build Electron app
+      - name: Build Electron app (no publish)
+        # Ejecuta build pero sin token para evitar intentos de publish en ramas
         run: pnpm build
-        env:
-          GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+
+      - name: Upload build artifacts (non-tag)
+        if: github.ref_type == 'branch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}-${{ github.run_number }}
+          path: |
+            dist/**
+            dist-electron/**
+            release/**
+          retention-days: 14
 
       - name: Release Electron app (stable)
         if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'beta')
