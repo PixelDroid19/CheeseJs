@@ -2,17 +2,11 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import LoadingIndicator from './LoadingIndicator';
 import Editor, { Monaco, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 
 import { useCodeStore, CodeState } from '../store/useCodeStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { usePackagesStore } from '../store/usePackagesStore';
-import { usePythonPackagesStore } from '../store/usePythonPackagesStore';
 import { useLanguageStore } from '../store/useLanguageStore';
+import { registerPackageCommands } from '../lib/monacoCommands';
 import { useDebouncedFunction } from '../hooks/useDebounce';
 import { useCodeRunner } from '../hooks/useCodeRunner';
 import {
@@ -26,26 +20,11 @@ import {
 import { setupTypeAcquisition } from '../lib/ata';
 import { registerPythonLanguage } from '../lib/python';
 import { editor } from 'monaco-editor';
-import { configureMonaco } from '../utils/monaco-config';
+import { configureMonaco, setupMonacoEnvironment } from '../utils/monaco-config';
 import { EditorErrorBoundary } from './editor-error-boundary';
 
-self.MonacoEnvironment = {
-  getWorker(_, label) {
-    if (label === 'json') {
-      return new jsonWorker();
-    }
-    if (label === 'css' || label === 'scss' || label === 'less') {
-      return new cssWorker();
-    }
-    if (label === 'html' || label === 'handlebars' || label === 'razor') {
-      return new htmlWorker();
-    }
-    if (label === 'typescript' || label === 'javascript') {
-      return new tsWorker();
-    }
-    return new editorWorker();
-  },
-};
+// Setup Monaco workers before initialization
+setupMonacoEnvironment();
 
 loader.config({ monaco });
 
@@ -68,6 +47,12 @@ function CodeEditor() {
     (state) => state.applyLanguageToMonaco
   );
   const initializeModel = useLanguageStore((state) => state.initializeModel);
+  const incrementDetectionVersion = useLanguageStore(
+    (state) => state.incrementDetectionVersion
+  );
+  const getDetectionVersion = useLanguageStore(
+    (state) => state.getDetectionVersion
+  );
 
   const monacoRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoInstanceRef = useRef<Monaco | null>(null);
@@ -95,32 +80,87 @@ function CodeEditor() {
     };
   }, []);
 
-  // Restore cursor position and focus when language changes (which triggers a model switch)
+  // Protected URIs that should never be disposed
+  const PROTECTED_URIS = [
+    'result-output.js',
+    'code.txt',
+    'ts:node-globals.d.ts',
+    'inmemory://model/', // Base model path
+  ];
+
+  /**
+   * Safely cleanup old Monaco models to prevent memory leaks.
+   * Implements multiple safety checks to avoid disposing models that are still in use.
+   */
   const cleanupModels = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor) => {
       const currentModel = editorInstance.getModel();
       const currentUri = currentModel?.uri.toString();
 
-      if (monacoInstanceRef.current) {
-        const models = monacoInstanceRef.current.editor.getModels();
+      if (!monacoInstanceRef.current) {
+        return;
+      }
 
-        models.forEach((m: editor.ITextModel) => {
-          const uri = m.uri.toString();
-          // Don't dispose the current model OR the result output model
-          if (
-            uri !== currentUri &&
-            !uri.includes('result-output.js') &&
-            !m.isDisposed()
-          ) {
-            if (uri.startsWith('inmemory') || uri.startsWith('file:')) {
-              try {
+      const models = monacoInstanceRef.current.editor.getModels();
+      const modelsToDispose: editor.ITextModel[] = [];
+
+      // First pass: identify safe models to dispose
+      models.forEach((m: editor.ITextModel) => {
+        const uri = m.uri.toString();
+
+        // Skip if already disposed
+        if (m.isDisposed()) {
+          return;
+        }
+
+        // Skip current model
+        if (uri === currentUri) {
+          return;
+        }
+
+        // Skip protected URIs
+        if (PROTECTED_URIS.some((protected_uri) => uri.includes(protected_uri))) {
+          return;
+        }
+
+        // Only dispose inmemory or file models
+        if (!uri.startsWith('inmemory') && !uri.startsWith('file:')) {
+          return;
+        }
+
+        // Additional safety: check if model has listeners
+        // Models with active listeners are likely still in use
+        try {
+          // Monaco doesn't expose listener count directly, but we can check
+          // if getValue throws (would indicate corrupted state)
+          m.getValue();
+          modelsToDispose.push(m);
+        } catch {
+          console.warn(`[Editor] Skipping model ${uri} - may be in invalid state`);
+        }
+      });
+
+      // Second pass: delayed disposal to give Monaco time to release references
+      if (modelsToDispose.length > 0) {
+        console.log(
+          `[Editor] Scheduling cleanup of ${modelsToDispose.length} models`
+        );
+
+        // Use setTimeout to defer disposal and avoid race conditions
+        setTimeout(() => {
+          modelsToDispose.forEach((m) => {
+            try {
+              if (!m.isDisposed()) {
+                const uri = m.uri.toString();
+                console.log(`[Editor] Disposing model: ${uri}`);
                 m.dispose();
-              } catch (e) {
-                console.error('[Editor] Error disposing model:', e);
               }
+            } catch (e) {
+              // Silently handle errors - model may have been disposed elsewhere
+              console.debug('[Editor] Error disposing model (may be expected):', e);
             }
-          }
-        });
+          });
+        }, 100); // Small delay to allow Monaco to release references
       }
     },
     []
@@ -257,199 +297,16 @@ function CodeEditor() {
       // Cleanup old models immediately on mount
       cleanupModels(editorInstance);
 
-      // Register custom commands for package management using Monaco's command system
-      // This is required for CodeActions to work properly (addAction doesn't work with CodeAction commands)
-      monaco.editor.registerCommand(
-        'cheeseJS.installPackage',
-        async (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Installing package:', packageName);
-          if (window.packageManager) {
-            usePackagesStore.getState().addPackage(packageName);
-            usePackagesStore.getState().setPackageInstalling(packageName, true);
-            const result = await window.packageManager.install(packageName);
-            if (result.success) {
-              usePackagesStore
-                .getState()
-                .setPackageInstalled(packageName, result.version);
-            } else {
-              usePackagesStore
-                .getState()
-                .setPackageError(packageName, result.error);
-            }
-          } else {
-            usePackagesStore.getState().addPackage(packageName);
-          }
-        }
-      );
+      // Register custom commands for package management (idempotent - safe on remount)
+      registerPackageCommands(monaco, editorInstance, runCode);
 
       // Track cursor position to ensure we always have the latest position
       // even if the user didn't type (just moved cursor)
       editorInstance.onDidChangeCursorPosition((e) => {
         lastCursorPositionRef.current = e.position;
       });
-
-      monaco.editor.registerCommand(
-        'cheeseJS.installAndRun',
-        async (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Installing package and running:', packageName);
-          if (window.packageManager) {
-            usePackagesStore.getState().addPackage(packageName);
-            usePackagesStore.getState().setPackageInstalling(packageName, true);
-            const result = await window.packageManager.install(packageName);
-            if (result.success) {
-              usePackagesStore
-                .getState()
-                .setPackageInstalled(packageName, result.version);
-              // Run code after successful install
-              const code = editorInstance.getValue();
-              runCode(code);
-            } else {
-              usePackagesStore
-                .getState()
-                .setPackageError(packageName, result.error);
-            }
-          } else {
-            usePackagesStore.getState().addPackage(packageName);
-            setTimeout(() => {
-              const code = editorInstance.getValue();
-              runCode(code);
-            }, 100);
-          }
-        }
-      );
-
-      monaco.editor.registerCommand(
-        'cheeseJS.retryInstall',
-        async (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Retrying install:', packageName);
-          const store = usePackagesStore.getState();
-          store.resetPackageAttempts(packageName);
-          store.setPackageInstalling(packageName, true);
-          if (window.packageManager) {
-            const result = await window.packageManager.install(packageName);
-            if (result.success) {
-              store.setPackageInstalled(packageName, result.version);
-            } else {
-              store.setPackageError(packageName, result.error);
-            }
-          }
-        }
-      );
-
-      monaco.editor.registerCommand(
-        'cheeseJS.uninstallPackage',
-        async (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Uninstalling package:', packageName);
-          if (window.packageManager) {
-            const result = await window.packageManager.uninstall(packageName);
-            if (result.success) {
-              usePackagesStore.getState().removePackage(packageName);
-            }
-          } else {
-            usePackagesStore.getState().removePackage(packageName);
-          }
-        }
-      );
-
-      monaco.editor.registerCommand(
-        'cheeseJS.viewOnNpm',
-        (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Opening npm for:', packageName);
-          window.open(`https://www.npmjs.com/package/${packageName}`, '_blank');
-        }
-      );
-
-      // Python package management commands
-      monaco.editor.registerCommand(
-        'cheeseJS.installPythonPackage',
-        async (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Installing Python package:', packageName);
-          if (window.pythonPackageManager) {
-            usePythonPackagesStore.getState().addPackage(packageName);
-            usePythonPackagesStore
-              .getState()
-              .setPackageInstalling(packageName, true);
-            const result =
-              await window.pythonPackageManager.install(packageName);
-            if (result.success) {
-              usePythonPackagesStore
-                .getState()
-                .setPackageInstalled(packageName, result.version);
-            } else {
-              usePythonPackagesStore
-                .getState()
-                .setPackageError(packageName, result.error);
-            }
-          } else {
-            usePythonPackagesStore.getState().addPackage(packageName);
-          }
-        }
-      );
-
-      monaco.editor.registerCommand(
-        'cheeseJS.installPythonPackageAndRun',
-        async (_accessor: unknown, packageName: string) => {
-          console.log(
-            '[Editor] Installing Python package and running:',
-            packageName
-          );
-          if (window.pythonPackageManager) {
-            usePythonPackagesStore.getState().addPackage(packageName);
-            usePythonPackagesStore
-              .getState()
-              .setPackageInstalling(packageName, true);
-            const result =
-              await window.pythonPackageManager.install(packageName);
-            if (result.success) {
-              usePythonPackagesStore
-                .getState()
-                .setPackageInstalled(packageName, result.version);
-              // Run code after successful install
-              const code = editorInstance.getValue();
-              runCode(code);
-            } else {
-              usePythonPackagesStore
-                .getState()
-                .setPackageError(packageName, result.error);
-            }
-          } else {
-            usePythonPackagesStore.getState().addPackage(packageName);
-            setTimeout(() => {
-              const code = editorInstance.getValue();
-              runCode(code);
-            }, 100);
-          }
-        }
-      );
-
-      monaco.editor.registerCommand(
-        'cheeseJS.retryPythonInstall',
-        async (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Retrying Python install:', packageName);
-          const store = usePythonPackagesStore.getState();
-          store.resetPackageAttempts(packageName);
-          store.setPackageInstalling(packageName, true);
-          if (window.pythonPackageManager) {
-            const result =
-              await window.pythonPackageManager.install(packageName);
-            if (result.success) {
-              store.setPackageInstalled(packageName, result.version);
-            } else {
-              store.setPackageError(packageName, result.error);
-            }
-          }
-        }
-      );
-
-      monaco.editor.registerCommand(
-        'cheeseJS.viewOnPyPI',
-        (_accessor: unknown, packageName: string) => {
-          console.log('[Editor] Opening PyPI for:', packageName);
-          window.open(`https://pypi.org/project/${packageName}/`, '_blank');
-        }
-      );
     },
-    [runCode, cleanupModels, detectLanguageAsync, setLanguage]
+    [runCode, cleanupModels, detectLanguageAsync, setLanguage, applyLanguageToMonaco]
   );
 
   const debouncedRunner = useDebouncedFunction(runCode, 150);
@@ -472,9 +329,16 @@ function CodeEditor() {
   const detectLanguageSyncRef = useRef(detectLanguageSync);
   detectLanguageSyncRef.current = detectLanguageSync;
 
+  const incrementDetectionVersionRef = useRef(incrementDetectionVersion);
+  incrementDetectionVersionRef.current = incrementDetectionVersion;
+
+  const getDetectionVersionRef = useRef(getDetectionVersion);
+  getDetectionVersionRef.current = getDetectionVersion;
+
   // ML detection with debounce - refines heuristic results for ambiguous cases
+  // Uses version tracking to prevent race conditions
   const debouncedLanguageDetection = useDebouncedFunction(
-    async (value: string) => {
+    async (value: string, versionAtStart: number) => {
       if (detectionInProgressRef.current || !value || value.trim().length === 0)
         return;
 
@@ -482,6 +346,21 @@ function CodeEditor() {
       try {
         const detected = await detectLanguageAsyncRef.current(value);
         const currentLang = languageRef.current;
+        const currentVersion = getDetectionVersionRef.current();
+
+        // Check if result is stale (version changed during async detection)
+        if (currentVersion !== versionAtStart) {
+          console.log(
+            `[Editor] Discarding stale ML result (version ${versionAtStart} -> ${currentVersion})`
+          );
+          return;
+        }
+
+        // Also check for isStale flag from store
+        if ((detected as { isStale?: boolean }).isStale) {
+          console.log('[Editor] ML result marked as stale, skipping');
+          return;
+        }
 
         // Only update if ML has good confidence and differs from current
         if (detected.monacoId !== currentLang && detected.confidence > 0.7) {
@@ -509,6 +388,9 @@ function CodeEditor() {
         lastLocalCodeRef.current = value;
         setCode(value);
 
+        // Increment version to invalidate any in-flight async detection
+        const newVersion = incrementDetectionVersionRef.current();
+
         // Immediate heuristic detection for snappy feedback
         // Only applies if confidence >= 0.9 (definitive patterns)
         try {
@@ -531,7 +413,8 @@ function CodeEditor() {
         }
 
         // Queue ML detection for refinement (handles ambiguous cases)
-        debouncedLanguageDetection(value);
+        // Pass current version so we can check for staleness when result arrives
+        debouncedLanguageDetection(value, newVersion);
         debouncedRunner(value);
       }
     },

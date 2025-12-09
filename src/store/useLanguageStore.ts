@@ -50,6 +50,10 @@ interface LanguageState {
   isDetecting: boolean;
   lastDetectionConfidence: number;
 
+  // Version tracking for race condition prevention
+  // Incremented on each user input to invalidate stale async detection results
+  detectionVersion: number;
+
   // ML model state
   isModelLoaded: boolean;
   isModelLoading: boolean;
@@ -64,6 +68,10 @@ interface LanguageState {
   initializeModel: () => Promise<void>;
   setMonacoInstance: (monaco: typeof Monaco) => void;
   applyLanguageToMonaco: (model: Monaco.editor.ITextModel | null) => void;
+
+  // Version management for race condition prevention
+  incrementDetectionVersion: () => number;
+  getDetectionVersion: () => number;
 
   // Utilities
   isExecutable: (languageId: string) => boolean;
@@ -83,6 +91,7 @@ export const useLanguageStore = create<LanguageState>()(
         currentLanguage: 'typescript',
         isDetecting: false,
         lastDetectionConfidence: 1.0,
+        detectionVersion: 0,
         isModelLoaded: false,
         isModelLoading: false,
         monacoInstance: null,
@@ -165,15 +174,52 @@ export const useLanguageStore = create<LanguageState>()(
         /**
          * ML-first async detection - PRIMARY detection method
          * Uses ML model for high accuracy, pattern fallback only on error
+         * Includes version checking to prevent race conditions
          */
         detectLanguageAsync: async (
           content: string
         ): Promise<DetectionResult> => {
-          return detectWithML(
+          // Capture version at start of detection
+          const versionAtStart = get().detectionVersion;
+
+          const result = await detectWithML(
             content,
-            (detecting) => set({ isDetecting: detecting }),
-            (confidence) => set({ lastDetectionConfidence: confidence })
+            (detecting) => {
+              // Only update if version hasn't changed
+              if (get().detectionVersion === versionAtStart) {
+                set({ isDetecting: detecting });
+              }
+            },
+            (confidence) => {
+              // Only update if version hasn't changed
+              if (get().detectionVersion === versionAtStart) {
+                set({ lastDetectionConfidence: confidence });
+              }
+            }
           );
+
+          // Check if detection result is still valid (version hasn't changed)
+          const currentVersion = get().detectionVersion;
+          if (currentVersion !== versionAtStart) {
+            console.log(
+              `[LanguageStore] Discarding stale detection result (version ${versionAtStart} -> ${currentVersion})`
+            );
+            // Return result but caller should check version before applying
+            return { ...result, isStale: true } as DetectionResult & { isStale?: boolean };
+          }
+
+          return result;
+        },
+
+        // Version management for race condition prevention
+        incrementDetectionVersion: (): number => {
+          const newVersion = get().detectionVersion + 1;
+          set({ detectionVersion: newVersion });
+          return newVersion;
+        },
+
+        getDetectionVersion: (): number => {
+          return get().detectionVersion;
         },
 
         initializeModel: async () => {

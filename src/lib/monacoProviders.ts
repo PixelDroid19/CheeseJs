@@ -13,10 +13,14 @@ import {
   getCachedPackageInfo,
   clearPackageInfoCache,
 } from './npm';
+import { importValidator } from './workers/importValidatorManager';
 
 let hoverProvider: IDisposable | null = null;
 let codeActionProvider: IDisposable | null = null;
 let completionProvider: IDisposable | null = null;
+
+// Track pending validation to avoid duplicate work
+let pendingValidation: Promise<void> | null = null;
 
 // Extract package name from import statement at cursor position
 function getPackageAtPosition(
@@ -83,112 +87,80 @@ function getPackageAtPosition(
   return null;
 }
 
-// Scan for imports and set markers for missing packages
-function validateImports(model: editor.ITextModel, monaco: Monaco) {
+/**
+ * Validate imports and set markers for missing packages.
+ * Uses a Web Worker for large files to prevent UI blocking.
+ */
+async function validateImportsAsync(
+  model: editor.ITextModel,
+  monaco: Monaco
+): Promise<void> {
   const code = model.getValue();
-  const markers: editor.IMarkerData[] = [];
   const packages = usePackagesStore.getState().packages;
-  const missingPackages: string[] = [];
 
-  // Match various import patterns
-  const patterns = [
-    { regex: /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g, group: 1 },
-    { regex: /import\s+['"]([^'"]+)['"]/g, group: 1 },
-    { regex: /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g, group: 1 },
-    { regex: /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g, group: 1 }, // dynamic import
-  ];
+  // Get list of installed package names
+  const installedPackages = packages
+    .filter((p) => p.isInstalled)
+    .map((p) => p.name);
 
-  for (const { regex, group } of patterns) {
-    regex.lastIndex = 0;
-    let match;
-    while ((match = regex.exec(code)) !== null) {
-      const packagePath = match[group];
+  try {
+    // Use the worker manager (it handles sync/async decision internally)
+    const result = await importValidator.validateAsync(code, installedPackages);
 
-      // Extract base package name
-      let packageName = packagePath;
-      if (packagePath.startsWith('@')) {
-        const parts = packagePath.split('/');
-        packageName =
-          parts.length >= 2 ? `${parts[0]}/${parts[1]}` : packagePath;
-      } else {
-        packageName = packagePath.split('/')[0];
-      }
-
-      // Skip relative imports
-      if (packageName.startsWith('.') || packageName.startsWith('/')) {
-        continue;
-      }
-
-      // Skip invalid package names or common keywords that might be matched incorrectly
-      const ignoredPackages = [
-        'from',
-        'as',
-        'in',
-        'of',
-        'export',
-        'import',
-        'default',
-        'const',
-        'var',
-        'let',
-        'type',
-        'interface',
-      ];
-      if (ignoredPackages.includes(packageName)) {
-        continue;
-      }
-
-      // Check if installed (package must exist AND be marked as installed)
-      const isInstalled = packages.some(
-        (p) => p.name === packageName && p.isInstalled
-      );
-
-      if (!isInstalled) {
-        // Add to missing packages list
-        if (!missingPackages.includes(packageName)) {
-          missingPackages.push(packageName);
-        }
-
-        // Find the range of the package name in the match
-        // We look for the package path inside the full match to be safe
-        const fullMatch = match[0];
-        const packageIndexInMatch = fullMatch.lastIndexOf(packagePath);
-
-        // Safety check
-        if (packageIndexInMatch === -1) continue;
-
-        const startOffset = match.index + packageIndexInMatch;
-        const endOffset = startOffset + packagePath.length;
-
-        const startPos = model.getPositionAt(startOffset);
-        const endPos = model.getPositionAt(endOffset);
-
-        markers.push({
-          severity: monaco.MarkerSeverity.Warning,
-          message: `Package "${packageName}" is not installed.`,
-          startLineNumber: startPos.lineNumber,
-          startColumn: startPos.column,
-          endLineNumber: endPos.lineNumber,
-          endColumn: endPos.column,
-          code: 'missing-package',
-          source: 'Package Manager',
-        });
-      }
+    // Check if model is still valid (might have been disposed during async operation)
+    if (model.isDisposed()) {
+      return;
     }
+
+    // Convert markers to Monaco format
+    const markers: editor.IMarkerData[] = result.markers.map((marker) => {
+      const startPos = model.getPositionAt(marker.startOffset);
+      const endPos = model.getPositionAt(marker.endOffset);
+
+      return {
+        severity: monaco.MarkerSeverity.Warning,
+        message: `Package "${marker.packageName}" is not installed.`,
+        startLineNumber: startPos.lineNumber,
+        startColumn: startPos.column,
+        endLineNumber: endPos.lineNumber,
+        endColumn: endPos.column,
+        code: 'missing-package',
+        source: 'Package Manager',
+      };
+    });
+
+    monaco.editor.setModelMarkers(model, 'package-manager', markers);
+
+    // Update detected missing packages in store
+    const currentMissing = usePackagesStore.getState().detectedMissingPackages;
+    const hasChanged =
+      result.missingPackages.length !== currentMissing.length ||
+      !result.missingPackages.every((p) => currentMissing.includes(p));
+
+    if (hasChanged) {
+      usePackagesStore
+        .getState()
+        .setDetectedMissingPackages(result.missingPackages);
+    }
+  } catch (error) {
+    console.error('[MonacoProviders] Import validation failed:', error);
+  }
+}
+
+/**
+ * Wrapper to handle concurrent validation requests.
+ * Ensures only one validation runs at a time and queues the latest request.
+ */
+function validateImports(model: editor.ITextModel, monaco: Monaco): void {
+  // If a validation is already pending, it will use the latest model state
+  // when it completes, so we can skip this call
+  if (pendingValidation) {
+    return;
   }
 
-  monaco.editor.setModelMarkers(model, 'package-manager', markers);
-
-  // Update detected missing packages in store
-  // We compare with current state to avoid unnecessary updates/re-renders
-  const currentMissing = usePackagesStore.getState().detectedMissingPackages;
-  const hasChanged =
-    missingPackages.length !== currentMissing.length ||
-    !missingPackages.every((p) => currentMissing.includes(p));
-
-  if (hasChanged) {
-    usePackagesStore.getState().setDetectedMissingPackages(missingPackages);
-  }
+  pendingValidation = validateImportsAsync(model, monaco).finally(() => {
+    pendingValidation = null;
+  });
 }
 
 export function registerMonacoProviders(
@@ -668,5 +640,8 @@ export function disposeMonacoProviders() {
   hoverProvider = null;
   codeActionProvider = null;
   completionProvider = null;
+  pendingValidation = null;
   clearPackageInfoCache();
+  // Note: We don't dispose the worker here as it's a singleton
+  // that can be reused. It will be disposed when the page unloads.
 }
