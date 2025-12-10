@@ -10,7 +10,6 @@
  */
 
 import { parentPort, workerData } from 'worker_threads'
-import crypto from 'crypto'
 import vm from 'vm'
 import util from 'util'
 import path from 'path'
@@ -59,65 +58,24 @@ let isExecuting = false
 let cancellationRequested = false
 
 // ============================================================================
-// SCRIPT CACHE - LRU cache for compiled vm.Script objects
-// Reusing compiled scripts saves ~10-20ms per execution for repeated code
+// SCRIPT CACHE - Using SmartScriptCache for intelligent memory management
 // ============================================================================
 
-interface CachedScript {
-  script: vm.Script
-  lastUsed: number
-  code: string
-}
+import { getScriptCache } from './SmartScriptCache.js'
 
-const SCRIPT_CACHE_MAX_SIZE = 50
-const scriptCache = new Map<string, CachedScript>()
-
-/**
- * Cryptographic hash for code strings to avoid collisions
- */
-function hashCode(str: string): string {
-  return crypto.createHash('sha256').update(str, 'utf8').digest('hex')
-}
+// Get singleton script cache instance
+const scriptCache = getScriptCache({
+  maxMemory: 50 * 1024 * 1024,  // 50MB max
+  k: 2  // LRU-2 algorithm
+})
 
 /**
  * Get or create a compiled script from cache
  */
 function getOrCreateScript(code: string): vm.Script {
-  const cacheKey = hashCode(code)
-  const cached = scriptCache.get(cacheKey)
-
-  if (cached && cached.code === code) {
-    cached.lastUsed = Date.now()
-    return cached.script
-  }
-
-  // Create new script
-  const script = new vm.Script(code, {
-    filename: 'usercode.js',
-    lineOffset: -2, // Adjust for wrapper
-    columnOffset: 0
-  })
-
-  // Evict oldest if cache is full
-  if (scriptCache.size >= SCRIPT_CACHE_MAX_SIZE) {
-    let oldestKey: string | null = null
-    let oldestTime = Infinity
-
-    for (const [key, value] of scriptCache) {
-      if (value.lastUsed < oldestTime) {
-        oldestTime = value.lastUsed
-        oldestKey = key
-      }
-    }
-
-    if (oldestKey) {
-      scriptCache.delete(oldestKey)
-    }
-  }
-
-  scriptCache.set(cacheKey, { script, lastUsed: Date.now(), code })
-  return script
+  return scriptCache.getOrCreate(code)
 }
+
 
 /**
  * Custom inspect function for formatting values
@@ -538,7 +496,7 @@ parentPort?.on('message', async (message: WorkerMessage) => {
     if (message.id === currentExecutionId && isExecuting) {
       // Set cancellation flag for cooperative cancellation via checkpoints
       cancellationRequested = true
-      
+
       // Send cancellation response
       // The loop-protection checkpoints will throw an error when they detect cancellation
       parentPort?.postMessage({
@@ -546,7 +504,7 @@ parentPort?.on('message', async (message: WorkerMessage) => {
         id: message.id,
         data: { name: 'CancelError', message: 'Execution cancelled by user' }
       } as ResultMessage)
-      
+
       // Reset state
       currentExecutionId = null
       isExecuting = false

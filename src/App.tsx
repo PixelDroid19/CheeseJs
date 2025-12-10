@@ -4,6 +4,10 @@ import { Layout } from './components/Layout';
 import { useSettingsStore } from './store/useSettingsStore';
 import { usePackagesStore, type PackagesState } from './store/usePackagesStore';
 
+// Error boundaries for crash recovery
+import { RecoverableErrorBoundary } from './components/RecoverableErrorBoundary';
+import { EditorFallback, ResultFallback } from './components/ErrorFallbacks';
+
 // Lazy load Settings (modal, not critical path)
 const Settings = lazy(() => import('./components/Settings/Settings'));
 
@@ -63,11 +67,24 @@ function App() {
       <FloatingToolbar />
       <InputTooltip />
       <Layout>
-        <CodeEditor />
-        <ResultDisplay />
+        <RecoverableErrorBoundary
+          fallback={<EditorFallback />}
+          componentName="CodeEditor"
+          config={{ maxRetries: 3, shouldRecover: true }}
+        >
+          <CodeEditor />
+        </RecoverableErrorBoundary>
+        <RecoverableErrorBoundary
+          fallback={<ResultFallback />}
+          componentName="ResultDisplay"
+          config={{ maxRetries: 3, shouldRecover: true }}
+        >
+          <ResultDisplay />
+        </RecoverableErrorBoundary>
       </Layout>
     </>
   );
 }
 
 export default App;
+
