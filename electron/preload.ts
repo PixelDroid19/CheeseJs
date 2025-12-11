@@ -248,4 +248,88 @@ contextBridge.exposeInMainWorld('pythonPackageManager', {
   }
 })
 
+// ============================================================================
+// AI PROXY API
+// ============================================================================
+
+interface AIProxyRequest {
+  url: string
+  method: string
+  headers: Record<string, string>
+  body?: string
+}
+
+interface AIProxyResponse {
+  ok: boolean
+  status: number
+  statusText: string
+  headers: Record<string, string>
+  body: string
+}
+
+// Store for active stream listeners
+const streamListeners = new Map<string, {
+  onChunk: (chunk: string) => void
+  onEnd: () => void
+  onError: (error: { status: number; statusText: string; body: string }) => void
+}>()
+
+contextBridge.exposeInMainWorld('aiProxy', {
+  /**
+   * Make a proxied fetch request through the main process (CORS-free)
+   */
+  fetch: async (request: AIProxyRequest): Promise<AIProxyResponse> => {
+    return ipcRenderer.invoke('ai:proxy', request)
+  },
+
+  /**
+   * Start a streaming request through the main process
+   */
+  streamFetch: async (
+    request: AIProxyRequest,
+    onChunk: (chunk: string) => void,
+    onEnd: () => void,
+    onError: (error: { status: number; statusText: string; body: string }) => void
+  ): Promise<{ streamId: string; abort: () => void }> => {
+    const { streamId } = await ipcRenderer.invoke('ai:proxy:stream', request)
+
+    // Store listeners
+    streamListeners.set(streamId, { onChunk, onEnd, onError })
+
+    // Setup IPC listeners for this stream
+    const chunkHandler = (_event: unknown, chunk: string) => {
+      const listener = streamListeners.get(streamId)
+      listener?.onChunk(chunk)
+    }
+
+    const endHandler = () => {
+      const listener = streamListeners.get(streamId)
+      listener?.onEnd()
+      cleanup()
+    }
+
+    const errorHandler = (_event: unknown, error: { status: number; statusText: string; body: string }) => {
+      const listener = streamListeners.get(streamId)
+      listener?.onError(error)
+      cleanup()
+    }
+
+    const cleanup = () => {
+      streamListeners.delete(streamId)
+      ipcRenderer.removeListener(`ai:stream:chunk:${streamId}`, chunkHandler)
+      ipcRenderer.removeListener(`ai:stream:end:${streamId}`, endHandler)
+      ipcRenderer.removeListener(`ai:stream:error:${streamId}`, errorHandler)
+    }
+
+    ipcRenderer.on(`ai:stream:chunk:${streamId}`, chunkHandler)
+    ipcRenderer.on(`ai:stream:end:${streamId}`, endHandler)
+    ipcRenderer.on(`ai:stream:error:${streamId}`, errorHandler)
+
+    return {
+      streamId,
+      abort: cleanup
+    }
+  }
+})
+
 setTimeout(removeLoading, 1000)

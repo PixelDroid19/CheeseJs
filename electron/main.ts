@@ -10,6 +10,7 @@ import {
   listInstalledPackages,
   getNodeModulesPath
 } from './packages/packageManager.js'
+import { registerAIProxy } from './aiProxy.js'
 
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
@@ -835,7 +836,9 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false, // Required for preload script functionality
-      webSecurity: true
+      // Disable web security in development to allow AI API calls (CORS)
+      // In production, API calls are made from the main process
+      webSecurity: app.isPackaged
     }
   })
 
@@ -947,6 +950,9 @@ app
   .then(async () => {
     // Initialize packages directory
     await initPackagesDirectory()
+
+    // Register AI API proxy for CORS-free API calls
+    registerAIProxy()
 
     // Initialize BOTH workers in parallel for faster cold start
     // Python worker takes 3-5s to load Pyodide, so start it early

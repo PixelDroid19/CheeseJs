@@ -27,6 +27,35 @@
       "snippets": "Administra tus fragmentos de código reutilizables",
       "advanced": "Configuraciones avanzadas y opciones de desarrollador"
     },
+    "ai": {
+      "provider": "Proveedor de IA",
+      "selectProvider": "Proveedor",
+      "model": "Modelo",
+      "apiKey": "Clave API",
+      "apiKeyPlaceholder": "Ingresa tu clave API...",
+      "apiKeyHint": "Tu clave API se almacena localmente y nunca se envía a nuestros servidores.",
+      "testConnection": "Probar",
+      "noApiKey": "Por favor ingresa una clave API primero",
+      "invalidKeyFormat": "Formato de clave API inválido",
+      "features": "Funcionalidades",
+      "inlineCompletion": "Autocompletado Inline",
+      "inlineCompletionDesc": "Obtén sugerencias de código con IA mientras escribes",
+      "chatPanel": "Panel de Chat IA",
+      "chatPanelDesc": "Abre el panel de chat para preguntar sobre tu código",
+      "advanced": "Avanzado",
+      "maxTokens": "Tokens Máximos",
+      "temperature": "Temperatura",
+      "temperatureHint": "Valores bajos para resultados más enfocados, altos para más creatividad",
+      "local": {
+        "serverConfig": "Configuración del Servidor Local",
+        "baseURL": "URL del Servidor",
+        "baseURLHint": "La URL base de tu servidor de IA local (LM Studio, Ollama, etc.). Generalmente termina con /v1",
+        "modelPlaceholder": "Nombre del modelo (ej: llama3)",
+        "refreshModels": "Actualizar modelos disponibles",
+        "noBaseURL": "Por favor ingresa una URL de servidor primero",
+        "invalidURL": "Formato de URL de servidor inválido"
+      }
+    },
     "snippets": {
       "description": "Guarda fragmentos de código utilizados frecuentemente para un acceso rápido.",
       "saveCurrent": "Guardar código actual",
@@ -149,5 +178,13 @@
     "submit": "Enviar",
     "cancel": "Cancelar",
     "hint": "Enter para enviar, Escape para cancelar"
+  },
+  "chat": {
+    "clear": "Limpiar chat",
+    "notConfigured": "Configura tu proveedor de IA en Ajustes para comenzar a chatear.",
+    "welcome": "¡Pregúntame cualquier cosa sobre tu código!",
+    "includeCode": "Incluir código",
+    "placeholder": "Pregunta sobre tu código...",
+    "configureFirst": "Configura la IA en Ajustes primero"
   }
 }

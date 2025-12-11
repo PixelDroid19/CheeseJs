@@ -16,6 +16,7 @@ const Settings = lazy(() => import('./components/Settings/Settings'));
 import CodeEditor from './components/Editor';
 import ResultDisplay from './components/Result';
 import { InputTooltip } from './components/InputTooltip';
+import { AIChat } from './components/AI/AIChat';
 
 function App() {
   const { setMagicComments } = useSettingsStore();
@@ -66,6 +67,7 @@ function App() {
       </Suspense>
       <FloatingToolbar />
       <InputTooltip />
+      <AIChat />
       <Layout>
         <RecoverableErrorBoundary
           fallback={<EditorFallback />}

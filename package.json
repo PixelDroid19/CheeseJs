@@ -29,6 +29,9 @@
     "prerelease": "npm run quality && npm run audit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.54",
+    "@ai-sdk/google": "^2.0.45",
+    "@ai-sdk/openai": "^2.0.80",
     "@babel/core": "^7.28.5",
     "@babel/plugin-proposal-decorators": "^7.28.0",
     "@babel/plugin-transform-async-generator-functions": "^7.28.0",
@@ -36,6 +39,7 @@
     "@emotion/is-prop-valid": "^1.4.0",
     "@swc/core": "^1.15.3",
     "@vscode/vscode-languagedetection": "^1.0.22",
+    "ai": "6.0.0-beta.144",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.25",
     "i18next": "^25.7.1",
@@ -52,6 +56,7 @@
     "rollup": "^4.53.3",
     "stringify-object": "^6.0.0",
     "tailwind-merge": "^3.4.0",
+    "zod": "^4.1.13",
     "zustand": "^5.0.9"
   },
   "devDependencies": {

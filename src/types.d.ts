@@ -126,8 +126,8 @@ interface Window {
   packageManager: PackageManager;
   pythonPackageManager: PythonPackageManager;
   // E2E testing properties
-  monaco?: unknown;
-  editor?: unknown;
+  monaco?: typeof import('monaco-editor');
+  editor?: import('monaco-editor').editor.IStandaloneCodeEditor;
   useCodeStore?: unknown;
 }
 

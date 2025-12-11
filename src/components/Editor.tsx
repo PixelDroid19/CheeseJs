@@ -22,6 +22,7 @@ import { registerPythonLanguage } from '../lib/python';
 import { editor } from 'monaco-editor';
 import { configureMonaco, setupMonacoEnvironment } from '../utils/monaco-config';
 import { EditorErrorBoundary } from './editor-error-boundary';
+import { createInlineCompletionProvider, registerAICodeActions } from '../lib/ai';
 
 // Setup Monaco workers before initialization
 setupMonacoEnvironment();
@@ -59,6 +60,8 @@ function CodeEditor() {
   const ataDisposeRef = useRef<(() => void) | null>(null);
   const lastCursorPositionRef = useRef<monaco.IPosition | null>(null);
   const lastLocalCodeRef = useRef<string | null>(null);
+  const inlineCompletionDisposableRef = useRef<monaco.IDisposable | null>(null);
+  const aiCodeActionsDisposablesRef = useRef<monaco.IDisposable[]>([]);
 
   const { runCode } = useCodeRunner();
 
@@ -77,6 +80,12 @@ function CodeEditor() {
       if (ataDisposeRef.current) {
         ataDisposeRef.current();
       }
+      // Dispose AI inline completion provider
+      if (inlineCompletionDisposableRef.current) {
+        inlineCompletionDisposableRef.current.dispose();
+      }
+      // Dispose AI code actions
+      aiCodeActionsDisposablesRef.current.forEach((d) => d.dispose());
     };
   }, []);
 
@@ -305,6 +314,27 @@ function CodeEditor() {
       editorInstance.onDidChangeCursorPosition((e) => {
         lastCursorPositionRef.current = e.position;
       });
+
+      // Register AI inline completion provider
+      try {
+        const inlineProvider = createInlineCompletionProvider(monaco);
+        // Register for all languages
+        inlineCompletionDisposableRef.current = monaco.languages.registerInlineCompletionsProvider(
+          { pattern: '**' },
+          inlineProvider
+        );
+        console.log('[Editor] AI inline completion provider registered');
+      } catch (err) {
+        console.warn('[Editor] Failed to register AI inline completion provider:', err);
+      }
+
+      // Register AI code actions (refactor, explain, document, fix)
+      try {
+        aiCodeActionsDisposablesRef.current = registerAICodeActions(monaco, editorInstance);
+        console.log('[Editor] AI code actions registered');
+      } catch (err) {
+        console.warn('[Editor] Failed to register AI code actions:', err);
+      }
     },
     [runCode, cleanupModels, detectLanguageAsync, setLanguage, applyLanguageToMonaco]
   );

@@ -27,6 +27,35 @@
       "snippets": "Manage your reusable code snippets",
       "advanced": "Advanced settings and developer options"
     },
+    "ai": {
+      "provider": "AI Provider",
+      "selectProvider": "Provider",
+      "model": "Model",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter your API key...",
+      "apiKeyHint": "Your API key is stored locally and never sent to our servers.",
+      "testConnection": "Test",
+      "noApiKey": "Please enter an API key first",
+      "invalidKeyFormat": "Invalid API key format",
+      "features": "Features",
+      "inlineCompletion": "Inline Completion",
+      "inlineCompletionDesc": "Get AI-powered code suggestions as you type",
+      "chatPanel": "AI Chat Panel",
+      "chatPanelDesc": "Open chat panel to ask questions about your code",
+      "advanced": "Advanced",
+      "maxTokens": "Max Tokens",
+      "temperature": "Temperature",
+      "temperatureHint": "Lower values for more focused output, higher for more creative",
+      "local": {
+        "serverConfig": "Local Server Configuration",
+        "baseURL": "Server URL",
+        "baseURLHint": "The base URL of your local AI server (LM Studio, Ollama, etc.). Usually ends with /v1",
+        "modelPlaceholder": "Model name (e.g., llama3)",
+        "refreshModels": "Refresh available models",
+        "noBaseURL": "Please enter a server URL first",
+        "invalidURL": "Invalid server URL format"
+      }
+    },
     "snippets": {
       "description": "Save frequently used code snippets for quick access.",
       "saveCurrent": "Save Current Code",
@@ -138,5 +167,13 @@
     "submit": "Submit",
     "cancel": "Cancel",
     "hint": "Press Enter to submit, Escape to cancel"
+  },
+  "chat": {
+    "clear": "Clear chat",
+    "notConfigured": "Configure your AI provider in Settings to start chatting.",
+    "welcome": "Ask me anything about your code!",
+    "includeCode": "Include code",
+    "placeholder": "Ask about your code...",
+    "configureFirst": "Configure AI in Settings first"
   }
 }
