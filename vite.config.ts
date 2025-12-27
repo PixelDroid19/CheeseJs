@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { resolve } from 'path'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import react from '@vitejs/plugin-react'
@@ -10,6 +11,8 @@ export default defineConfig(({ mode }) => ({
     alias: {
       // Use path-browserify for browser environment
       path: 'path-browserify',
+      // Shim @emotion/is-prop-valid to avoid dynamic require issues
+      '@emotion/is-prop-valid': resolve(__dirname, 'src/lib/shims/is-prop-valid.ts'),
     },
   },
   plugins: [

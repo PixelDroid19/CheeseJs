@@ -45,6 +45,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Test
+        run: pnpm run test -- --run
+
       - name: Build Electron app
         run: pnpm build
         env:
