@@ -7,7 +7,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    ignores: ['dist', 'dist-electron', 'node_modules', 'coverage'],
+    ignores: ['dist', 'dist-electron', 'node_modules', 'coverage', 'electron/**/*.js'],
   },
   js.configs.recommended,
   {

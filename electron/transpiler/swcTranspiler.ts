@@ -4,11 +4,25 @@
  * High-performance TypeScript/JSX transpilation using SWC (20-70x faster than TSC).
  * Provides the same API as tsTranspiler for drop-in replacement.
  * 
- * Supports:
- * - ES2024/2025 features
- * - Modern decorators (2022-03)
- * - JSX/TSX support
- * - Dynamic imports
+ * Supports ES2024/2025 Features:
+ * - Iterator helpers (Iterator.from(), .map(), .filter(), .take(), .drop())
+ * - Set methods (union, intersection, difference, symmetricDifference)
+ * - Promise.withResolvers()
+ * - Object.groupBy(), Map.groupBy()
+ * - Resizable ArrayBuffer
+ * - Using declarations (explicit resource management)
+ * - RegExp v flag (set notation)
+ * - ArrayBuffer.prototype.transfer()
+ * 
+ * Supports TypeScript 5.x Features:
+ * - Modern decorators (Stage 3 - 2022-03)
+ * - Import attributes (with { type: 'json' })
+ * - using/await using declarations (explicit resource management)
+ * - satisfies operator
+ * - const type parameters
+ * - Variadic tuple improvements
+ * - NoInfer<T> utility type
+ * - Isolated declarations (erasable syntax)
  */
 
 import { transformSync, type Options } from '@swc/core'
@@ -24,6 +38,10 @@ export interface TransformOptions {
     experimentalDecorators?: boolean
     /** Enable JSX parsing */
     jsx?: boolean
+    /** Debug function name to use (default: 'debug') */
+    debugFunctionName?: string
+    /** Enable using declarations (explicit resource management) */
+    usingDeclarations?: boolean
 }
 
 /**
@@ -31,7 +49,9 @@ export interface TransformOptions {
  */
 function getSwcTarget(options?: TransformOptions): 'es2022' | 'esnext' {
     if (options?.targetVersion === 'ESNext') return 'esnext'
-    // SWC doesn't have es2024 yet, use es2022 as base
+    // SWC uses es2022 as highest stable target, but supports ES2024+ features
+    // via esnext when targeting latest features
+    if (options?.targetVersion === 'ES2024') return 'esnext'
     return 'es2022'
 }
 
@@ -42,7 +62,8 @@ function getSwcTarget(options?: TransformOptions): 'es2022' | 'esnext' {
  * - Import attributes: import data from './file.json' with { type: 'json' }
  * - Dynamic imports with attributes: import('./file.json', { with: { type: 'json' } })
  * - Modern decorators (Stage 3 - 2022-03)
- * - TypeScript 5.x features
+ * - TypeScript 5.x features (satisfies, const type params, using declarations)
+ * - Explicit resource management (using/await using)
  * 
  * Note: SWC 1.3+ automatically supports import attributes/assertions in parsing.
  * The parser handles the 'with' clause without explicit configuration.
@@ -62,17 +83,23 @@ export function transpileWithSWC(code: string, options?: TransformOptions): stri
             },
             target,
             transform: {
-                decoratorVersion: '2022-03',  // Modern decorators
+                // Modern decorators (Stage 3 - 2022-03)
+                decoratorVersion: '2022-03',
+                // Explicit resource management (using declarations)
+                // SWC handles this automatically when target is esnext
                 react: {
                     runtime: 'classic',
                     pragma: 'React.createElement',
                     pragmaFrag: 'React.Fragment'
                 }
             },
+            // Keep loose: false for spec compliance
             loose: false,
             externalHelpers: false,
-            // Preserve class names for better debugging
-            keepClassNames: true
+            // Preserve class names for better debugging and stack traces
+            keepClassNames: true,
+            // Preserve function names for debugging
+            preserveAllComments: false
         },
         module: {
             type: 'commonjs',
@@ -245,8 +272,8 @@ function wrapTopLevelExpressions(code: string): string {
             trimmed.startsWith('await debug(') ||
             trimmed.startsWith('yield ') ||
             trimmed.startsWith('.') ||
-            /^[\]\)\}]+;?$/.test(trimmed) ||
-            /^[,\]\}\)]+$/.test(trimmed)
+            /^[\])}]+;?$/.test(trimmed) ||
+            /^[,\]})]+$/.test(trimmed)
         ) {
             result.push(line)
             continue

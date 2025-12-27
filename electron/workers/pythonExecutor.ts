@@ -169,7 +169,7 @@ function rejectPendingInputs(executionId: string, error: Error) {
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
-  let timer: NodeJS.Timeout | null = null
+  let timer: ReturnType<typeof setTimeout> | null = null
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
   })
@@ -288,7 +288,7 @@ async function checkAndCleanMemory(py: PyodideInterface): Promise<void> {
   }
 
   // Check memory usage
-  const usage = await getMemoryUsage(py)
+  const _usage = await getMemoryUsage(py)
   
   // Update memory stats
   if (typeof process !== 'undefined' && process.memoryUsage) {
@@ -392,6 +392,7 @@ async function initializePyodide(): Promise<PyodideInterface> {
       await instance.loadPackage('micropip')
 
       // Set up debug function in Python
+      // We provide both 'debug' (legacy) and '__pyDebug' (language-specific) for compatibility
       instance.runPython(`
 import sys
 from io import StringIO
@@ -405,6 +406,9 @@ def debug(line, *args):
     _debug_outputs.append({'line': line, 'content': result})
     return args[0] if len(args) == 1 else args
 
+# Alias for language-specific debug function
+__pyDebug = debug
+
 def _get_debug_outputs():
     """Get and clear debug outputs"""
     global _debug_outputs
@@ -412,10 +416,11 @@ def _get_debug_outputs():
     _debug_outputs = []
     return outputs
 
-# Make debug function available in the global namespace
-# Using globals() for compatibility across Pyodide versions
+# Make debug functions available in the global namespace
+# Using builtins for compatibility across Pyodide versions
 import builtins
 setattr(builtins, 'debug', debug)
+setattr(builtins, '__pyDebug', __pyDebug)
 setattr(builtins, '_get_debug_outputs', _get_debug_outputs)
 `)
 

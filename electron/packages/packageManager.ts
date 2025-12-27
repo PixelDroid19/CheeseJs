@@ -154,11 +154,11 @@ export async function installPackage(packageName: string): Promise<PackageInstal
       env: { ...process.env }
     })
 
-    let stdout = ''
+    let _stdout = ''
     let stderr = ''
 
     child.stdout?.on('data', (data) => {
-      stdout += data.toString()
+      _stdout += data.toString()
       console.log(`[PackageManager] stdout: ${data}`)
     })
 

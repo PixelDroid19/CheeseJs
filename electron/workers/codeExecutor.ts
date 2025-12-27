@@ -141,7 +141,7 @@ function serializeValue(val: unknown): { content: string; jsType: string } {
 /**
  * Create a sandboxed console that forwards to parent
  */
-function createSandboxConsole(executionId: string): Console {
+function createSandboxConsole(executionId: string): typeof console {
   const sendConsole = (type: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir', args: unknown[]) => {
     const content = args.map(arg => customInspect(arg)).join(' ')
     parentPort?.postMessage({
@@ -188,7 +188,7 @@ function createSandboxConsole(executionId: string): Console {
     timeStamp: () => { /* no-op */ },
     profile: () => { /* no-op */ },
     profileEnd: () => { /* no-op */ }
-  } as Console
+  } as typeof console
 }
 
 /**
@@ -244,7 +244,7 @@ function createRequireFunction() {
   return (moduleName: string) => {
     try {
       return customRequire(moduleName)
-    } catch (error) {
+    } catch {
       // SECURITY: Don't expose system paths in error messages
       throw new Error(`Cannot find module '${moduleName}'. Please install it first.`)
     }
@@ -288,7 +288,7 @@ function createCancellationCheckFunction(): () => boolean {
  */
 function createSandboxContext(executionId: string, options: ExecuteOptions): vm.Context {
   const console = createSandboxConsole(executionId)
-  const debug = createDebugFunction(executionId, options.showUndefined ?? false)
+  const debugFunc = createDebugFunction(executionId, options.showUndefined ?? false)
   const require = createRequireFunction()
   const checkCancellation = createCancellationCheckFunction()
 
@@ -298,9 +298,11 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
 
   // Safe globals whitelist
   const globals: Record<string, unknown> = {
-    // Console and debug
+    // Console and debug functions
+    // We provide both 'debug' (legacy) and '__jsDebug' (language-specific) for compatibility
     console,
-    debug,
+    debug: debugFunc,
+    __jsDebug: debugFunc,
 
     // Cancellation checkpoint for cooperative cancellation
     __checkCancellation__: checkCancellation,

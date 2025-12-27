@@ -37,6 +37,17 @@ export default defineConfig(({ mode }) => ({
         entry: 'electron/workers/pythonExecutor.ts',
       },
       {
+        // SWC transpiler worker (dedicated worker for 20-70x faster transpilation)
+        entry: 'electron/workers/swcTranspilerWorker.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['@swc/core']
+            }
+          }
+        }
+      },
+      {
         // TypeScript transpiler module (legacy)
         entry: 'electron/transpiler/tsTranspiler.ts',
       },
@@ -50,6 +61,10 @@ export default defineConfig(({ mode }) => ({
             }
           }
         }
+      },
+      {
+        // Executor Registry module
+        entry: 'electron/executor/ExecutorRegistry.ts',
       },
       {
         // Package manager module

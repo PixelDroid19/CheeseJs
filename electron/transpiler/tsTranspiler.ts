@@ -274,9 +274,9 @@ function wrapTopLevelExpressions(code: string): string {
       // Skip method chaining (lines starting with .)
       trimmed.startsWith('.') ||
       // Skip closing brackets with just semicolons
-      /^[\]\)\}]+;?$/.test(trimmed) ||
+      /^[\])}]+;?$/.test(trimmed) ||
       // Skip lines that are just commas or array/object continuations
-      /^[,\]\}\)]+$/.test(trimmed)
+      /^[,\]})]+$/.test(trimmed)
     ) {
       result.push(line)
       continue

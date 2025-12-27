@@ -106,8 +106,8 @@ export class WorkerPool extends EventEmitter {
   private activeJobs: Map<string, { workerId: string; startTime: number }> = new Map()
   
   private workerIdCounter = 0
-  private healthCheckInterval: NodeJS.Timeout | null = null
-  private scaleDownTimeout: NodeJS.Timeout | null = null
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null
+  private scaleDownTimeout: ReturnType<typeof setTimeout> | null = null
   
   private totalExecutions = 0
   private totalExecutionTime = 0

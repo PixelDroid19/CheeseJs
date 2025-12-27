@@ -425,7 +425,8 @@ function CodeEditor() {
     <div className="h-full w-full">
       <Editor
         // Use a generic path - we control language via setModelLanguage
-        path="code.txt"
+        // Using .ts extension ensures TypeScript features work correctly when in TS mode
+        path="code.ts"
         defaultLanguage="typescript"
         // Pass language prop to help Monaco - but we also set it manually
         language={language}

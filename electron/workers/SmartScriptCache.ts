@@ -36,6 +36,8 @@ interface SmartScriptCacheOptions {
     k?: number          // K value for LRU-K (default 2)
 }
 
+export type { SmartScriptCacheOptions }
+
 // ============================================================================
 // SMART SCRIPT CACHE
 // ============================================================================

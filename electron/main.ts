@@ -14,7 +14,7 @@ import {
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
-let win: any | null
+let win: BrowserWindow | null
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
@@ -218,7 +218,7 @@ async function executeCode(request: ExecutionRequest): Promise<unknown> {
 }
 
 // Track pending cancellations for forced termination
-const pendingCancellations = new Map<string, NodeJS.Timeout>()
+const pendingCancellations = new Map<string, ReturnType<typeof setTimeout>>()
 
 // Timeout before forcing worker termination (ms)
 const FORCE_TERMINATION_TIMEOUT = 2000

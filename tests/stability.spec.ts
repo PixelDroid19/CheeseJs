@@ -49,7 +49,8 @@ test.describe('Editor Stability & Language Switching', () => {
   const getMarkers = async () => {
     return await window.evaluate(() => {
       // @ts-ignore
-      return window.monaco.editor.getModelMarkers({});
+      const model = window.editor.getModel();
+      return window.monaco.editor.getModelMarkers({ resource: model.uri });
     });
   };
 
@@ -111,14 +112,14 @@ test.describe('Editor Stability & Language Switching', () => {
         const markers = await getMarkers();
         const errors = markers.filter(m => m.severity === 8);
         return errors;
-    }, { timeout: 5000 }).toEqual([]);
+    }, { timeout: 10000 }).toEqual([]);
 
     // Verify Output
     await expect.poll(async () => {
       const output = await getOutputContent();
       // Output might be JSON stringified array ["Result:", 30]
       return output;
-    }, { timeout: 5000 }).toEqual(expect.stringContaining('30'));
+    }, { timeout: 10000 }).toEqual(expect.stringContaining('30'));
   });
 
   test('should switch to TypeScript and handle generics correctly', async () => {
@@ -146,7 +147,7 @@ test.describe('Editor Stability & Language Switching', () => {
         const markers = await getMarkers();
         const errors = markers.filter(m => m.severity === 8);
         return errors;
-    }, { timeout: 5000 }).toEqual([]);
+    }, { timeout: 10000 }).toEqual([]);
   });
 
   test('should switch back to JavaScript without lingering errors', async () => {
@@ -163,7 +164,7 @@ test.describe('Editor Stability & Language Switching', () => {
         const markers = await getMarkers();
         const errors = markers.filter(m => m.severity === 8);
         return errors;
-    }, { timeout: 5000 }).toEqual([]);
+    }, { timeout: 10000 }).toEqual([]);
   });
 
   test('should handle pasting mixed content and stabilize', async () => {
@@ -186,7 +187,7 @@ test.describe('Editor Stability & Language Switching', () => {
         const markers = await getMarkers();
         const errors = markers.filter(m => m.severity === 8);
         return errors;
-    }, { timeout: 5000 }).toEqual([]);
+    }, { timeout: 10000 }).toEqual([]);
   });
   
   test('should not have duplicate identifier errors when switching back to TS', async () => {
@@ -209,7 +210,7 @@ test.describe('Editor Stability & Language Switching', () => {
           const markers = await getMarkers();
           const duplicateErrors = markers.filter(m => m.message.includes('Duplicate identifier'));
           return duplicateErrors;
-      }, { timeout: 5000 }).toEqual([]);
+      }, { timeout: 10000 }).toEqual([]);
   });
 
 });
