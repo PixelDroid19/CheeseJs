@@ -3,6 +3,12 @@
  * 
  * High-performance TypeScript/JSX transpilation using SWC (20-70x faster than TSC).
  * Provides the same API as tsTranspiler for drop-in replacement.
+ * 
+ * Supports:
+ * - ES2024/2025 features
+ * - Modern decorators (2022-03)
+ * - JSX/TSX support
+ * - Dynamic imports
  */
 
 import { transformSync, type Options } from '@swc/core'
@@ -12,24 +18,51 @@ export interface TransformOptions {
     loopProtection?: boolean
     magicComments?: boolean
     showUndefined?: boolean
+    /** Target ECMAScript version */
+    targetVersion?: 'ES2022' | 'ES2024' | 'ESNext'
+    /** Enable experimental decorators (legacy) or use modern decorators */
+    experimentalDecorators?: boolean
+    /** Enable JSX parsing */
+    jsx?: boolean
+}
+
+/**
+ * Get SWC target based on options
+ */
+function getSwcTarget(options?: TransformOptions): 'es2022' | 'esnext' {
+    if (options?.targetVersion === 'ESNext') return 'esnext'
+    // SWC doesn't have es2024 yet, use es2022 as base
+    return 'es2022'
 }
 
 /**
  * Transpile TypeScript/JSX code using SWC
+ * 
+ * Supports:
+ * - Import attributes: import data from './file.json' with { type: 'json' }
+ * - Dynamic imports with attributes: import('./file.json', { with: { type: 'json' } })
+ * - Modern decorators (Stage 3 - 2022-03)
+ * - TypeScript 5.x features
+ * 
+ * Note: SWC 1.3+ automatically supports import attributes/assertions in parsing.
+ * The parser handles the 'with' clause without explicit configuration.
  */
-export function transpileWithSWC(code: string): string {
+export function transpileWithSWC(code: string, options?: TransformOptions): string {
+    const target = getSwcTarget(options)
+    
     const swcOptions: Options = {
         filename: 'index.tsx',
         jsc: {
             parser: {
                 syntax: 'typescript',
-                tsx: true,
-                decorators: true,
+                tsx: options?.jsx !== false,
+                decorators: options?.experimentalDecorators ?? true,
                 dynamicImport: true
+                // Import attributes are automatically supported in SWC 1.3+
             },
-            target: 'es2022',
+            target,
             transform: {
-                decoratorVersion: '2022-03',
+                decoratorVersion: '2022-03',  // Modern decorators
                 react: {
                     runtime: 'classic',
                     pragma: 'React.createElement',
@@ -37,13 +70,17 @@ export function transpileWithSWC(code: string): string {
                 }
             },
             loose: false,
-            externalHelpers: false
+            externalHelpers: false,
+            // Preserve class names for better debugging
+            keepClassNames: true
         },
         module: {
             type: 'commonjs',
             strict: false,
             strictMode: false,
-            noInterop: false
+            noInterop: false,
+            // Import assertions/attributes interop
+            importInterop: 'swc'
         },
         sourceMaps: false,
         isModule: true
@@ -315,8 +352,8 @@ export function transformCode(
             processedCode = applyMagicComments(code)
         }
 
-        // Step 2: Transpile TS/JSX with SWC (much faster than TSC)
-        const transpiled = transpileWithSWC(processedCode)
+        // Step 2: Transpile TS/JSX with SWC (much faster than TSC), passing options
+        const transpiled = transpileWithSWC(processedCode, options)
 
         // Step 3: Apply other code transformations
         const transformed = applyCodeTransforms(transpiled, options)

@@ -3,6 +3,12 @@
  * 
  * Provides TypeScript/JSX transpilation using the TypeScript Compiler API
  * for code transformations (debug injection, loop protection, etc.)
+ * 
+ * Supports:
+ * - ES2024/2025 features (Iterator helpers, Set methods, Promise.withResolvers)
+ * - TypeScript 5.8+ features (granular return checks, erasable syntax)
+ * - Modern decorators (Stage 3 - 2022-03)
+ * - JSX/TSX support
  */
 
 import ts from 'typescript'
@@ -12,26 +18,68 @@ export interface TransformOptions {
   loopProtection?: boolean
   magicComments?: boolean
   showUndefined?: boolean
+  /** Target ECMAScript version */
+  targetVersion?: 'ES2022' | 'ES2024' | 'ESNext'
+  /** Enable experimental decorators (legacy) or use modern decorators */
+  experimentalDecorators?: boolean
+  /** Enable JSX parsing */
+  jsx?: boolean
+}
+
+/**
+ * Get TypeScript compiler options for modern ECMAScript
+ * 
+ * TypeScript 5.8+ Features:
+ * - Import attributes (with { type: 'json' }) - requires moduleResolution: NodeNext
+ * - Granular return type checks
+ * - Erasable syntax for type-only constructs
+ */
+function getCompilerOptions(options?: TransformOptions): ts.CompilerOptions {
+  // Use ES2022 as base since TypeScript doesn't have ES2024 target yet
+  // Node.js 22+ supports ES2024 features natively
+  const target = options?.targetVersion === 'ESNext' 
+    ? ts.ScriptTarget.ESNext 
+    : ts.ScriptTarget.ES2022
+
+  return {
+    // Module system - CommonJS for require() support in worker sandbox
+    module: ts.ModuleKind.CommonJS,
+    // Enable Node16/NodeNext module resolution for import attributes support
+    // This allows: import data from './data.json' with { type: 'json' }
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    target,
+    jsx: options?.jsx !== false ? ts.JsxEmit.React : ts.JsxEmit.None,
+    esModuleInterop: true,
+    allowSyntheticDefaultImports: true,
+    // Import attributes support (TypeScript 5.3+)
+    // Allows: import attributes in static/dynamic imports
+    resolveJsonModule: true,
+    // Decorators
+    experimentalDecorators: options?.experimentalDecorators ?? true,
+    emitDecoratorMetadata: false,
+    useDefineForClassFields: true,  // Modern class fields behavior
+    strict: false,
+    skipLibCheck: true,
+    noEmit: false,
+    sourceMap: false,
+    // Modern features support
+    downlevelIteration: true,  // Support for iterators
+    importHelpers: false,      // Don't require tslib
+    // Verbatim module syntax for cleaner ESM/CJS interop (TS 5.0+)
+    verbatimModuleSyntax: false,  // Keep false for CJS output compatibility
+    // Allow importing from .ts extensions directly
+    allowImportingTsExtensions: false,
+  }
 }
 
 /**
  * Transform code using TypeScript Compiler
  */
-export function transpileWithTypeScript(code: string): string {
+export function transpileWithTypeScript(code: string, options?: TransformOptions): string {
+  const compilerOptions = getCompilerOptions(options)
+  
   const result = ts.transpileModule(code, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS, // Use CommonJS for require() support
-      target: ts.ScriptTarget.ES2022,
-      jsx: ts.JsxEmit.React,
-      esModuleInterop: true,
-      allowSyntheticDefaultImports: true,
-      experimentalDecorators: true,
-      emitDecoratorMetadata: false,
-      strict: false,
-      skipLibCheck: true,
-      noEmit: false,
-      sourceMap: false
-    },
+    compilerOptions,
     fileName: 'index.tsx'
   })
 
@@ -282,8 +330,8 @@ export function transformCode(
       console.log('[tsTranspiler] After magic comments:', processedCode)
     }
 
-    // Step 2: Transpile TS/JSX with TypeScript
-    const transpiled = transpileWithTypeScript(processedCode)
+    // Step 2: Transpile TS/JSX with TypeScript (passing options for ES target)
+    const transpiled = transpileWithTypeScript(processedCode, options)
     console.log('[tsTranspiler] After TS transpilation:', transpiled)
 
     // Step 3: Apply other code transformations

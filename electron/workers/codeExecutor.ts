@@ -318,7 +318,9 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     setImmediate,
     clearImmediate,
 
-    // Standard constructors
+    // ========================================================================
+    // STANDARD CONSTRUCTORS (ES5-ES2021)
+    // ========================================================================
     Array,
     ArrayBuffer,
     BigInt,
@@ -357,10 +359,39 @@ function createSandboxContext(executionId: string, options: ExecuteOptions): vm.
     URIError,
     WeakMap,
     WeakSet,
-    // WeakRef and FinalizationRegistry (available in Node.js 14.6+ / ES2021)
-    // Access via globalThis since target is ES2020
+    // ES2021
     WeakRef: 'WeakRef' in globalThis ? (globalThis as Record<string, unknown>).WeakRef : undefined,
     FinalizationRegistry: 'FinalizationRegistry' in globalThis ? (globalThis as Record<string, unknown>).FinalizationRegistry : undefined,
+    AggregateError: 'AggregateError' in globalThis ? (globalThis as Record<string, unknown>).AggregateError : undefined,
+
+    // ========================================================================
+    // ES2024 FEATURES (Node.js 22+)
+    // ========================================================================
+    
+    // Promise.withResolvers - convenient way to create promise with external resolve/reject
+    // Already available on Promise object, no extra global needed
+    
+    // Object.groupBy and Map.groupBy - grouping arrays into objects/maps
+    // Already available on Object and Map, no extra global needed
+    
+    // ========================================================================
+    // ES2025 FEATURES (Node.js 22+)
+    // ========================================================================
+    
+    // Iterator global with helper methods (map, filter, take, drop, etc.)
+    Iterator: 'Iterator' in globalThis ? (globalThis as Record<string, unknown>).Iterator : undefined,
+    
+    // Float16Array - 16-bit floating point array (ES2025)
+    Float16Array: 'Float16Array' in globalThis ? (globalThis as Record<string, unknown>).Float16Array : undefined,
+    
+    // ========================================================================
+    // RESOURCE MANAGEMENT (Explicit Resource Management - Stage 3+)
+    // ========================================================================
+    
+    // DisposableStack and AsyncDisposableStack for using/await using
+    DisposableStack: 'DisposableStack' in globalThis ? (globalThis as Record<string, unknown>).DisposableStack : undefined,
+    AsyncDisposableStack: 'AsyncDisposableStack' in globalThis ? (globalThis as Record<string, unknown>).AsyncDisposableStack : undefined,
+    // Symbol.dispose and Symbol.asyncDispose are already on Symbol
 
     // WebAssembly
     WebAssembly,
