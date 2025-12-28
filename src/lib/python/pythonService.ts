@@ -197,7 +197,6 @@ export function updateEditorLanguage(
     const currentLang = model.getLanguageId();
     if (currentLang !== language) {
       monaco.editor.setModelLanguage(model, language);
-      console.log(`[Python] Language changed: ${currentLang} -> ${language}`);
     }
   }
 

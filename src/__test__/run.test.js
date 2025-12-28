@@ -4,7 +4,7 @@ import { Colors } from '../lib/elementParser';
 // Tests that the function returns a string
 describe('transformCode fn', () => {
   it('test_returns_string', () => {
-    const code = 'console.log("Hello, world!");';
+    const code = 'console.log("test")';
     const result = transformCode(code);
     expect(typeof result).toBe('string');
   });
@@ -45,7 +45,7 @@ describe('transformCode fn', () => {
 
   // Tests that the function handles input with no semicolons
   it('test_handles_input_with_no_semicolons', () => {
-    const code = 'const a = 1\nconsole.log(a)';
+    const code = 'const a = 1\nconst b = 2';
     const result = transformCode(code, { internalLogLevel: 'debug' });
 
     expect(result).toContain('const a = 1;');

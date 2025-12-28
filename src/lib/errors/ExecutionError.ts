@@ -277,7 +277,7 @@ export class ExecutionError extends Error {
 export function detectErrorCategory(
   errorName: string,
   errorMessage: string,
-  language: 'javascript' | 'typescript' | 'python'
+  _language: 'javascript' | 'typescript' | 'python'
 ): ErrorCategory {
   const lowerMessage = errorMessage.toLowerCase();
   const lowerName = errorName.toLowerCase();
@@ -440,8 +440,7 @@ export function generateSuggestions(
     case ErrorCategory.TIMEOUT:
       suggestions.push({
         title: 'Check for infinite loops',
-        description:
-          'Make sure your loops have proper exit conditions.',
+        description: 'Make sure your loops have proper exit conditions.',
       });
       suggestions.push({
         title: 'Reduce computation',
@@ -548,6 +547,11 @@ export function shouldDisplayError(error: ExecutionError): boolean {
     return false;
   }
 
+  // Always display syntax errors (they are user errors)
+  if (error.category === ErrorCategory.SYNTAX) {
+    return true;
+  }
+
   // Don't display internal Pyodide errors
   if (
     error.originalMessage.includes('_pyodide') ||
@@ -558,4 +562,3 @@ export function shouldDisplayError(error: ExecutionError): boolean {
 
   return true;
 }
-

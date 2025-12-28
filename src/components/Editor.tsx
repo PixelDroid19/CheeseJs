@@ -20,7 +20,10 @@ import {
 import { setupTypeAcquisition } from '../lib/ata';
 import { registerPythonLanguage } from '../lib/python';
 import { editor } from 'monaco-editor';
-import { configureMonaco, setupMonacoEnvironment } from '../utils/monaco-config';
+import {
+  configureMonaco,
+  setupMonacoEnvironment,
+} from '../utils/monaco-config';
 import { EditorErrorBoundary } from './editor-error-boundary';
 
 // Setup Monaco workers before initialization
@@ -80,20 +83,20 @@ function CodeEditor() {
     };
   }, []);
 
-  // Protected URIs that should never be disposed
-  const PROTECTED_URIS = [
-    'result-output.js',
-    'code.txt',
-    'ts:node-globals.d.ts',
-    'inmemory://model/', // Base model path
-  ];
-
   /**
    * Safely cleanup old Monaco models to prevent memory leaks.
    * Implements multiple safety checks to avoid disposing models that are still in use.
    */
   const cleanupModels = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor) => {
+      // Protected URIs that should never be disposed
+      const PROTECTED_URIS = [
+        'result-output.js',
+        'code.txt',
+        'ts:node-globals.d.ts',
+        'inmemory://model/', // Base model path
+      ];
+
       const currentModel = editorInstance.getModel();
       const currentUri = currentModel?.uri.toString();
 
@@ -119,7 +122,9 @@ function CodeEditor() {
         }
 
         // Skip protected URIs
-        if (PROTECTED_URIS.some((protected_uri) => uri.includes(protected_uri))) {
+        if (
+          PROTECTED_URIS.some((protected_uri) => uri.includes(protected_uri))
+        ) {
           return;
         }
 
@@ -136,28 +141,27 @@ function CodeEditor() {
           m.getValue();
           modelsToDispose.push(m);
         } catch {
-          console.warn(`[Editor] Skipping model ${uri} - may be in invalid state`);
+          console.warn(
+            `[Editor] Skipping model ${uri} - may be in invalid state`
+          );
         }
       });
 
       // Second pass: delayed disposal to give Monaco time to release references
       if (modelsToDispose.length > 0) {
-        console.log(
-          `[Editor] Scheduling cleanup of ${modelsToDispose.length} models`
-        );
-
         // Use setTimeout to defer disposal and avoid race conditions
         setTimeout(() => {
           modelsToDispose.forEach((m) => {
             try {
               if (!m.isDisposed()) {
-                const uri = m.uri.toString();
-                console.log(`[Editor] Disposing model: ${uri}`);
                 m.dispose();
               }
             } catch (e) {
               // Silently handle errors - model may have been disposed elsewhere
-              console.debug('[Editor] Error disposing model (may be expected):', e);
+              console.debug(
+                '[Editor] Error disposing model (may be expected):',
+                e
+              );
             }
           });
         }, 100); // Small delay to allow Monaco to release references
@@ -275,9 +279,6 @@ function CodeEditor() {
               !model.isDisposed() &&
               detected.monacoId !== model.getLanguageId()
             ) {
-              console.log(
-                `[Editor] Initial ML detection: ${detected.monacoId} (confidence: ${(detected.confidence * 100).toFixed(1)}%)`
-              );
               monaco.editor.setModelLanguage(model, detected.monacoId);
               setLanguage(detected.monacoId);
             }
@@ -306,7 +307,13 @@ function CodeEditor() {
         lastCursorPositionRef.current = e.position;
       });
     },
-    [runCode, cleanupModels, detectLanguageAsync, setLanguage, applyLanguageToMonaco]
+    [
+      runCode,
+      cleanupModels,
+      detectLanguageAsync,
+      setLanguage,
+      applyLanguageToMonaco,
+    ]
   );
 
   const debouncedRunner = useDebouncedFunction(runCode, 150);
@@ -350,23 +357,16 @@ function CodeEditor() {
 
         // Check if result is stale (version changed during async detection)
         if (currentVersion !== versionAtStart) {
-          console.log(
-            `[Editor] Discarding stale ML result (version ${versionAtStart} -> ${currentVersion})`
-          );
           return;
         }
 
         // Also check for isStale flag from store
         if ((detected as { isStale?: boolean }).isStale) {
-          console.log('[Editor] ML result marked as stale, skipping');
           return;
         }
 
         // Only update if ML has good confidence and differs from current
         if (detected.monacoId !== currentLang && detected.confidence > 0.7) {
-          console.log(
-            `[Editor] ML refined: ${detected.monacoId} (${(detected.confidence * 100).toFixed(0)}%, was ${currentLang})`
-          );
           lastDetectedRef.current = detected.monacoId;
           setLanguageRef.current(detected.monacoId);
         }
@@ -402,9 +402,6 @@ function CodeEditor() {
             quick.monacoId !== currentLang &&
             quick.confidence >= 0.9
           ) {
-            console.log(
-              `[Editor] Heuristic: ${quick.monacoId} (${(quick.confidence * 100).toFixed(0)}%)`
-            );
             lastDetectedRef.current = quick.monacoId;
             setLanguageRef.current(quick.monacoId);
           }

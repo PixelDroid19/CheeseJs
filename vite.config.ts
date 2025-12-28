@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite'
-import { resolve } from 'path'
-import electron from 'vite-plugin-electron'
-import renderer from 'vite-plugin-electron-renderer'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from 'vite';
+import { resolve } from 'path';
+import electron from 'vite-plugin-electron';
+import renderer from 'vite-plugin-electron-renderer';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -12,7 +12,10 @@ export default defineConfig(({ mode }) => ({
       // Use path-browserify for browser environment
       path: 'path-browserify',
       // Shim @emotion/is-prop-valid to avoid dynamic require issues
-      '@emotion/is-prop-valid': resolve(__dirname, 'src/lib/shims/is-prop-valid.ts'),
+      '@emotion/is-prop-valid': resolve(
+        __dirname,
+        'src/lib/shims/is-prop-valid.ts'
+      ),
     },
   },
   plugins: [
@@ -22,22 +25,59 @@ export default defineConfig(({ mode }) => ({
       {
         // Main-Process entry file of the Electron App.
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['typescript'],
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
       },
       {
         entry: 'electron/preload.ts',
         onstart(options) {
-          // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, 
+          // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete,
           // instead of restarting the entire Electron App.
-          options.reload()
+          options.reload();
+        },
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                format: 'es',
+              },
+            },
+          },
         },
       },
       {
         // Worker thread for code execution
         entry: 'electron/workers/codeExecutor.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
       },
       {
         // Worker thread for Python execution
         entry: 'electron/workers/pythonExecutor.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
       },
       {
         // SWC transpiler worker (dedicated worker for 20-70x faster transpilation)
@@ -45,14 +85,27 @@ export default defineConfig(({ mode }) => ({
         vite: {
           build: {
             rollupOptions: {
-              external: ['@swc/core']
-            }
-          }
-        }
+              external: ['@swc/core'],
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
       },
       {
         // TypeScript transpiler module (legacy)
         entry: 'electron/transpiler/tsTranspiler.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['typescript'],
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
       },
       {
         // SWC transpiler module (high-performance)
@@ -60,18 +113,27 @@ export default defineConfig(({ mode }) => ({
         vite: {
           build: {
             rollupOptions: {
-              external: ['@swc/core']
-            }
-          }
-        }
+              external: ['@swc/core'],
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
       },
-      {
-        // Executor Registry module
-        entry: 'electron/executor/ExecutorRegistry.ts',
-      },
+
       {
         // Package manager module
         entry: 'electron/packages/packageManager.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
       },
     ]),
     renderer(),
@@ -83,7 +145,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     headers: {
       // Content Security Policy for Electron renderer
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' blob:; child-src 'self' blob:; worker-src 'self' blob:;",
+      'Content-Security-Policy':
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' blob:; child-src 'self' blob:; worker-src 'self' blob:;",
     },
   },
   define: {
@@ -110,4 +173,4 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}))
+}));

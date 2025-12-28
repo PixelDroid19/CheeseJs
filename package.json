@@ -15,18 +15,23 @@
     "build:dist": "vite build",
     "build:all": "vite build && electron-builder -mwl ",
     "build:mac": "vite build && electron-builder  --mac ",
-    "lint": "eslint src --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint src --fix",
-    "format": "prettier --write src/**/*.{ts,tsx,js,jsx,json,css,md}",
-    "format:check": "prettier --check src/**/*.{ts,tsx,js,jsx,json,css,md}",
+    "lint": "eslint src electron --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src electron --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\" \"electron/**/*.{ts,js}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\" \"electron/**/*.{ts,js}\"",
+    "type-check": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "bench": "vitest bench",
     "publish": "electron-builder --publish always",
     "release": "electron-builder",
     "quality": "npm run lint && npm run format:check && npm run test",
     "audit": "pnpm audit",
     "audit:fix": "pnpm audit --fix",
-    "prerelease": "npm run quality && npm run audit"
+    "prerelease": "npm run quality && npm run audit",
+    "prepare": "husky"
   },
   "dependencies": {
     "@babel/core": "^7.28.5",
@@ -37,6 +42,7 @@
     "@swc/core": "^1.15.7",
     "@vscode/vscode-languagedetection": "^1.0.22",
     "clsx": "^2.1.1",
+    "electron-log": "^5.4.3",
     "framer-motion": "^12.23.26",
     "i18next": "^25.7.3",
     "i18next-browser-languagedetector": "^8.2.0",
@@ -52,6 +58,7 @@
     "rollup": "^4.54.0",
     "stringify-object": "^6.0.0",
     "tailwind-merge": "^3.4.0",
+    "typescript": "^5.9.3",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
@@ -60,6 +67,8 @@
     "@babel/plugin-syntax-unicode-sets-regex": "^7.18.6",
     "@babel/traverse": "^7.28.5",
     "@babel/types": "^7.28.5",
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.18",
@@ -81,17 +90,34 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^16.5.0",
+    "husky": "^9.1.7",
     "jsdom": "^27.4.0",
+    "lint-staged": "^16.2.7",
     "monaco-editor": "^0.55.1",
     "playwright": "^1.57.0",
     "postcss": "^8.5.6",
+    "prettier": "^3.7.4",
+    "sass": "^1.97.1",
     "standard": "^17.1.2",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
     "vite": "^7.3.0",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6",
     "vitest": "^4.0.16"
   },
-  "main": "dist-electron/main.js"
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,html}": [
+      "prettier --write"
+    ]
+  }
 }

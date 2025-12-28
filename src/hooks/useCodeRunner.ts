@@ -6,13 +6,9 @@ import {
   isLanguageExecutable,
   getLanguageDisplayName,
 } from '../store/useLanguageStore';
-import {
-  createExecutionError,
-  shouldDisplayError,
-  ErrorCategory,
-  type ExecutionError as ExecutionErrorType,
-} from '../lib/errors';
-import { getMetrics, MetricType } from '../lib/metrics';
+import { createExecutionError, shouldDisplayError } from '../lib/errors';
+import { getMetrics } from '../lib/metrics';
+import { useHistoryStore } from '../store/useHistoryStore';
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -45,12 +41,8 @@ class WorkerUnavailableError extends CodeRunnerError {
   }
 }
 
-class ExecutionTimeoutError extends CodeRunnerError {
-  constructor() {
-    super('Code execution timed out.', 'EXECUTION_TIMEOUT');
-    this.name = 'ExecutionTimeoutError';
-  }
-}
+// Unused error class - can be removed
+// class ExecutionTimeoutError extends CodeRunnerError {}
 
 /**
  * Format execution error for display using unified error system
@@ -60,7 +52,7 @@ function formatExecutionError(
   language: 'javascript' | 'typescript' | 'python'
 ): { message: string; shouldDisplay: boolean } {
   const execError = createExecutionError(error, language);
-  
+
   if (!shouldDisplayError(execError)) {
     return { message: '', shouldDisplay: false };
   }
@@ -204,7 +196,8 @@ export function useCodeRunner() {
                   consoleContent.includes('Execution cancelled') ||
                   consoleContent.includes('_pyodide/_future_helper.py') ||
                   consoleContent.includes('pyodide/webloop.py') ||
-                  (consoleContent.includes('Traceback') && consoleContent.includes('cancelled'));
+                  (consoleContent.includes('Traceback') &&
+                    consoleContent.includes('cancelled'));
 
                 if (!isCancellationMessage) {
                   const consolePrefix =
@@ -250,6 +243,14 @@ export function useCodeRunner() {
                   unsubscribeRef.current();
                   unsubscribeRef.current = null;
                 }
+
+                useHistoryStore.getState().addToHistory({
+                  code: sourceCode,
+                  language: execLanguage,
+                  status: 'success',
+                  executionTime: Date.now() - executionStartTime,
+                });
+
                 setIsExecuting(false);
                 currentExecutionIdRef.current = null;
               }
@@ -278,10 +279,16 @@ export function useCodeRunner() {
             });
           }
         } catch (error: unknown) {
+          // Get language for error context
+          const detectLanguage = useLanguageStore.getState().detectLanguage;
+          const detected = detectLanguage(sourceCode);
+          const errorLang =
+            detected.monacoId === 'python' ? 'python' : 'javascript';
+
           // Record failed execution metrics
-          const execError = createExecutionError(error, execLanguage);
+          const execError = createExecutionError(error, errorLang);
           metrics.recordExecution({
-            language: execLanguage,
+            language: errorLang,
             duration: Date.now() - executionStartTime,
             success: false,
             error: execError.originalMessage,
@@ -291,7 +298,7 @@ export function useCodeRunner() {
           // Use unified error handling system
           const { message, shouldDisplay } = formatExecutionError(
             error,
-            execLanguage
+            errorLang
           );
 
           if (shouldDisplay) {
@@ -301,6 +308,13 @@ export function useCodeRunner() {
                 type: 'error',
               },
             ]);
+
+            useHistoryStore.getState().addToHistory({
+              code: sourceCode,
+              language: errorLang,
+              status: 'error',
+              executionTime: Date.now() - executionStartTime,
+            });
           }
         } finally {
           // DON'T clean up listener here - it will be cleaned up when 'complete' message arrives

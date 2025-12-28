@@ -470,7 +470,6 @@ export function registerPythonLanguage(monacoInstance: typeof monaco): void {
   );
 
   isRegistered = true;
-  console.log('[Python] Language registered in Monaco');
 }
 
 export function isPythonRegistered(): boolean {

@@ -44,7 +44,7 @@ export interface CodeState {
 export const useCodeStore = create<CodeState>()(
   persist(
     (set, get) => ({
-      code: 'console.log("Hello World");',
+      code: '',
       result: [],
       isExecuting: false,
       isPendingRun: false,
