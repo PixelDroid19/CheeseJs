@@ -49,7 +49,7 @@ export function transformCode(
     magicComments: options.magicComments,
     language: 'typescript' as const,
   };
-  
+
   const cached = cache.get(code, cacheOptions);
   if (cached) {
     return cached;
@@ -96,7 +96,11 @@ export function transformCode(
     sourceType: 'module',
     parserOpts: {
       allowAwaitOutsideFunction: true,
-      plugins: ['decorators-legacy'],
+      plugins: [
+        'decorators-legacy',
+        'classPrivateProperties',
+        'classPrivateMethods',
+      ],
     },
     targets: {
       esmodules: true,

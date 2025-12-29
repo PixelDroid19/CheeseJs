@@ -23,14 +23,13 @@ function safeRegisterCommand(
   handler: (accessor: unknown, ...args: unknown[]) => void | Promise<void>
 ): boolean {
   if (registeredCommands.has(commandId)) {
-    console.log(`[MonacoCommands] Command "${commandId}" already registered, skipping`);
     return false;
   }
 
   try {
     monaco.editor.registerCommand(commandId, handler);
     registeredCommands.add(commandId);
-    console.log(`[MonacoCommands] Registered command: ${commandId}`);
+
     return true;
   } catch (error) {
     // Command might already exist from a previous Monaco instance
@@ -54,15 +53,18 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.installPackage',
     async (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Installing package:', packageName);
       if (window.packageManager) {
         usePackagesStore.getState().addPackage(packageName);
         usePackagesStore.getState().setPackageInstalling(packageName, true);
         const result = await window.packageManager.install(packageName);
         if (result.success) {
-          usePackagesStore.getState().setPackageInstalled(packageName, result.version);
+          usePackagesStore
+            .getState()
+            .setPackageInstalled(packageName, result.version);
         } else {
-          usePackagesStore.getState().setPackageError(packageName, result.error);
+          usePackagesStore
+            .getState()
+            .setPackageError(packageName, result.error);
         }
       } else {
         usePackagesStore.getState().addPackage(packageName);
@@ -74,17 +76,20 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.installAndRun',
     async (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Installing package and running:', packageName);
       if (window.packageManager) {
         usePackagesStore.getState().addPackage(packageName);
         usePackagesStore.getState().setPackageInstalling(packageName, true);
         const result = await window.packageManager.install(packageName);
         if (result.success) {
-          usePackagesStore.getState().setPackageInstalled(packageName, result.version);
+          usePackagesStore
+            .getState()
+            .setPackageInstalled(packageName, result.version);
           const code = editorInstance.getValue();
           runCode(code);
         } else {
-          usePackagesStore.getState().setPackageError(packageName, result.error);
+          usePackagesStore
+            .getState()
+            .setPackageError(packageName, result.error);
         }
       } else {
         usePackagesStore.getState().addPackage(packageName);
@@ -100,7 +105,6 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.retryInstall',
     async (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Retrying install:', packageName);
       const store = usePackagesStore.getState();
       store.resetPackageAttempts(packageName);
       store.setPackageInstalling(packageName, true);
@@ -119,7 +123,6 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.uninstallPackage',
     async (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Uninstalling package:', packageName);
       if (window.packageManager) {
         const result = await window.packageManager.uninstall(packageName);
         if (result.success) {
@@ -135,7 +138,6 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.viewOnNpm',
     (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Opening npm for:', packageName);
       window.open(`https://www.npmjs.com/package/${packageName}`, '_blank');
     }
   );
@@ -145,15 +147,20 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.installPythonPackage',
     async (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Installing Python package:', packageName);
       if (window.pythonPackageManager) {
         usePythonPackagesStore.getState().addPackage(packageName);
-        usePythonPackagesStore.getState().setPackageInstalling(packageName, true);
+        usePythonPackagesStore
+          .getState()
+          .setPackageInstalling(packageName, true);
         const result = await window.pythonPackageManager.install(packageName);
         if (result.success) {
-          usePythonPackagesStore.getState().setPackageInstalled(packageName, result.version);
+          usePythonPackagesStore
+            .getState()
+            .setPackageInstalled(packageName, result.version);
         } else {
-          usePythonPackagesStore.getState().setPackageError(packageName, result.error);
+          usePythonPackagesStore
+            .getState()
+            .setPackageError(packageName, result.error);
         }
       } else {
         usePythonPackagesStore.getState().addPackage(packageName);
@@ -165,17 +172,22 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.installPythonPackageAndRun',
     async (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Installing Python package and running:', packageName);
       if (window.pythonPackageManager) {
         usePythonPackagesStore.getState().addPackage(packageName);
-        usePythonPackagesStore.getState().setPackageInstalling(packageName, true);
+        usePythonPackagesStore
+          .getState()
+          .setPackageInstalling(packageName, true);
         const result = await window.pythonPackageManager.install(packageName);
         if (result.success) {
-          usePythonPackagesStore.getState().setPackageInstalled(packageName, result.version);
+          usePythonPackagesStore
+            .getState()
+            .setPackageInstalled(packageName, result.version);
           const code = editorInstance.getValue();
           runCode(code);
         } else {
-          usePythonPackagesStore.getState().setPackageError(packageName, result.error);
+          usePythonPackagesStore
+            .getState()
+            .setPackageError(packageName, result.error);
         }
       } else {
         usePythonPackagesStore.getState().addPackage(packageName);
@@ -191,7 +203,6 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.retryPythonInstall',
     async (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Retrying Python install:', packageName);
       const store = usePythonPackagesStore.getState();
       store.resetPackageAttempts(packageName);
       store.setPackageInstalling(packageName, true);
@@ -210,7 +221,6 @@ export function registerPackageCommands(
     monaco,
     'cheeseJS.viewOnPyPI',
     (_accessor: unknown, packageName: string) => {
-      console.log('[MonacoCommands] Opening PyPI for:', packageName);
       window.open(`https://pypi.org/project/${packageName}/`, '_blank');
     }
   );
@@ -229,4 +239,3 @@ export function isCommandRegistered(commandId: string): boolean {
 export function clearRegisteredCommands(): void {
   registeredCommands.clear();
 }
-

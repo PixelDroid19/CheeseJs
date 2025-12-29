@@ -82,7 +82,12 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     id: 'local',
     name: 'Local (LM Studio, Ollama, etc.)',
     models: [
-      { id: 'custom', name: 'Custom Model', maxTokens: 32000, supportsStreaming: true },
+      {
+        id: 'custom',
+        name: 'Custom Model',
+        maxTokens: 32000,
+        supportsStreaming: true,
+      },
     ],
     defaultModel: 'custom',
     supportsCustomURL: true,
@@ -91,11 +96,36 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     id: 'openai',
     name: 'OpenAI',
     models: [
-      { id: 'gpt-4o', name: 'GPT-4o', maxTokens: 128000, supportsStreaming: true },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', maxTokens: 128000, supportsStreaming: true },
-      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', maxTokens: 128000, supportsStreaming: true },
-      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', maxTokens: 16385, supportsStreaming: true },
-      { id: 'custom', name: 'Custom Model', maxTokens: 128000, supportsStreaming: true },
+      {
+        id: 'gpt-4o',
+        name: 'GPT-4o',
+        maxTokens: 128000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'gpt-4o-mini',
+        name: 'GPT-4o Mini',
+        maxTokens: 128000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'gpt-4-turbo',
+        name: 'GPT-4 Turbo',
+        maxTokens: 128000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'gpt-3.5-turbo',
+        name: 'GPT-3.5 Turbo',
+        maxTokens: 16385,
+        supportsStreaming: true,
+      },
+      {
+        id: 'custom',
+        name: 'Custom Model',
+        maxTokens: 128000,
+        supportsStreaming: true,
+      },
     ],
     defaultModel: 'gpt-4o-mini',
     supportsCustomURL: true,
@@ -104,10 +134,30 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     id: 'anthropic',
     name: 'Anthropic',
     models: [
-      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', maxTokens: 200000, supportsStreaming: true },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', maxTokens: 200000, supportsStreaming: true },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', maxTokens: 200000, supportsStreaming: true },
-      { id: 'custom', name: 'Custom Model', maxTokens: 200000, supportsStreaming: true },
+      {
+        id: 'claude-sonnet-4-20250514',
+        name: 'Claude Sonnet 4',
+        maxTokens: 200000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'claude-3-5-sonnet-20241022',
+        name: 'Claude 3.5 Sonnet',
+        maxTokens: 200000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'claude-3-5-haiku-20241022',
+        name: 'Claude 3.5 Haiku',
+        maxTokens: 200000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'custom',
+        name: 'Custom Model',
+        maxTokens: 200000,
+        supportsStreaming: true,
+      },
     ],
     defaultModel: 'claude-3-5-haiku-20241022',
     supportsCustomURL: true,
@@ -116,9 +166,24 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     id: 'google',
     name: 'Google',
     models: [
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', maxTokens: 1000000, supportsStreaming: true },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', maxTokens: 2000000, supportsStreaming: true },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', maxTokens: 1000000, supportsStreaming: true },
+      {
+        id: 'gemini-2.0-flash',
+        name: 'Gemini 2.0 Flash',
+        maxTokens: 1000000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'gemini-1.5-pro',
+        name: 'Gemini 1.5 Pro',
+        maxTokens: 2000000,
+        supportsStreaming: true,
+      },
+      {
+        id: 'gemini-1.5-flash',
+        name: 'Gemini 1.5 Flash',
+        maxTokens: 1000000,
+        supportsStreaming: true,
+      },
     ],
     defaultModel: 'gemini-2.0-flash',
     supportsCustomURL: false,
@@ -126,12 +191,17 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
 ];
 
 // Helper to get provider config
-export function getProviderConfig(provider: AIProvider): AIProviderConfig | undefined {
+export function getProviderConfig(
+  provider: AIProvider
+): AIProviderConfig | undefined {
   return AI_PROVIDERS.find((p) => p.id === provider);
 }
 
 // Helper to get model config
-export function getModelConfig(provider: AIProvider, modelId: string): AIModel | undefined {
+export function getModelConfig(
+  provider: AIProvider,
+  modelId: string
+): AIModel | undefined {
   const providerConfig = getProviderConfig(provider);
   return providerConfig?.models.find((m) => m.id === modelId);
 }

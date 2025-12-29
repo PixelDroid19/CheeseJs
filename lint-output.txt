@@ -1,0 +1,23 @@
+﻿
+> cheesejs@1.1.0 lint C:\Users\monas\Documents\jsrunner
+> eslint src electron --report-unused-disable-directives --max-warnings 0
+
+node.exe : (node:14260) [MODULE_TYPELESS_PACKAGE_JSON] 
+Warning: Module type of file:///C:/Users/monas/Documents/jsrunn
+er/eslint.config.js?mtime=1766811621548 is not specified and 
+it doesn't parse as CommonJS.
+En C:\nvm4w\nodejs\pnpm.ps1: 16 Carácter: 5
++     & "$basedir/node$exe"  
+"$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:14260) [M.. 
+   .se as CommonJS.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Reparsing as ES module because module syntax was detected. 
+This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to 
+C:\Users\monas\Documents\jsrunner\package.json.
+(Use `node --trace-warnings ...` to show where the warning was 
+created)

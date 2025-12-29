@@ -1,21 +1,27 @@
-import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import {
+  test,
+  expect,
+  _electron as electron,
+  ElectronApplication,
+  Page,
+} from '@playwright/test';
 import path from 'path';
+import electronPath from 'electron';
 
 let app: ElectronApplication;
-let window: Page;
+let page: Page;
 
 test.beforeAll(async () => {
-  const electronPath = require('electron');
-  const appPath = path.join(__dirname, '..');
+  const appPath = process.cwd();
   const mainScript = path.join(appPath, 'dist-electron/main.js');
 
   app = await electron.launch({
-    executablePath: electronPath,
+    executablePath: electronPath as unknown as string,
     args: [mainScript],
   });
 
-  window = await app.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
+  page = await app.firstWindow();
+  await page.waitForLoadState('domcontentloaded');
 });
 
 test.afterAll(async () => {
@@ -25,52 +31,56 @@ test.afterAll(async () => {
 test.describe('Code Execution', () => {
   test('should execute simple code and show output', async () => {
     // Wait for editor to be ready with longer timeout
-    await expect(window.locator('.monaco-editor').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.monaco-editor').first()).toBeVisible({
+      timeout: 15000,
+    });
 
     // Ensure Monaco is loaded and exposed
-    await window.waitForFunction(() => window.monaco !== undefined, { timeout: 15000 });
+    await page.waitForFunction(
+      () => (window as unknown as { monaco: unknown }).monaco !== undefined,
+      { timeout: 15000 }
+    );
 
     // Set code using Monaco API directly
-    await window.evaluate(() => {
-      // @ts-ignore
+    await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
       const model = window.monaco.editor.getModels()[0];
-      model.setValue("console.log('Hello from E2E');");
+      model.setValue("console.log('Hello from E2E')");
     });
 
     // Click Run
-    await window.getByRole('button', { name: /Run|Ejecutar/i }).click();
+    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
 
-    // Verify output
-    // The output is likely in the second Monaco editor (read-only)
-    // We can check the content of the second editor model
-    
     // Give it a moment to run
-    await window.waitForTimeout(2000);
+    await page.waitForTimeout(2000);
 
-    const output = await window.evaluate(() => {
-      // @ts-ignore
+    const output = await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
       const models = window.monaco.editor.getModels();
-      // Assuming the second model is the output one, or we check both
-      return models.map(m => m.getValue());
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return models.map((m: any) => m.getValue());
     });
 
-    const hasOutput = output.some(val => val.includes('Hello from E2E'));
+    const hasOutput = output.some((val: string) =>
+      val.includes('Hello from E2E')
+    );
     expect(hasOutput).toBe(true);
   });
 
-  test('should handle multiple console logs', async () => {
-    await window.evaluate(() => {
-      // @ts-ignore
+  test('should handle multiple console.log statements', async () => {
+    await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
       const model = window.monaco.editor.getModels()[0];
       model.setValue("console.log('Line 1');\nconsole.log('Line 2');");
     });
 
-    await window.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await window.waitForTimeout(2000);
+    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
+    await page.waitForTimeout(2000);
 
-    const output = await window.evaluate(() => {
-      // @ts-ignore
-      return window.monaco.editor.getModels().map(m => m.getValue());
+    const output = await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return window.monaco.editor.getModels().map((m: any) => m.getValue());
     });
 
     const combinedOutput = output.join('\n');

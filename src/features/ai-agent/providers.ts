@@ -55,7 +55,9 @@ export function createProviderInstance(
       }
       const openai = createOpenAI(openaiConfig);
       // Use .chat() for custom models to ensure compatibility
-      model = customConfig?.baseURL ? openai.chat(effectiveModelId) : openai(effectiveModelId);
+      model = customConfig?.baseURL
+        ? openai.chat(effectiveModelId)
+        : openai(effectiveModelId);
       break;
     }
     case 'anthropic': {
@@ -87,7 +89,10 @@ export function createProviderInstance(
 }
 
 // Validate API key format (basic validation)
-export function validateApiKeyFormat(provider: AIProvider, apiKey: string): boolean {
+export function validateApiKeyFormat(
+  provider: AIProvider,
+  apiKey: string
+): boolean {
   if (provider === 'local') {
     return true;
   }

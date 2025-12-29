@@ -1,30 +1,30 @@
 /**
  * Native Package Manager for Electron
- * 
+ *
  * Handles npm package installation in a temporary directory
  * and makes them available for code execution in the VM sandbox.
  */
 
-import { spawn } from 'node:child_process'
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
-import { app } from 'electron'
+import { spawn } from 'node:child_process';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { app } from 'electron';
 
 export interface PackageInstallResult {
-  success: boolean
-  packageName: string
-  version?: string
-  error?: string
+  success: boolean;
+  packageName: string;
+  version?: string;
+  error?: string;
 }
 
 export interface InstalledPackage {
-  name: string
-  version: string
-  path: string
+  name: string;
+  version: string;
+  path: string;
 }
 
 // Directory where packages are installed
-let packagesDir: string
+let packagesDir: string;
 
 /**
  * SECURITY: Validate package name to prevent command injection
@@ -32,27 +32,27 @@ let packagesDir: string
  */
 function isValidPackageName(name: string): boolean {
   // Handle scoped packages like @scope/package
-  const scopedPattern = /^@[a-z0-9-~][a-z0-9-._~]*\/[a-z0-9-~][a-z0-9-._~]*$/
-  const normalPattern = /^[a-z0-9-~][a-z0-9-._~]*$/
-  
+  const scopedPattern = /^@[a-z0-9-~][a-z0-9-._~]*\/[a-z0-9-~][a-z0-9-._~]*$/;
+  const normalPattern = /^[a-z0-9-~][a-z0-9-._~]*$/;
+
   // Remove version suffix for validation
-  let packageName = name
+  let packageName = name;
   if (name.includes('@') && !name.startsWith('@')) {
-    packageName = name.split('@')[0]
+    packageName = name.split('@')[0];
   } else if (name.startsWith('@') && name.lastIndexOf('@') > 0) {
-    packageName = name.substring(0, name.lastIndexOf('@'))
+    packageName = name.substring(0, name.lastIndexOf('@'));
   }
-  
+
   if (packageName.length === 0 || packageName.length > 214) {
-    return false
+    return false;
   }
-  
+
   // Check for dangerous characters that could be used for command injection
   if (/[;&|`$(){}[\]<>\\!#%^*?]/.test(name)) {
-    return false
+    return false;
   }
-  
-  return scopedPattern.test(packageName) || normalPattern.test(packageName)
+
+  return scopedPattern.test(packageName) || normalPattern.test(packageName);
 }
 
 /**
@@ -60,41 +60,50 @@ function isValidPackageName(name: string): boolean {
  */
 export async function initPackagesDirectory(): Promise<string> {
   // Use app.getPath('userData') for persistent storage
-  packagesDir = path.join(app.getPath('userData'), 'packages')
-  
+  packagesDir = path.join(app.getPath('userData'), 'packages');
+
   try {
-    await fs.mkdir(packagesDir, { recursive: true })
-    
+    await fs.mkdir(packagesDir, { recursive: true });
+
     // Create package.json if it doesn't exist
-    const packageJsonPath = path.join(packagesDir, 'package.json')
+    const packageJsonPath = path.join(packagesDir, 'package.json');
     try {
-      await fs.access(packageJsonPath)
+      await fs.access(packageJsonPath);
     } catch {
-      await fs.writeFile(packageJsonPath, JSON.stringify({
-        name: 'cheesejs-packages',
-        version: '1.0.0',
-        private: true,
-        description: 'CheeseJS installed packages'
-      }, null, 2))
+      await fs.writeFile(
+        packageJsonPath,
+        JSON.stringify(
+          {
+            name: 'cheesejs-packages',
+            version: '1.0.0',
+            private: true,
+            description: 'CheeseJS installed packages',
+          },
+          null,
+          2
+        )
+      );
     }
-    
+
     // Create a dummy index.js for Module.createRequire
-    const indexJsPath = path.join(packagesDir, 'index.js')
+    const indexJsPath = path.join(packagesDir, 'index.js');
     try {
-      await fs.access(indexJsPath)
+      await fs.access(indexJsPath);
     } catch {
-      await fs.writeFile(indexJsPath, '// CheeseJS packages entry point\n')
+      await fs.writeFile(indexJsPath, '// CheeseJS packages entry point\n');
     }
-    
+
     // Ensure node_modules directory exists
-    const nodeModulesPath = path.join(packagesDir, 'node_modules')
-    await fs.mkdir(nodeModulesPath, { recursive: true })
-    
-    console.log('[PackageManager] Packages directory initialized:', packagesDir)
-    return packagesDir
+    const nodeModulesPath = path.join(packagesDir, 'node_modules');
+    await fs.mkdir(nodeModulesPath, { recursive: true });
+
+    return packagesDir;
   } catch (error) {
-    console.error('[PackageManager] Failed to initialize packages directory:', error)
-    throw error
+    console.error(
+      '[PackageManager] Failed to initialize packages directory:',
+      error
+    );
+    throw error;
   }
 }
 
@@ -102,183 +111,196 @@ export async function initPackagesDirectory(): Promise<string> {
  * Get the packages directory path
  */
 export function getPackagesDir(): string {
-  return packagesDir
+  return packagesDir;
 }
 
 /**
  * Get the node_modules path
  */
 export function getNodeModulesPath(): string {
-  return path.join(packagesDir, 'node_modules')
+  return path.join(packagesDir, 'node_modules');
 }
 
 /**
  * Install a package using npm
  */
-export async function installPackage(packageName: string): Promise<PackageInstallResult> {
+export async function installPackage(
+  packageName: string
+): Promise<PackageInstallResult> {
   if (!packagesDir) {
-    await initPackagesDirectory()
+    await initPackagesDirectory();
   }
 
   // SECURITY: Validate package name to prevent command injection
   if (!isValidPackageName(packageName)) {
-    console.error(`[PackageManager] Invalid package name rejected: ${packageName}`)
+    console.error(
+      `[PackageManager] Invalid package name rejected: ${packageName}`
+    );
     return {
       success: false,
       packageName,
-      error: 'Invalid package name. Package names must contain only lowercase letters, numbers, hyphens, dots, and underscores.'
-    }
+      error:
+        'Invalid package name. Package names must contain only lowercase letters, numbers, hyphens, dots, and underscores.',
+    };
   }
-
-  console.log(`[PackageManager] Installing package: ${packageName}`)
 
   return new Promise((resolve) => {
     // Parse package name and version
-    const [name, version] = packageName.includes('@') && !packageName.startsWith('@')
-      ? packageName.split('@')
-      : [packageName, 'latest']
-    
-    const packageSpec = version && version !== 'latest' ? `${name}@${version}` : name
+    const [name, version] =
+      packageName.includes('@') && !packageName.startsWith('@')
+        ? packageName.split('@')
+        : [packageName, 'latest'];
+
+    const packageSpec =
+      version && version !== 'latest' ? `${name}@${version}` : name;
 
     // Use npm to install the package
-    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-    const args = ['install', packageSpec, '--save', '--legacy-peer-deps']
-
-    console.log(`[PackageManager] Running: ${npm} ${args.join(' ')} in ${packagesDir}`)
+    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const args = ['install', packageSpec, '--save', '--legacy-peer-deps'];
 
     // SECURITY: Command injection is prevented by isValidPackageName() validation above
     // shell: true is required on Windows for .cmd files
     const child = spawn(npm, args, {
       cwd: packagesDir,
       shell: true,
-      env: { ...process.env }
-    })
+      env: { ...process.env },
+    });
 
-    let stdout = ''
-    let stderr = ''
+    let _stdout = '';
+    let stderr = '';
 
     child.stdout?.on('data', (data) => {
-      stdout += data.toString()
-      console.log(`[PackageManager] stdout: ${data}`)
-    })
+      _stdout += data.toString();
+    });
 
     child.stderr?.on('data', (data) => {
-      stderr += data.toString()
-      console.log(`[PackageManager] stderr: ${data}`)
-    })
+      stderr += data.toString();
+    });
 
     child.on('close', async (code) => {
       if (code === 0) {
         // Get installed version from package.json
         try {
-          const installedVersion = await getPackageVersion(name)
-          console.log(`[PackageManager] Successfully installed ${name}@${installedVersion}`)
+          const installedVersion = await getPackageVersion(name);
+
           resolve({
             success: true,
             packageName: name,
-            version: installedVersion
-          })
+            version: installedVersion,
+          });
         } catch {
           resolve({
             success: true,
             packageName: name,
-            version: version
-          })
+            version: version,
+          });
         }
       } else {
-        console.error(`[PackageManager] Failed to install ${packageName}:`, stderr)
+        console.error(
+          `[PackageManager] Failed to install ${packageName}:`,
+          stderr
+        );
         resolve({
           success: false,
           packageName: name,
-          error: stderr || `npm install failed with code ${code}`
-        })
+          error: stderr || `npm install failed with code ${code}`,
+        });
       }
-    })
+    });
 
     child.on('error', (error) => {
-      console.error(`[PackageManager] Spawn error:`, error)
+      console.error(`[PackageManager] Spawn error:`, error);
       resolve({
         success: false,
         packageName: name,
-        error: error.message
-      })
-    })
-  })
+        error: error.message,
+      });
+    });
+  });
 }
 
 /**
  * Uninstall a package
  */
-export async function uninstallPackage(packageName: string): Promise<PackageInstallResult> {
+export async function uninstallPackage(
+  packageName: string
+): Promise<PackageInstallResult> {
   if (!packagesDir) {
-    await initPackagesDirectory()
+    await initPackagesDirectory();
   }
 
   // SECURITY: Validate package name to prevent command injection
   if (!isValidPackageName(packageName)) {
-    console.error(`[PackageManager] Invalid package name rejected: ${packageName}`)
+    console.error(
+      `[PackageManager] Invalid package name rejected: ${packageName}`
+    );
     return {
       success: false,
       packageName,
-      error: 'Invalid package name'
-    }
+      error: 'Invalid package name',
+    };
   }
 
-  console.log(`[PackageManager] Uninstalling package: ${packageName}`)
-
   return new Promise((resolve) => {
-    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-    const args = ['uninstall', packageName, '--save']
+    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const args = ['uninstall', packageName, '--save'];
 
     // SECURITY: Command injection is prevented by isValidPackageName() validation above
     // shell: true is required on Windows for .cmd files
     const child = spawn(npm, args, {
       cwd: packagesDir,
       shell: true,
-      env: { ...process.env }
-    })
+      env: { ...process.env },
+    });
 
-    let stderr = ''
+    let stderr = '';
 
     child.stderr?.on('data', (data) => {
-      stderr += data.toString()
-    })
+      stderr += data.toString();
+    });
 
     child.on('close', (code) => {
       if (code === 0) {
-        console.log(`[PackageManager] Successfully uninstalled ${packageName}`)
         resolve({
           success: true,
-          packageName
-        })
+          packageName,
+        });
       } else {
-        console.error(`[PackageManager] Failed to uninstall ${packageName}:`, stderr)
+        console.error(
+          `[PackageManager] Failed to uninstall ${packageName}:`,
+          stderr
+        );
         resolve({
           success: false,
           packageName,
-          error: stderr || `npm uninstall failed with code ${code}`
-        })
+          error: stderr || `npm uninstall failed with code ${code}`,
+        });
       }
-    })
+    });
 
     child.on('error', (error) => {
       resolve({
         success: false,
         packageName,
-        error: error.message
-      })
-    })
-  })
+        error: error.message,
+      });
+    });
+  });
 }
 
 /**
  * Get version of an installed package
  */
 async function getPackageVersion(packageName: string): Promise<string> {
-  const packageJsonPath = path.join(packagesDir, 'node_modules', packageName, 'package.json')
-  const content = await fs.readFile(packageJsonPath, 'utf-8')
-  const pkg = JSON.parse(content)
-  return pkg.version
+  const packageJsonPath = path.join(
+    packagesDir,
+    'node_modules',
+    packageName,
+    'package.json'
+  );
+  const content = await fs.readFile(packageJsonPath, 'utf-8');
+  const pkg = JSON.parse(content);
+  return pkg.version;
 }
 
 /**
@@ -286,41 +308,43 @@ async function getPackageVersion(packageName: string): Promise<string> {
  */
 export async function listInstalledPackages(): Promise<InstalledPackage[]> {
   if (!packagesDir) {
-    await initPackagesDirectory()
+    await initPackagesDirectory();
   }
 
-  const packages: InstalledPackage[] = []
-  const packageJsonPath = path.join(packagesDir, 'package.json')
+  const packages: InstalledPackage[] = [];
+  const packageJsonPath = path.join(packagesDir, 'package.json');
 
   try {
-    const content = await fs.readFile(packageJsonPath, 'utf-8')
-    const pkg = JSON.parse(content)
-    const dependencies = pkg.dependencies || {}
+    const content = await fs.readFile(packageJsonPath, 'utf-8');
+    const pkg = JSON.parse(content);
+    const dependencies = pkg.dependencies || {};
 
     for (const [name, version] of Object.entries(dependencies)) {
       packages.push({
         name,
         version: (version as string).replace(/^\^|~/, ''),
-        path: path.join(packagesDir, 'node_modules', name)
-      })
+        path: path.join(packagesDir, 'node_modules', name),
+      });
     }
   } catch (error) {
-    console.error('[PackageManager] Failed to list packages:', error)
+    console.error('[PackageManager] Failed to list packages:', error);
   }
 
-  return packages
+  return packages;
 }
 
 /**
  * Check if a package is installed
  */
-export async function isPackageInstalled(packageName: string): Promise<boolean> {
-  const nodeModulesPath = path.join(packagesDir, 'node_modules', packageName)
+export async function isPackageInstalled(
+  packageName: string
+): Promise<boolean> {
+  const nodeModulesPath = path.join(packagesDir, 'node_modules', packageName);
   try {
-    await fs.access(nodeModulesPath)
-    return true
+    await fs.access(nodeModulesPath);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -328,21 +352,28 @@ export async function isPackageInstalled(packageName: string): Promise<boolean> 
  * Create a require function that can load installed packages
  */
 export function createPackageRequire(): (moduleName: string) => unknown {
-  const nodeModulesPath = getNodeModulesPath()
-  
+  const nodeModulesPath = getNodeModulesPath();
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Module = require('module')
-  
+  const Module = require('module');
+
   return (moduleName: string) => {
     // Try to resolve from our packages directory
-    const modulePath = path.join(nodeModulesPath, moduleName)
+    const modulePath = path.join(nodeModulesPath, moduleName);
     try {
       // Create a require function that looks in our node_modules
-      const customRequire = Module.createRequire(path.join(packagesDir, 'index.js'))
-      return customRequire(moduleName)
+      const customRequire = Module.createRequire(
+        path.join(packagesDir, 'index.js')
+      );
+      return customRequire(moduleName);
     } catch (error) {
-      console.error(`[PackageManager] Failed to require ${moduleName} from ${modulePath}:`, error)
-      throw new Error(`Cannot find module '${moduleName}'. Please install it first.`)
+      console.error(
+        `[PackageManager] Failed to require ${moduleName} from ${modulePath}:`,
+        error
+      );
+      throw new Error(
+        `Cannot find module '${moduleName}'. Please install it first.`
+      );
     }
-  }
+  };
 }

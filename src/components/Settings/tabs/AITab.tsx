@@ -1,21 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, CheckCircle, XCircle, Loader2, Server, RefreshCw, Settings2 } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Server,
+  RefreshCw,
+  Settings2,
+} from 'lucide-react';
 import clsx from 'clsx';
 import { useAISettingsStore } from '../../../store/useAISettingsStore';
 import { Select } from '../ui/Select';
 import { Toggle } from '../ui/Toggle';
 import { SectionHeader } from '../ui/SectionHeader';
 import { Slider } from '../ui/Slider';
-import { 
-  AI_PROVIDERS, 
-  getProviderConfig, 
+import {
+  AI_PROVIDERS,
+  getProviderConfig,
   aiService,
   validateApiKeyFormat,
   validateLocalServerURL,
-  type AIProvider 
-} from '../../../lib/ai';
+  type AIProvider,
+} from '../../../features/ai-agent';
 
 interface LocalModel {
   id: string;
@@ -25,7 +34,9 @@ interface LocalModel {
 export function AITab() {
   const { t } = useTranslation();
   const [showApiKey, setShowApiKey] = useState(false);
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testStatus, setTestStatus] = useState<
+    'idle' | 'testing' | 'success' | 'error'
+  >('idle');
   const [testMessage, setTestMessage] = useState('');
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -54,31 +65,35 @@ export function AITab() {
 
   const currentApiKey = apiKeys[provider] || '';
   const currentModel = selectedModels[provider] || '';
-  const currentCustomConfig = customConfigs[provider] || {};
+  const currentCustomConfig = useMemo(
+    () => customConfigs[provider] || {},
+    [customConfigs, provider]
+  );
   const providerConfig = getProviderConfig(provider);
   const isLocalProvider = provider === 'local';
   const supportsCustomURL = providerConfig?.supportsCustomURL ?? false;
 
   // Fetch models from local server
-  const fetchLocalModels = async () => {
+  const fetchLocalModels = useCallback(async () => {
     if (!localConfig.baseURL) return;
-    
+
     setLoadingModels(true);
     try {
       let baseURL = localConfig.baseURL.replace(/\/+$/, '');
       if (!baseURL.endsWith('/v1')) {
         baseURL = baseURL + '/v1';
       }
-      
+
       const response = await fetch(`${baseURL}/models`);
       if (response.ok) {
         const data = await response.json();
-        const models = data.data?.map((m: { id: string }) => ({
-          id: m.id,
-          name: m.id,
-        })) || [];
+        const models =
+          data.data?.map((m: { id: string }) => ({
+            id: m.id,
+            name: m.id,
+          })) || [];
         setLocalModels(models);
-        
+
         if (models.length > 0 && !localConfig.modelId) {
           setLocalConfig({ modelId: models[0].id });
         }
@@ -89,13 +104,13 @@ export function AITab() {
     } finally {
       setLoadingModels(false);
     }
-  };
+  }, [localConfig.baseURL, localConfig.modelId, setLocalConfig]);
 
   useEffect(() => {
     if (isLocalProvider && localConfig.baseURL) {
       fetchLocalModels();
     }
-  }, [isLocalProvider, localConfig.baseURL]);
+  }, [isLocalProvider, localConfig.baseURL, fetchLocalModels]);
 
   // Show advanced if custom URL is set
   useEffect(() => {
@@ -108,7 +123,7 @@ export function AITab() {
     setProvider(newProvider);
     setTestStatus('idle');
     setTestMessage('');
-    
+
     if (newProvider === 'local') {
       if (localConfig.baseURL) {
         try {
@@ -134,7 +149,13 @@ export function AITab() {
     setApiKey(provider, key);
     if (key && currentModel) {
       try {
-        aiService.configure(provider, key, currentModel, undefined, currentCustomConfig);
+        aiService.configure(
+          provider,
+          key,
+          currentModel,
+          undefined,
+          currentCustomConfig
+        );
       } catch {
         // Silent fail
       }
@@ -158,7 +179,13 @@ export function AITab() {
       setSelectedModel(provider, model);
       if (currentApiKey) {
         try {
-          aiService.configure(provider, currentApiKey, model, undefined, currentCustomConfig);
+          aiService.configure(
+            provider,
+            currentApiKey,
+            model,
+            undefined,
+            currentCustomConfig
+          );
         } catch {
           // Silent fail
         }
@@ -170,7 +197,10 @@ export function AITab() {
     setCustomConfig(provider, { baseURL: url });
     if (currentApiKey && currentModel) {
       try {
-        aiService.configure(provider, currentApiKey, currentModel, undefined, { ...currentCustomConfig, baseURL: url });
+        aiService.configure(provider, currentApiKey, currentModel, undefined, {
+          ...currentCustomConfig,
+          baseURL: url,
+        });
       } catch {
         // Silent fail
       }
@@ -182,7 +212,13 @@ export function AITab() {
     if (currentApiKey) {
       try {
         const effectiveModel = modelId || currentModel;
-        aiService.configure(provider, currentApiKey, effectiveModel, undefined, { ...currentCustomConfig, modelId });
+        aiService.configure(
+          provider,
+          currentApiKey,
+          effectiveModel,
+          undefined,
+          { ...currentCustomConfig, modelId }
+        );
       } catch {
         // Silent fail
       }
@@ -203,12 +239,16 @@ export function AITab() {
       if (isLocalProvider) {
         if (!localConfig.baseURL) {
           setTestStatus('error');
-          setTestMessage(t('settings.ai.local.noBaseURL', 'Please enter a server URL first'));
+          setTestMessage(
+            t('settings.ai.local.noBaseURL', 'Please enter a server URL first')
+          );
           return;
         }
         if (!validateLocalServerURL(localConfig.baseURL)) {
           setTestStatus('error');
-          setTestMessage(t('settings.ai.local.invalidURL', 'Invalid server URL format'));
+          setTestMessage(
+            t('settings.ai.local.invalidURL', 'Invalid server URL format')
+          );
           return;
         }
         aiService.configure(provider, '', '', {
@@ -218,16 +258,26 @@ export function AITab() {
       } else {
         if (!currentApiKey) {
           setTestStatus('error');
-          setTestMessage(t('settings.ai.noApiKey', 'Please enter an API key first'));
+          setTestMessage(
+            t('settings.ai.noApiKey', 'Please enter an API key first')
+          );
           return;
         }
         if (!validateApiKeyFormat(provider, currentApiKey)) {
           setTestStatus('error');
-          setTestMessage(t('settings.ai.invalidKeyFormat', 'Invalid API key format'));
+          setTestMessage(
+            t('settings.ai.invalidKeyFormat', 'Invalid API key format')
+          );
           return;
         }
         const effectiveModel = currentCustomConfig.modelId || currentModel;
-        aiService.configure(provider, currentApiKey, effectiveModel, undefined, currentCustomConfig);
+        aiService.configure(
+          provider,
+          currentApiKey,
+          effectiveModel,
+          undefined,
+          currentCustomConfig
+        );
       }
 
       const result = await aiService.testConnection();
@@ -240,7 +290,9 @@ export function AITab() {
       }
     } catch (error) {
       setTestStatus('error');
-      setTestMessage(error instanceof Error ? error.message : 'Connection test failed');
+      setTestMessage(
+        error instanceof Error ? error.message : 'Connection test failed'
+      );
     }
   };
 
@@ -253,7 +305,7 @@ export function AITab() {
       {/* Provider Selection */}
       <div className="space-y-4">
         <SectionHeader title={t('settings.ai.provider', 'AI Provider')} />
-        
+
         {/* Provider Dropdown */}
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">
@@ -277,10 +329,13 @@ export function AITab() {
             <div className="flex items-center gap-2 mb-2">
               <Server className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-foreground">
-                {t('settings.ai.local.serverConfig', 'Local Server Configuration')}
+                {t(
+                  'settings.ai.local.serverConfig',
+                  'Local Server Configuration'
+                )}
               </span>
             </div>
-            
+
             {/* Server URL */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
@@ -305,13 +360,21 @@ export function AITab() {
                     'bg-secondary text-secondary-foreground hover:bg-secondary/80',
                     'disabled:opacity-50 disabled:cursor-not-allowed'
                   )}
-                  title={t('settings.ai.local.refreshModels', 'Refresh available models')}
+                  title={t(
+                    'settings.ai.local.refreshModels',
+                    'Refresh available models'
+                  )}
                 >
-                  <RefreshCw className={clsx('w-4 h-4', loadingModels && 'animate-spin')} />
+                  <RefreshCw
+                    className={clsx('w-4 h-4', loadingModels && 'animate-spin')}
+                  />
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {t('settings.ai.local.baseURLHint', 'The base URL of your local AI server (LM Studio, Ollama, etc.). Usually ends with /v1')}
+                {t(
+                  'settings.ai.local.baseURLHint',
+                  'The base URL of your local AI server (LM Studio, Ollama, etc.). Usually ends with /v1'
+                )}
               </p>
             </div>
 
@@ -336,7 +399,10 @@ export function AITab() {
                   type="text"
                   value={localConfig.modelId}
                   onChange={(e) => handleModelChange(e.target.value)}
-                  placeholder={t('settings.ai.local.modelPlaceholder', 'Model name (e.g., llama3)')}
+                  placeholder={t(
+                    'settings.ai.local.modelPlaceholder',
+                    'Model name (e.g., llama3)'
+                  )}
                   className={clsx(
                     'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all',
                     'bg-background border-border text-foreground placeholder:text-muted-foreground'
@@ -378,7 +444,10 @@ export function AITab() {
                     type={showApiKey ? 'text' : 'password'}
                     value={currentApiKey}
                     onChange={(e) => handleApiKeyChange(e.target.value)}
-                    placeholder={t('settings.ai.apiKeyPlaceholder', 'Enter your API key...')}
+                    placeholder={t(
+                      'settings.ai.apiKeyPlaceholder',
+                      'Enter your API key...'
+                    )}
                     className={clsx(
                       'w-full border rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all',
                       'bg-background border-border text-foreground placeholder:text-muted-foreground'
@@ -389,7 +458,11 @@ export function AITab() {
                     onClick={() => setShowApiKey(!showApiKey)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showApiKey ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
                 <button
@@ -412,15 +485,20 @@ export function AITab() {
                 </button>
               </div>
               {testMessage && (
-                <p className={clsx(
-                  'text-xs mt-1',
-                  testStatus === 'success' ? 'text-green-500' : 'text-red-500'
-                )}>
+                <p
+                  className={clsx(
+                    'text-xs mt-1',
+                    testStatus === 'success' ? 'text-green-500' : 'text-red-500'
+                  )}
+                >
                   {testMessage}
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-1">
-                {t('settings.ai.apiKeyHint', 'Your API key is stored locally and never sent to our servers.')}
+                {t(
+                  'settings.ai.apiKeyHint',
+                  'Your API key is stored locally and never sent to our servers.'
+                )}
               </p>
             </div>
 
@@ -452,7 +530,8 @@ export function AITab() {
                         )}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Use a custom endpoint (e.g., Azure OpenAI, proxy, or compatible API)
+                        Use a custom endpoint (e.g., Azure OpenAI, proxy, or
+                        compatible API)
                       </p>
                     </div>
 
@@ -463,7 +542,9 @@ export function AITab() {
                       <input
                         type="text"
                         value={currentCustomConfig.modelId || ''}
-                        onChange={(e) => handleCustomModelChange(e.target.value)}
+                        onChange={(e) =>
+                          handleCustomModelChange(e.target.value)
+                        }
                         placeholder="e.g., gpt-4-custom"
                         className={clsx(
                           'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all',
@@ -503,10 +584,12 @@ export function AITab() {
               {t('settings.ai.testConnection', 'Test')}
             </button>
             {testMessage && (
-              <span className={clsx(
-                'text-xs',
-                testStatus === 'success' ? 'text-green-500' : 'text-red-500'
-              )}>
+              <span
+                className={clsx(
+                  'text-xs',
+                  testStatus === 'success' ? 'text-green-500' : 'text-red-500'
+                )}
+              >
                 {testMessage}
               </span>
             )}
@@ -517,18 +600,24 @@ export function AITab() {
       {/* Features */}
       <div className="space-y-4">
         <SectionHeader title={t('settings.ai.features', 'Features')} />
-        
+
         <div className="space-y-3">
           <Toggle
             label={t('settings.ai.inlineCompletion', 'Inline Completion')}
-            description={t('settings.ai.inlineCompletionDesc', 'Get AI-powered code suggestions as you type')}
+            description={t(
+              'settings.ai.inlineCompletionDesc',
+              'Get AI-powered code suggestions as you type'
+            )}
             checked={enableInlineCompletion}
             onChange={setEnableInlineCompletion}
           />
-          
+
           <Toggle
             label={t('settings.ai.chatPanel', 'AI Chat Panel')}
-            description={t('settings.ai.chatPanelDesc', 'Open chat panel to ask questions about your code')}
+            description={t(
+              'settings.ai.chatPanelDesc',
+              'Open chat panel to ask questions about your code'
+            )}
             checked={enableChat}
             onChange={setEnableChat}
           />
@@ -538,7 +627,7 @@ export function AITab() {
       {/* Advanced Settings */}
       <div className="space-y-4">
         <SectionHeader title={t('settings.ai.advanced', 'Advanced')} />
-        
+
         <div className="space-y-4">
           <Slider
             label={t('settings.ai.maxTokens', 'Max Tokens')}
@@ -548,7 +637,7 @@ export function AITab() {
             max={8192}
             step={256}
           />
-          
+
           <Slider
             label={t('settings.ai.temperature', 'Temperature')}
             value={temperature}
@@ -558,7 +647,10 @@ export function AITab() {
             step={0.1}
           />
           <p className="text-xs text-muted-foreground">
-            {t('settings.ai.temperatureHint', 'Lower values for more focused output, higher for more creative')}
+            {t(
+              'settings.ai.temperatureHint',
+              'Lower values for more focused output, higher for more creative'
+            )}
           </p>
         </div>
       </div>

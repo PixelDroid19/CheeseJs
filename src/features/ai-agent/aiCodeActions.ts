@@ -22,7 +22,7 @@ export async function executeAIAction(
   language: string
 ): Promise<void> {
   const settings = useAISettingsStore.getState();
-  
+
   // Check if configured
   if (!settings.getCurrentApiKey()) {
     console.warn('[AICodeActions] AI not configured');
@@ -63,37 +63,32 @@ export async function executeAIAction(
       content: `Please help me understand and work with this code:\n\n\`\`\`${language}\n${selectedCode}\n\`\`\``,
       codeContext: selectedCode,
     });
-    
+
     // Stream the response
     try {
       chatStore.setStreaming(true);
       chatStore.setStreamingContent('');
-      
-      await aiService.refactorCode(
-        'explain',
-        selectedCode,
-        language,
-        {
-          onToken: (token) => {
-            chatStore.appendStreamingContent(token);
-          },
-          onComplete: () => {
-            chatStore.finalizeStreaming();
-          },
-          onError: (error) => {
-            chatStore.addMessage({
-              role: 'assistant',
-              content: `Error: ${error.message}`,
-            });
-            chatStore.setStreaming(false);
-          },
-        }
-      );
+
+      await aiService.refactorCode('explain', selectedCode, language, {
+        onToken: (token) => {
+          chatStore.appendStreamingContent(token);
+        },
+        onComplete: () => {
+          chatStore.finalizeStreaming();
+        },
+        onError: (error) => {
+          chatStore.addMessage({
+            role: 'assistant',
+            content: `Error: ${error.message}`,
+          });
+          chatStore.setStreaming(false);
+        },
+      });
     } catch (error) {
       console.error('[AICodeActions] Chat action failed:', error);
       chatStore.setStreaming(false);
     }
-    
+
     pendingOperation = null;
     return;
   }
@@ -101,7 +96,7 @@ export async function executeAIAction(
   // For refactor/document/fix, apply changes to editor
   try {
     const result = await aiService.refactorCode(action, selectedCode, language);
-    
+
     // Extract code from response if wrapped in code blocks
     let newCode = result;
     const codeBlockMatch = result.match(/```(?:\w+)?\n([\s\S]*?)```/);
@@ -131,7 +126,7 @@ export async function executeAIAction(
           forceMoveMarkers: true,
         },
       ]);
-      
+
       // Format the document after edit
       setTimeout(() => {
         editor.getAction('editor.action.formatDocument')?.run();
@@ -163,7 +158,9 @@ export function registerAICodeActions(
     editor.addAction({
       id: 'ai.explain',
       label: 'AI: Explain Selection',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
+      ],
       contextMenuGroupId: 'ai',
       contextMenuOrder: 1,
       precondition: 'editorHasSelection',
@@ -174,7 +171,12 @@ export function registerAICodeActions(
           if (model) {
             const selectedCode = model.getValueInRange(selection);
             if (selectedCode.trim()) {
-              await executeAIAction(ed, 'explain', selectedCode, model.getLanguageId());
+              await executeAIAction(
+                ed,
+                'explain',
+                selectedCode,
+                model.getLanguageId()
+              );
             }
           }
         }
@@ -187,7 +189,9 @@ export function registerAICodeActions(
     editor.addAction({
       id: 'ai.refactor',
       label: 'AI: Refactor Selection',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyR],
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyR,
+      ],
       contextMenuGroupId: 'ai',
       contextMenuOrder: 2,
       precondition: 'editorHasSelection',
@@ -198,7 +202,12 @@ export function registerAICodeActions(
           if (model) {
             const selectedCode = model.getValueInRange(selection);
             if (selectedCode.trim()) {
-              await executeAIAction(ed, 'refactor', selectedCode, model.getLanguageId());
+              await executeAIAction(
+                ed,
+                'refactor',
+                selectedCode,
+                model.getLanguageId()
+              );
             }
           }
         }
@@ -206,12 +215,14 @@ export function registerAICodeActions(
     })
   );
 
-  // Ctrl+Shift+D - Document  
+  // Ctrl+Shift+D - Document
   disposables.push(
     editor.addAction({
       id: 'ai.document',
       label: 'AI: Add Documentation',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD],
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD,
+      ],
       contextMenuGroupId: 'ai',
       contextMenuOrder: 3,
       precondition: 'editorHasSelection',
@@ -222,7 +233,12 @@ export function registerAICodeActions(
           if (model) {
             const selectedCode = model.getValueInRange(selection);
             if (selectedCode.trim()) {
-              await executeAIAction(ed, 'document', selectedCode, model.getLanguageId());
+              await executeAIAction(
+                ed,
+                'document',
+                selectedCode,
+                model.getLanguageId()
+              );
             }
           }
         }
@@ -235,7 +251,9 @@ export function registerAICodeActions(
     editor.addAction({
       id: 'ai.fix',
       label: 'AI: Fix Issues',
-      keybindings: [monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
+      keybindings: [
+        monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
+      ],
       contextMenuGroupId: 'ai',
       contextMenuOrder: 4,
       precondition: 'editorHasSelection',
@@ -246,7 +264,12 @@ export function registerAICodeActions(
           if (model) {
             const selectedCode = model.getValueInRange(selection);
             if (selectedCode.trim()) {
-              await executeAIAction(ed, 'fix', selectedCode, model.getLanguageId());
+              await executeAIAction(
+                ed,
+                'fix',
+                selectedCode,
+                model.getLanguageId()
+              );
             }
           }
         }
@@ -259,7 +282,9 @@ export function registerAICodeActions(
     editor.addAction({
       id: 'ai.chat',
       label: 'AI: Ask About Selection',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyA],
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyA,
+      ],
       contextMenuGroupId: 'ai',
       contextMenuOrder: 5,
       precondition: 'editorHasSelection',
@@ -270,7 +295,12 @@ export function registerAICodeActions(
           if (model) {
             const selectedCode = model.getValueInRange(selection);
             if (selectedCode.trim()) {
-              await executeAIAction(ed, 'chat', selectedCode, model.getLanguageId());
+              await executeAIAction(
+                ed,
+                'chat',
+                selectedCode,
+                model.getLanguageId()
+              );
             }
           }
         }

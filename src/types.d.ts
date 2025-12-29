@@ -43,6 +43,13 @@ interface CodeRunner {
     }) => void
   ) => () => void;
   sendInputResponse: (id: string, value: string, requestId?: string) => void;
+  onJSInputRequest: (
+    callback: (request: {
+      type: 'prompt-request' | 'alert-request';
+      message: string;
+    }) => void
+  ) => () => void;
+  sendJSInputResponse: (value: string) => void;
 }
 
 // ============================================================================
@@ -130,4 +137,3 @@ interface Window {
   editor?: import('monaco-editor').editor.IStandaloneCodeEditor;
   useCodeStore?: unknown;
 }
-

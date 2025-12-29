@@ -18,6 +18,13 @@ export default function FloatingToolbar() {
     currentLanguage === 'python' ? 'python' : 'javascript'
   );
 
+  React.useEffect(() => {
+    // Check if we can run
+    if (!isLoading) {
+      // Logic if needed
+    }
+  }, [isLoading]);
+
   const handleLint = () => {
     window.dispatchEvent(new CustomEvent('trigger-format'));
   };
@@ -54,6 +61,7 @@ export default function FloatingToolbar() {
           onClick={() => runCode()}
           label={t('toolbar.run')}
           disabled={isLoading && currentLanguage === 'python'}
+          testId="run-button"
         />
         <SnippetsMenu />
         <ToolbarButton
@@ -65,6 +73,7 @@ export default function FloatingToolbar() {
           icon={<Settings className="w-5 h-5" />}
           onClick={toggleSettings}
           label={t('toolbar.settings')}
+          testId="settings-button"
         />
       </motion.div>
     </div>
@@ -77,12 +86,14 @@ function ToolbarButton({
   label,
   isActive = false,
   disabled = false,
+  testId,
 }: {
   icon: React.ReactNode;
   onClick: () => void;
   label: string;
   isActive?: boolean;
   disabled?: boolean;
+  testId?: string;
 }) {
   return (
     <motion.button
@@ -90,6 +101,7 @@ function ToolbarButton({
       whileTap={disabled ? {} : { scale: 0.95 }}
       onClick={onClick}
       disabled={disabled}
+      data-testid={testId}
       className={clsx(
         'p-3 rounded-full transition-colors relative group',
         disabled

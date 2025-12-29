@@ -90,9 +90,9 @@ export default function ({
           return;
         }
 
-        // Skip console logs if they are at the top level (handled by log-babel or runtime)
-        // But actually, we might want to capture the return value of console.log (which is undefined)
-        // RunJS usually prints 'undefined' for console.log statements if they are expressions.
+        // Skip
+        // But actually, we might want to capture the return value of
+        // RunJS usually prints 'undefined' for
 
         if (!expression.loc) return;
 
@@ -151,7 +151,7 @@ export default function ({
             root = root.callee.object as BabelTypes.Expression;
           }
 
-          // Instead of awaiting the chain that ends with console.log (returns undefined),
+          // Instead of awaiting the chain that ends with
           // await the root promise directly to show the actual resolved value
           expressionToLog = t.awaitExpression(root);
         } else if (mightBePromise) {

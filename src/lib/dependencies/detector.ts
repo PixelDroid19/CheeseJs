@@ -1,6 +1,6 @@
 /**
  * Dependency Detector
- * 
+ *
  * Detects missing dependencies in JavaScript/TypeScript and Python code
  * before execution to provide helpful error messages and auto-install prompts.
  */
@@ -37,100 +37,282 @@ export interface DependencyDetectionResult {
 
 /** Node.js built-in modules */
 const NODE_BUILTINS = new Set([
-  'assert', 'buffer', 'child_process', 'cluster', 'console', 'constants',
-  'crypto', 'dgram', 'dns', 'domain', 'events', 'fs', 'http', 'https',
-  'module', 'net', 'os', 'path', 'punycode', 'querystring', 'readline',
-  'repl', 'stream', 'string_decoder', 'sys', 'timers', 'tls', 'tty',
-  'url', 'util', 'v8', 'vm', 'zlib', 'worker_threads', 'perf_hooks',
-  'async_hooks', 'trace_events', 'inspector', 'wasi',
+  'assert',
+  'buffer',
+  'child_process',
+  'cluster',
+  'console',
+  'constants',
+  'crypto',
+  'dgram',
+  'dns',
+  'domain',
+  'events',
+  'fs',
+  'http',
+  'https',
+  'module',
+  'net',
+  'os',
+  'path',
+  'punycode',
+  'querystring',
+  'readline',
+  'repl',
+  'stream',
+  'string_decoder',
+  'sys',
+  'timers',
+  'tls',
+  'tty',
+  'url',
+  'util',
+  'v8',
+  'vm',
+  'zlib',
+  'worker_threads',
+  'perf_hooks',
+  'async_hooks',
+  'trace_events',
+  'inspector',
+  'wasi',
   // Node.js prefixed versions
-  'node:assert', 'node:buffer', 'node:child_process', 'node:cluster',
-  'node:console', 'node:constants', 'node:crypto', 'node:dgram',
-  'node:dns', 'node:domain', 'node:events', 'node:fs', 'node:http',
-  'node:https', 'node:module', 'node:net', 'node:os', 'node:path',
-  'node:punycode', 'node:querystring', 'node:readline', 'node:repl',
-  'node:stream', 'node:string_decoder', 'node:sys', 'node:timers',
-  'node:tls', 'node:tty', 'node:url', 'node:util', 'node:v8', 'node:vm',
-  'node:zlib', 'node:worker_threads', 'node:perf_hooks', 'node:async_hooks',
-  'node:trace_events', 'node:inspector', 'node:wasi', 'node:test',
+  'node:assert',
+  'node:buffer',
+  'node:child_process',
+  'node:cluster',
+  'node:console',
+  'node:constants',
+  'node:crypto',
+  'node:dgram',
+  'node:dns',
+  'node:domain',
+  'node:events',
+  'node:fs',
+  'node:http',
+  'node:https',
+  'node:module',
+  'node:net',
+  'node:os',
+  'node:path',
+  'node:punycode',
+  'node:querystring',
+  'node:readline',
+  'node:repl',
+  'node:stream',
+  'node:string_decoder',
+  'node:sys',
+  'node:timers',
+  'node:tls',
+  'node:tty',
+  'node:url',
+  'node:util',
+  'node:v8',
+  'node:vm',
+  'node:zlib',
+  'node:worker_threads',
+  'node:perf_hooks',
+  'node:async_hooks',
+  'node:trace_events',
+  'node:inspector',
+  'node:wasi',
+  'node:test',
 ]);
 
 /** Python standard library modules (common ones) */
 const PYTHON_STDLIB = new Set([
   // Built-in types and functions
-  'builtins', '__future__',
+  'builtins',
+  '__future__',
   // Text processing
-  'string', 're', 'difflib', 'textwrap', 'unicodedata', 'stringprep',
+  'string',
+  're',
+  'difflib',
+  'textwrap',
+  'unicodedata',
+  'stringprep',
   // Binary data
-  'struct', 'codecs',
+  'struct',
+  'codecs',
   // Data types
-  'datetime', 'calendar', 'collections', 'heapq', 'bisect', 'array',
-  'weakref', 'types', 'copy', 'pprint', 'reprlib', 'enum', 'graphlib',
+  'datetime',
+  'calendar',
+  'collections',
+  'heapq',
+  'bisect',
+  'array',
+  'weakref',
+  'types',
+  'copy',
+  'pprint',
+  'reprlib',
+  'enum',
+  'graphlib',
   // Numeric and math
-  'numbers', 'math', 'cmath', 'decimal', 'fractions', 'random', 'statistics',
+  'numbers',
+  'math',
+  'cmath',
+  'decimal',
+  'fractions',
+  'random',
+  'statistics',
   // Functional
-  'itertools', 'functools', 'operator',
+  'itertools',
+  'functools',
+  'operator',
   // File and directory
-  'pathlib', 'fileinput', 'stat', 'filecmp', 'tempfile', 'glob', 'fnmatch',
-  'linecache', 'shutil',
+  'pathlib',
+  'fileinput',
+  'stat',
+  'filecmp',
+  'tempfile',
+  'glob',
+  'fnmatch',
+  'linecache',
+  'shutil',
   // Data persistence
-  'pickle', 'copyreg', 'shelve', 'dbm', 'sqlite3',
+  'pickle',
+  'copyreg',
+  'shelve',
+  'dbm',
+  'sqlite3',
   // Data compression
-  'zlib', 'gzip', 'bz2', 'lzma', 'zipfile', 'tarfile',
+  'zlib',
+  'gzip',
+  'bz2',
+  'lzma',
+  'zipfile',
+  'tarfile',
   // File formats
-  'csv', 'configparser', 'tomllib', 'netrc', 'plistlib',
+  'csv',
+  'configparser',
+  'tomllib',
+  'netrc',
+  'plistlib',
   // Cryptographic
-  'hashlib', 'hmac', 'secrets',
+  'hashlib',
+  'hmac',
+  'secrets',
   // OS services
-  'os', 'io', 'time', 'argparse', 'getopt', 'logging', 'getpass', 'curses',
-  'platform', 'errno', 'ctypes',
+  'os',
+  'io',
+  'time',
+  'argparse',
+  'getopt',
+  'logging',
+  'getpass',
+  'curses',
+  'platform',
+  'errno',
+  'ctypes',
   // Concurrent execution
-  'threading', 'multiprocessing', 'concurrent', 'subprocess', 'sched',
-  'queue', 'contextvars',
+  'threading',
+  'multiprocessing',
+  'concurrent',
+  'subprocess',
+  'sched',
+  'queue',
+  'contextvars',
   // Networking
-  'asyncio', 'socket', 'ssl', 'select', 'selectors', 'signal',
+  'asyncio',
+  'socket',
+  'ssl',
+  'select',
+  'selectors',
+  'signal',
   // Internet data
-  'email', 'json', 'mailbox', 'mimetypes', 'base64', 'binascii', 'quopri',
+  'email',
+  'json',
+  'mailbox',
+  'mimetypes',
+  'base64',
+  'binascii',
+  'quopri',
   // HTML/XML
-  'html', 'xml',
+  'html',
+  'xml',
   // Internet protocols
-  'webbrowser', 'wsgiref', 'urllib', 'http', 'ftplib', 'poplib', 'imaplib',
-  'smtplib', 'uuid', 'socketserver', 'xmlrpc', 'ipaddress',
+  'webbrowser',
+  'wsgiref',
+  'urllib',
+  'http',
+  'ftplib',
+  'poplib',
+  'imaplib',
+  'smtplib',
+  'uuid',
+  'socketserver',
+  'xmlrpc',
+  'ipaddress',
   // Multimedia
-  'wave', 'colorsys',
+  'wave',
+  'colorsys',
   // Internationalization
-  'gettext', 'locale',
+  'gettext',
+  'locale',
   // Program frameworks
-  'turtle', 'cmd', 'shlex',
+  'turtle',
+  'cmd',
+  'shlex',
   // GUI
   'tkinter',
   // Development
-  'typing', 'pydoc', 'doctest', 'unittest', 'test',
+  'typing',
+  'pydoc',
+  'doctest',
+  'unittest',
+  'test',
   // Debugging
-  'bdb', 'faulthandler', 'pdb', 'timeit', 'trace', 'tracemalloc',
+  'bdb',
+  'faulthandler',
+  'pdb',
+  'timeit',
+  'trace',
+  'tracemalloc',
   // Runtime
-  'sys', 'sysconfig', 'warnings', 'dataclasses', 'contextlib', 'abc', 'atexit',
-  'traceback', 'gc', 'inspect', 'site',
+  'sys',
+  'sysconfig',
+  'warnings',
+  'dataclasses',
+  'contextlib',
+  'abc',
+  'atexit',
+  'traceback',
+  'gc',
+  'inspect',
+  'site',
   // Importing
-  'importlib', 'zipimport', 'pkgutil', 'modulefinder', 'runpy',
+  'importlib',
+  'zipimport',
+  'pkgutil',
+  'modulefinder',
+  'runpy',
   // Python language
-  'ast', 'symtable', 'token', 'keyword', 'tokenize', 'tabnanny', 'pyclbr',
-  'py_compile', 'compileall', 'dis', 'pickletools',
+  'ast',
+  'symtable',
+  'token',
+  'keyword',
+  'tokenize',
+  'tabnanny',
+  'pyclbr',
+  'py_compile',
+  'compileall',
+  'dis',
+  'pickletools',
   // Other
   'formatter',
 ]);
 
 /** Packages available in Pyodide by default */
-const PYODIDE_BUILTINS = new Set([
-  'micropip', 'pyodide', 'js', 'pyodide_js',
-]);
+const PYODIDE_BUILTINS = new Set(['micropip', 'pyodide', 'js', 'pyodide_js']);
 
 // ============================================================================
 // DETECTION PATTERNS
 // ============================================================================
 
 /** Pattern to match ES6 import statements */
-const ES6_IMPORT_PATTERN = /^\s*import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s*,?\s*)*(?:from\s+)?['"]([^'"]+)['"]/gm;
+const ES6_IMPORT_PATTERN =
+  /^\s*import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s*,?\s*)*(?:from\s+)?['"]([^'"]+)['"]/gm;
 
 /** Pattern to match require() calls */
 const REQUIRE_PATTERN = /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
@@ -158,7 +340,7 @@ function extractPackageName(importPath: string): string {
       return `${parts[0]}/${parts[1]}`;
     }
   }
-  
+
   // Regular packages
   const parts = importPath.split('/');
   return parts[0];
@@ -179,25 +361,25 @@ function extractPythonModuleName(importPath: string): string {
 export function detectJSDependencies(code: string): DetectedDependency[] {
   const dependencies: DetectedDependency[] = [];
   const seen = new Set<string>();
-  
+
   // Split into lines to track line numbers
   const lines = code.split('\n');
-  
+
   // Find ES6 imports
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     ES6_IMPORT_PATTERN.lastIndex = 0;
     const match = ES6_IMPORT_PATTERN.exec(line);
-    
+
     if (match) {
       const importPath = match[1];
       const packageName = extractPackageName(importPath);
-      
+
       // Skip relative imports
       if (importPath.startsWith('.') || importPath.startsWith('/')) {
         continue;
       }
-      
+
       if (!seen.has(packageName)) {
         seen.add(packageName);
         dependencies.push({
@@ -209,22 +391,22 @@ export function detectJSDependencies(code: string): DetectedDependency[] {
       }
     }
   }
-  
+
   // Find require() calls
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     REQUIRE_PATTERN.lastIndex = 0;
     let match;
-    
+
     while ((match = REQUIRE_PATTERN.exec(line)) !== null) {
       const importPath = match[1];
       const packageName = extractPackageName(importPath);
-      
+
       // Skip relative imports
       if (importPath.startsWith('.') || importPath.startsWith('/')) {
         continue;
       }
-      
+
       if (!seen.has(packageName)) {
         seen.add(packageName);
         dependencies.push({
@@ -236,22 +418,22 @@ export function detectJSDependencies(code: string): DetectedDependency[] {
       }
     }
   }
-  
+
   // Find dynamic imports
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     DYNAMIC_IMPORT_PATTERN.lastIndex = 0;
     let match;
-    
+
     while ((match = DYNAMIC_IMPORT_PATTERN.exec(line)) !== null) {
       const importPath = match[1];
       const packageName = extractPackageName(importPath);
-      
+
       // Skip relative imports
       if (importPath.startsWith('.') || importPath.startsWith('/')) {
         continue;
       }
-      
+
       if (!seen.has(packageName)) {
         seen.add(packageName);
         dependencies.push({
@@ -263,7 +445,7 @@ export function detectJSDependencies(code: string): DetectedDependency[] {
       }
     }
   }
-  
+
   return dependencies;
 }
 
@@ -273,29 +455,30 @@ export function detectJSDependencies(code: string): DetectedDependency[] {
 export function detectPythonDependencies(code: string): DetectedDependency[] {
   const dependencies: DetectedDependency[] = [];
   const seen = new Set<string>();
-  
+
   // Split into lines to track line numbers
   const lines = code.split('\n');
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     PYTHON_IMPORT_PATTERN.lastIndex = 0;
     const match = PYTHON_IMPORT_PATTERN.exec(line);
-    
+
     if (match) {
       const importPath = match[1] || match[2];
       if (!importPath) continue;
-      
+
       // Handle comma-separated imports: import os, sys, json
-      const modules = importPath.split(',').map(m => m.trim());
-      
+      const modules = importPath.split(',').map((m) => m.trim());
+
       for (const mod of modules) {
         const moduleName = extractPythonModuleName(mod);
-        
+
         if (!seen.has(moduleName)) {
           seen.add(moduleName);
-          const isBuiltin = PYTHON_STDLIB.has(moduleName) || PYODIDE_BUILTINS.has(moduleName);
-          
+          const isBuiltin =
+            PYTHON_STDLIB.has(moduleName) || PYODIDE_BUILTINS.has(moduleName);
+
           dependencies.push({
             name: moduleName,
             importStatement: line.trim(),
@@ -306,7 +489,7 @@ export function detectPythonDependencies(code: string): DetectedDependency[] {
       }
     }
   }
-  
+
   return dependencies;
 }
 
@@ -318,20 +501,22 @@ export async function checkInstalledPackages(
   language: 'javascript' | 'typescript' | 'python'
 ): Promise<DetectedDependency[]> {
   // Filter out built-ins first
-  const externalDeps = dependencies.filter(d => !d.isBuiltin);
-  
+  const externalDeps = dependencies.filter((d) => !d.isBuiltin);
+
   if (externalDeps.length === 0) {
     return dependencies;
   }
-  
+
   try {
     if (language === 'python') {
       // Check Python packages via Pyodide
       if (typeof window !== 'undefined' && window.pythonPackageManager) {
         const result = await window.pythonPackageManager.listInstalled();
         if (result.success) {
-          const installedSet = new Set(result.packages.map(p => p.toLowerCase()));
-          
+          const installedSet = new Set(
+            result.packages.map((p) => p.toLowerCase())
+          );
+
           for (const dep of externalDeps) {
             dep.isInstalled = installedSet.has(dep.name.toLowerCase());
           }
@@ -342,8 +527,10 @@ export async function checkInstalledPackages(
       if (typeof window !== 'undefined' && window.packageManager) {
         const result = await window.packageManager.list();
         if (result.success) {
-          const installedSet = new Set(result.packages.map(p => p.name.toLowerCase()));
-          
+          const installedSet = new Set(
+            result.packages.map((p) => p.name.toLowerCase())
+          );
+
           for (const dep of externalDeps) {
             dep.isInstalled = installedSet.has(dep.name.toLowerCase());
           }
@@ -353,7 +540,7 @@ export async function checkInstalledPackages(
   } catch (e) {
     console.warn('[DependencyDetector] Error checking installed packages:', e);
   }
-  
+
   return dependencies;
 }
 
@@ -365,21 +552,21 @@ export async function detectDependencies(
   language: 'javascript' | 'typescript' | 'python'
 ): Promise<DependencyDetectionResult> {
   let dependencies: DetectedDependency[];
-  
+
   if (language === 'python') {
     dependencies = detectPythonDependencies(code);
   } else {
     dependencies = detectJSDependencies(code);
   }
-  
+
   // Check which are installed
   await checkInstalledPackages(dependencies, language);
-  
+
   // Filter missing packages (not built-in and not installed)
   const missing = dependencies.filter(
-    d => !d.isBuiltin && d.isInstalled === false
+    (d) => !d.isBuiltin && d.isInstalled === false
   );
-  
+
   return {
     dependencies,
     missing,
@@ -390,56 +577,60 @@ export async function detectDependencies(
 /**
  * Get suggested packages for common typos or alternative names
  */
-export function getSuggestedPackages(packageName: string, language: string): string[] {
+export function getSuggestedPackages(
+  packageName: string,
+  _language: string
+): string[] {
   const suggestions: string[] = [];
-  
+
   // Common package alternatives
   const alternatives: Record<string, string[]> = {
     // JavaScript
-    'lodash': ['lodash-es', 'underscore'],
-    'moment': ['dayjs', 'date-fns', 'luxon'],
-    'request': ['axios', 'node-fetch', 'got'],
-    'express': ['fastify', 'koa', 'hapi'],
-    'mocha': ['jest', 'vitest', 'ava'],
-    
+    lodash: ['lodash-es', 'underscore'],
+    moment: ['dayjs', 'date-fns', 'luxon'],
+    request: ['axios', 'node-fetch', 'got'],
+    express: ['fastify', 'koa', 'hapi'],
+    mocha: ['jest', 'vitest', 'ava'],
+
     // Python
-    'sklearn': ['scikit-learn'],
-    'cv2': ['opencv-python'],
-    'PIL': ['pillow'],
-    'yaml': ['pyyaml'],
-    'bs4': ['beautifulsoup4'],
+    sklearn: ['scikit-learn'],
+    cv2: ['opencv-python'],
+    PIL: ['pillow'],
+    yaml: ['pyyaml'],
+    bs4: ['beautifulsoup4'],
   };
-  
+
   if (alternatives[packageName]) {
     suggestions.push(...alternatives[packageName]);
   }
-  
+
   return suggestions;
 }
 
 /**
  * Format missing dependencies as user-friendly message
  */
-export function formatMissingDependencies(result: DependencyDetectionResult): string | null {
+export function formatMissingDependencies(
+  result: DependencyDetectionResult
+): string | null {
   if (result.missing.length === 0) {
     return null;
   }
-  
+
   const packageManager = result.language === 'python' ? 'PyPI' : 'npm';
-  const packageNames = result.missing.map(d => d.name).join(', ');
-  
+  const packageNames = result.missing.map((d) => d.name).join(', ');
+
   if (result.missing.length === 1) {
     const pkg = result.missing[0];
     const suggestions = getSuggestedPackages(pkg.name, result.language);
     let message = `📦 Missing package: ${pkg.name}\n\nInstall it via Settings → ${packageManager}`;
-    
+
     if (suggestions.length > 0) {
       message += `\n\nAlternatives: ${suggestions.join(', ')}`;
     }
-    
+
     return message;
   }
-  
+
   return `📦 Missing packages: ${packageNames}\n\nInstall them via Settings → ${packageManager}`;
 }
-

@@ -125,9 +125,6 @@ export const useLanguageStore = create<LanguageState>()(
           // Check definitive patterns first (highest priority)
           for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
             if (pattern.test(trimmed)) {
-              console.log(
-                `[LanguageStore] Sync: Definitive Python matched: ${pattern}`
-              );
               return {
                 monacoId: 'python',
                 confidence: 0.98,
@@ -138,9 +135,6 @@ export const useLanguageStore = create<LanguageState>()(
 
           for (const pattern of DEFINITIVE_TS_PATTERNS) {
             if (pattern.test(trimmed)) {
-              console.log(
-                `[LanguageStore] Sync: Definitive TS matched: ${pattern}`
-              );
               return {
                 monacoId: 'typescript',
                 confidence: 0.98,
@@ -151,9 +145,6 @@ export const useLanguageStore = create<LanguageState>()(
 
           for (const pattern of DEFINITIVE_JS_PATTERNS) {
             if (pattern.test(trimmed)) {
-              console.log(
-                `[LanguageStore] Sync: Definitive JS matched: ${pattern}`
-              );
               return {
                 monacoId: 'javascript',
                 confidence: 0.98,
@@ -201,11 +192,10 @@ export const useLanguageStore = create<LanguageState>()(
           // Check if detection result is still valid (version hasn't changed)
           const currentVersion = get().detectionVersion;
           if (currentVersion !== versionAtStart) {
-            console.log(
-              `[LanguageStore] Discarding stale detection result (version ${versionAtStart} -> ${currentVersion})`
-            );
             // Return result but caller should check version before applying
-            return { ...result, isStale: true } as DetectionResult & { isStale?: boolean };
+            return { ...result, isStale: true } as DetectionResult & {
+              isStale?: boolean;
+            };
           }
 
           return result;
@@ -250,9 +240,6 @@ export const useLanguageStore = create<LanguageState>()(
           const targetLang = state.currentLanguage;
 
           if (currentLang !== targetLang) {
-            console.log(
-              `[LanguageStore] Applying language: ${currentLang} -> ${targetLang}`
-            );
             state.monacoInstance.editor.setModelLanguage(model, targetLang);
           }
 
@@ -260,10 +247,22 @@ export const useLanguageStore = create<LanguageState>()(
           const isPython = targetLang === 'python';
 
           // Type for TS diagnostics
-          interface TSDefaults { setDiagnosticsOptions(opts: { noSemanticValidation?: boolean; noSyntaxValidation?: boolean }): void; }
-          interface TSLanguages { typescriptDefaults?: TSDefaults; javascriptDefaults?: TSDefaults; }
+          interface TSDefaults {
+            setDiagnosticsOptions(opts: {
+              noSemanticValidation?: boolean;
+              noSyntaxValidation?: boolean;
+            }): void;
+          }
+          interface TSLanguages {
+            typescriptDefaults?: TSDefaults;
+            javascriptDefaults?: TSDefaults;
+          }
 
-          const ts = (state.monacoInstance.languages as unknown as { typescript: TSLanguages }).typescript;
+          const ts = (
+            state.monacoInstance.languages as unknown as {
+              typescript: TSLanguages;
+            }
+          ).typescript;
           if (ts) {
             ts.typescriptDefaults?.setDiagnosticsOptions({
               noSemanticValidation: isPython,

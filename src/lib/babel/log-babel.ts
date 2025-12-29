@@ -11,7 +11,7 @@ export default function ({
       CallExpression(path) {
         const callee = path.node.callee;
 
-        // Check if it's a console method call: console.log(...)
+        // Check if it's a console method call:
         if (!t.isMemberExpression(callee)) return;
         if (
           !t.isIdentifier(callee.object) ||

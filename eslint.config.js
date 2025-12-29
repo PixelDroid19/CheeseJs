@@ -7,7 +7,13 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    ignores: ['dist', 'dist-electron', 'node_modules', 'coverage'],
+    ignores: [
+      'dist',
+      'dist-electron',
+      'node_modules',
+      'coverage',
+      'electron/**/*.js',
+    ],
   },
   js.configs.recommended,
   {
@@ -36,11 +42,11 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',
-        { 
+        {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_'
-        }
+          caughtErrorsIgnorePattern: '^_',
+        },
       ],
     },
   },

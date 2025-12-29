@@ -45,7 +45,7 @@ let lastRequestId = 0;
 let isRequestInProgress = false;
 
 // Clean up AI completion response - more aggressive cleaning
-function cleanCompletionResponse(
+export function cleanCompletionResponse(
   completion: string,
   textBeforeCursor: string
 ): string {
@@ -55,18 +55,24 @@ function cleanCompletionResponse(
   cleaned = cleaned.replace(/^```[\w]*\n?/gm, '');
   cleaned = cleaned.replace(/\n?```$/gm, '');
   cleaned = cleaned.replace(/```/g, '');
-  
+
   // Remove leading/trailing quotes
   cleaned = cleaned.replace(/^["'`]+|["'`]+$/g, '');
-  
+
   // Remove common AI prefixes
-  cleaned = cleaned.replace(/^(Output|Completion|Result|Answer|Code|Here|The|Response):\s*/i, '');
-  cleaned = cleaned.replace(/^(Here's|Here is|The completion is|Completing).*?:\s*/i, '');
-  
+  cleaned = cleaned.replace(
+    /^(Output|Completion|Result|Answer|Code|Here|The|Response):\s*/i,
+    ''
+  );
+  cleaned = cleaned.replace(
+    /^(Here's|Here is|The completion is|Completing).*?:\s*/i,
+    ''
+  );
+
   // Trim whitespace but preserve leading space if it's part of the completion
-  const hadLeadingSpace = cleaned.startsWith(' ') || cleaned.startsWith('\t');
+  const _hadLeadingSpace = cleaned.startsWith(' ') || cleaned.startsWith('\t');
   cleaned = cleaned.trim();
-  
+
   if (!cleaned) return '';
 
   // Get current line being typed
@@ -78,7 +84,7 @@ function cleanCompletionResponse(
   if (cleaned.startsWith(currentLine) && currentLine.length > 0) {
     cleaned = cleaned.slice(currentLine.length);
   }
-  
+
   // If the model repeated the trimmed current line, find and remove it
   if (currentLineTrimmed.length > 3 && cleaned.startsWith(currentLineTrimmed)) {
     cleaned = cleaned.slice(currentLineTrimmed.length);
@@ -93,7 +99,7 @@ function cleanCompletionResponse(
     }
   }
 
-  // Specific check: if typing "const x = " and model returns "function x(...", 
+  // Specific check: if typing "const x = " and model returns "function x(...",
   // just return the function without the name if it matches
   const varDeclMatch = currentLine.match(/^(const|let|var)\s+(\w+)\s*=\s*$/);
   if (varDeclMatch) {
@@ -139,7 +145,7 @@ export function createInlineCompletionProvider(
         currentAbortController.abort();
         currentAbortController = null;
       }
-      
+
       // Clear pending debounce
       if (debounceTimer) {
         clearTimeout(debounceTimer);
@@ -200,7 +206,10 @@ export function createInlineCompletionProvider(
       // Skip if we're in a comment
       const currentLine = model.getLineContent(position.lineNumber);
       const beforeCursorOnLine = currentLine.substring(0, position.column - 1);
-      if (beforeCursorOnLine.includes('//') || beforeCursorOnLine.includes('/*')) {
+      if (
+        beforeCursorOnLine.includes('//') ||
+        beforeCursorOnLine.includes('/*')
+      ) {
         return { items: [] };
       }
 
@@ -229,7 +238,10 @@ export function createInlineCompletionProvider(
         // Debounce with longer delay to wait for user pause
         debounceTimer = setTimeout(async () => {
           // Double-check cancellation
-          if (token.isCancellationRequested || currentRequestId !== lastRequestId) {
+          if (
+            token.isCancellationRequested ||
+            currentRequestId !== lastRequestId
+          ) {
             resolve({ items: [] });
             return;
           }
@@ -251,10 +263,16 @@ export function createInlineCompletionProvider(
               codeAfter: textAfterCursor,
             };
 
-            const completion = await aiService.generateInlineCompletion(context, 100);
+            const completion = await aiService.generateInlineCompletion(
+              context,
+              100
+            );
 
             // Check if cancelled or superseded
-            if (token.isCancellationRequested || currentRequestId !== lastRequestId) {
+            if (
+              token.isCancellationRequested ||
+              currentRequestId !== lastRequestId
+            ) {
               resolve({ items: [] });
               return;
             }
@@ -265,7 +283,10 @@ export function createInlineCompletionProvider(
             }
 
             // Clean up the completion
-            const cleanCompletion = cleanCompletionResponse(completion, textBeforeCursor);
+            const cleanCompletion = cleanCompletionResponse(
+              completion,
+              textBeforeCursor
+            );
 
             // Don't suggest if empty after cleaning
             if (!cleanCompletion || cleanCompletion.length === 0) {
@@ -310,7 +331,9 @@ export function createInlineCompletionProvider(
     },
 
     // Monaco requires this method to clean up completions
-    freeInlineCompletions: (_completions: Monaco.languages.InlineCompletions) => {
+    freeInlineCompletions: (
+      _completions: Monaco.languages.InlineCompletions
+    ) => {
       // Cancel any pending request when completions are freed
       if (currentAbortController) {
         currentAbortController.abort();
@@ -323,7 +346,9 @@ export function createInlineCompletionProvider(
     },
 
     // Some Monaco versions call this instead of freeInlineCompletions
-    disposeInlineCompletions: (_completions: Monaco.languages.InlineCompletions) => {
+    disposeInlineCompletions: (
+      _completions: Monaco.languages.InlineCompletions
+    ) => {
       if (currentAbortController) {
         currentAbortController.abort();
         currentAbortController = null;

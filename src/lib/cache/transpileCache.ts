@@ -1,6 +1,6 @@
 /**
  * Transpilation Cache
- * 
+ *
  * Provides persistent caching for transpiled code to avoid redundant
  * transpilation of unchanged code. Uses content hashing for cache keys.
  */
@@ -62,11 +62,14 @@ export class TranspileCache {
   private hits = 0;
   private misses = 0;
 
-  constructor(maxSize: number = DEFAULT_MAX_SIZE, maxAgeMs: number = DEFAULT_MAX_AGE_MS) {
+  constructor(
+    maxSize: number = DEFAULT_MAX_SIZE,
+    maxAgeMs: number = DEFAULT_MAX_AGE_MS
+  ) {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.maxAgeMs = maxAgeMs;
-    
+
     // Try to load from localStorage
     this.loadFromStorage();
   }
@@ -83,7 +86,7 @@ export class TranspileCache {
       magicComments: options.magicComments,
       language: options.language,
     });
-    
+
     const combined = code + '|' + optionsStr;
     return this.fastHash(combined);
   }
@@ -94,7 +97,7 @@ export class TranspileCache {
   private fastHash(str: string): string {
     let hash = 5381;
     for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      hash = (hash << 5) + hash + str.charCodeAt(i);
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash).toString(36);
@@ -106,23 +109,23 @@ export class TranspileCache {
   get(code: string, options: TranspileOptions): string | null {
     const hash = this.generateHash(code, options);
     const entry = this.cache.get(hash);
-    
+
     if (!entry) {
       this.misses++;
       return null;
     }
-    
+
     // Check if entry is expired
     if (Date.now() - entry.timestamp > this.maxAgeMs) {
       this.cache.delete(hash);
       this.misses++;
       return null;
     }
-    
+
     // Update hit count and access time
     entry.hitCount++;
     this.hits++;
-    
+
     return entry.output;
   }
 
@@ -131,12 +134,12 @@ export class TranspileCache {
    */
   set(code: string, output: string, options: TranspileOptions): void {
     const hash = this.generateHash(code, options);
-    
+
     // Evict if at capacity
     if (this.cache.size >= this.maxSize) {
       this.evictLeastUsed();
     }
-    
+
     this.cache.set(hash, {
       hash,
       output,
@@ -144,7 +147,7 @@ export class TranspileCache {
       timestamp: Date.now(),
       hitCount: 0,
     });
-    
+
     // Persist to storage (debounced)
     this.scheduleStorageSave();
   }
@@ -155,15 +158,15 @@ export class TranspileCache {
   has(code: string, options: TranspileOptions): boolean {
     const hash = this.generateHash(code, options);
     const entry = this.cache.get(hash);
-    
+
     if (!entry) return false;
-    
+
     // Check expiration
     if (Date.now() - entry.timestamp > this.maxAgeMs) {
       this.cache.delete(hash);
       return false;
     }
-    
+
     return true;
   }
 
@@ -191,14 +194,14 @@ export class TranspileCache {
   getStats(): CacheStats {
     const total = this.hits + this.misses;
     let memoryBytes = 0;
-    
+
     for (const entry of this.cache.values()) {
       // Rough estimate: hash + output + metadata
       memoryBytes += entry.hash.length * 2;
       memoryBytes += entry.output.length * 2;
       memoryBytes += 100; // metadata overhead
     }
-    
+
     return {
       size: this.cache.size,
       hits: this.hits,
@@ -215,18 +218,18 @@ export class TranspileCache {
     // Find entry with lowest hit count and oldest timestamp
     let leastUsedHash: string | null = null;
     let leastUsedScore = Infinity;
-    
+
     for (const [hash, entry] of this.cache) {
       // Score based on hit count and recency
       const age = Date.now() - entry.timestamp;
-      const score = entry.hitCount - (age / this.maxAgeMs);
-      
+      const score = entry.hitCount - age / this.maxAgeMs;
+
       if (score < leastUsedScore) {
         leastUsedScore = score;
         leastUsedHash = hash;
       }
     }
-    
+
     if (leastUsedHash) {
       this.cache.delete(leastUsedHash);
     }
@@ -238,18 +241,18 @@ export class TranspileCache {
   cleanup(): number {
     const now = Date.now();
     let removed = 0;
-    
+
     for (const [hash, entry] of this.cache) {
       if (now - entry.timestamp > this.maxAgeMs) {
         this.cache.delete(hash);
         removed++;
       }
     }
-    
+
     if (removed > 0) {
       this.scheduleStorageSave();
     }
-    
+
     return removed;
   }
 
@@ -266,7 +269,7 @@ export class TranspileCache {
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
     }
-    
+
     this.saveTimeout = setTimeout(() => {
       this.saveToStorage();
     }, 1000);
@@ -278,13 +281,13 @@ export class TranspileCache {
   private saveToStorage(): void {
     try {
       if (typeof localStorage === 'undefined') return;
-      
+
       const data = {
         version: 1,
         entries: Array.from(this.cache.entries()),
         stats: { hits: this.hits, misses: this.misses },
       };
-      
+
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
       // localStorage might be full or unavailable
@@ -298,27 +301,25 @@ export class TranspileCache {
   private loadFromStorage(): void {
     try {
       if (typeof localStorage === 'undefined') return;
-      
+
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) return;
-      
+
       const data = JSON.parse(stored);
-      
+
       if (data.version !== 1) {
         // Incompatible version, clear storage
         localStorage.removeItem(STORAGE_KEY);
         return;
       }
-      
+
       // Restore entries
       this.cache = new Map(data.entries);
       this.hits = data.stats?.hits ?? 0;
       this.misses = data.stats?.misses ?? 0;
-      
+
       // Cleanup expired entries
       this.cleanup();
-      
-      console.log(`[TranspileCache] Loaded ${this.cache.size} entries from storage`);
     } catch (e) {
       console.warn('[TranspileCache] Failed to load from storage:', e);
     }
@@ -350,4 +351,3 @@ export function resetTranspileCache(): void {
   }
   cacheInstance = null;
 }
-

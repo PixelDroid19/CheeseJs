@@ -2,12 +2,12 @@ import type { Monaco } from '@monaco-editor/react';
 import type { editor, languages } from 'monaco-editor';
 import { themes } from '../themes';
 
-// Import Monaco workers using Vite's worker syntax
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+// Import Monaco workers using Vite's worker syntax with inline to avoid path issues in Electron
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker&inline';
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker&inline';
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker&inline';
+import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker&inline';
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker&inline';
 
 /**
  * Configure Monaco's web workers for different language services.
@@ -54,7 +54,10 @@ const JsxEmit = {
 // Interface for the TypeScript language defaults
 interface LanguageServiceDefaults {
   setCompilerOptions(options: Record<string, unknown>): void;
-  setDiagnosticsOptions(options: { noSemanticValidation?: boolean; noSyntaxValidation?: boolean }): void;
+  setDiagnosticsOptions(options: {
+    noSemanticValidation?: boolean;
+    noSyntaxValidation?: boolean;
+  }): void;
   setEagerModelSync(value: boolean): void;
   addExtraLib(content: string, filePath?: string): void;
 }
@@ -104,7 +107,9 @@ export const configureMonaco = (monaco: Monaco) => {
       },
     },
     indentationRules: {
-      increaseIndentPattern: new RegExp('^((?!//).)*({[^}"\'`]*|\\([^)"\'`]*|\\[[^\\]"\'`]*)$'),
+      increaseIndentPattern: new RegExp(
+        '^((?!//).)*({[^}"\'`]*|\\([^)"\'`]*|\\[[^\\]"\'`]*)$'
+      ),
       decreaseIndentPattern: new RegExp('^((?!.*?/\\*).*\\*/)?\\s*[}\\])].*$'),
     },
   };
@@ -127,7 +132,9 @@ export const configureMonaco = (monaco: Monaco) => {
   });
 
   // Access typescript namespace through proper casting
-  const ts = (monaco.languages as unknown as { typescript: TypeScriptLanguages }).typescript;
+  const ts = (
+    monaco.languages as unknown as { typescript: TypeScriptLanguages }
+  ).typescript;
   if (!ts) return;
 
   // Compiler options using numeric values directly

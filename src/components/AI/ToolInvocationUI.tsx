@@ -16,7 +16,10 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import clsx from 'clsx';
-import type { ToolInvocation, ToolInvocationState } from '../../lib/ai/codeAgent';
+import type {
+  ToolInvocation,
+  ToolInvocationState,
+} from '../../features/ai-agent/codeAgent';
 
 interface ToolInvocationUIProps {
   invocation: ToolInvocation;
@@ -24,23 +27,24 @@ interface ToolInvocationUIProps {
   onDeny?: (id: string) => void;
 }
 
-// Get icon for tool
-function getToolIcon(toolName: string) {
+// Get icon for tool - returns a React element to avoid static component lint issue
+function getToolIcon(toolName: string): React.ReactNode {
+  const iconClass = 'w-3.5 h-3.5 text-foreground';
   switch (toolName) {
     case 'executeCode':
-      return Play;
+      return <Play className={iconClass} />;
     case 'readEditorContent':
-      return FileText;
+      return <FileText className={iconClass} />;
     case 'getSelectedCode':
-      return Code;
+      return <Code className={iconClass} />;
     case 'insertCode':
-      return Edit;
+      return <Edit className={iconClass} />;
     case 'replaceSelection':
-      return Edit;
+      return <Edit className={iconClass} />;
     case 'analyzeCode':
-      return Search;
+      return <Search className={iconClass} />;
     default:
-      return Code;
+      return <Code className={iconClass} />;
   }
 }
 
@@ -86,9 +90,13 @@ function getStateIndicator(state: ToolInvocationState) {
   }
 }
 
-export function ToolInvocationCard({ invocation, onApprove, onDeny }: ToolInvocationUIProps) {
+export function ToolInvocationCard({
+  invocation,
+  onApprove,
+  onDeny,
+}: ToolInvocationUIProps) {
   const [expanded, setExpanded] = useState(false);
-  const Icon = getToolIcon(invocation.toolName);
+  const toolIcon = getToolIcon(invocation.toolName);
   const stateIndicator = getStateIndicator(invocation.state);
   const StateIcon = stateIndicator.icon;
   const needsApproval = invocation.state === 'approval-requested';
@@ -114,8 +122,13 @@ export function ToolInvocationCard({ invocation, onApprove, onDeny }: ToolInvoca
         )}
         onClick={() => setExpanded(!expanded)}
       >
-        <div className={clsx('p-1 rounded', needsApproval ? 'bg-amber-500/20' : 'bg-muted')}>
-          <Icon className="w-3.5 h-3.5 text-foreground" />
+        <div
+          className={clsx(
+            'p-1 rounded',
+            needsApproval ? 'bg-amber-500/20' : 'bg-muted'
+          )}
+        >
+          {toolIcon}
         </div>
 
         <span className="flex-1 text-sm font-medium text-foreground">
@@ -187,7 +200,8 @@ export function ToolInvocationCard({ invocation, onApprove, onDeny }: ToolInvoca
       {needsApproval && (
         <div className="flex items-center gap-2 px-3 py-2 border-t border-amber-500/30 bg-amber-500/10">
           <p className="flex-1 text-xs text-amber-700 dark:text-amber-300">
-            {invocation.approval?.message || 'This action will modify your code'}
+            {invocation.approval?.message ||
+              'This action will modify your code'}
           </p>
           <button
             onClick={() => onDeny?.(invocation.id)}
@@ -220,7 +234,11 @@ interface CodePreviewProps {
   description?: string;
 }
 
-export function CodePreview({ code, language = 'typescript', description }: CodePreviewProps) {
+export function CodePreview({
+  code,
+  language = 'typescript',
+  description,
+}: CodePreviewProps) {
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       {description && (
@@ -229,8 +247,12 @@ export function CodePreview({ code, language = 'typescript', description }: Code
         </div>
       )}
       <div className="px-3 py-1.5 bg-muted/30 border-b border-border flex items-center justify-between">
-        <span className="text-xs text-muted-foreground font-mono">{language}</span>
-        <span className="text-xs text-muted-foreground">{code.split('\n').length} lines</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          {language}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {code.split('\n').length} lines
+        </span>
       </div>
       <pre className="p-3 text-xs overflow-x-auto max-h-48 overflow-y-auto bg-background">
         <code className="font-mono">{code}</code>
@@ -283,7 +305,8 @@ export function ApprovalDialog({
           <div>
             <h3 className="font-semibold text-foreground">Approval Required</h3>
             <p className="text-sm text-muted-foreground">
-              The AI wants to {toolName === 'insertCode' ? 'insert code' : 'modify your code'}
+              The AI wants to{' '}
+              {toolName === 'insertCode' ? 'insert code' : 'modify your code'}
             </p>
           </div>
         </div>
@@ -299,7 +322,9 @@ export function ApprovalDialog({
           {code && (
             <CodePreview
               code={code}
-              description={toolName === 'insertCode' ? 'Code to insert:' : 'New code:'}
+              description={
+                toolName === 'insertCode' ? 'Code to insert:' : 'New code:'
+              }
             />
           )}
         </div>
@@ -329,5 +354,3 @@ export function ApprovalDialog({
     </motion.div>
   );
 }
-
-

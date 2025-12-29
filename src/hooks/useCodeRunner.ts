@@ -6,13 +6,9 @@ import {
   isLanguageExecutable,
   getLanguageDisplayName,
 } from '../store/useLanguageStore';
-import {
-  createExecutionError,
-  shouldDisplayError,
-  ErrorCategory,
-  type ExecutionError as ExecutionErrorType,
-} from '../lib/errors';
-import { getMetrics, MetricType } from '../lib/metrics';
+import { createExecutionError, shouldDisplayError } from '../lib/errors';
+import { getMetrics } from '../lib/metrics';
+import { useHistoryStore } from '../store/useHistoryStore';
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -45,12 +41,8 @@ class WorkerUnavailableError extends CodeRunnerError {
   }
 }
 
-class ExecutionTimeoutError extends CodeRunnerError {
-  constructor() {
-    super('Code execution timed out.', 'EXECUTION_TIMEOUT');
-    this.name = 'ExecutionTimeoutError';
-  }
-}
+// Unused error class - can be removed
+// class ExecutionTimeoutError extends CodeRunnerError {}
 
 /**
  * Format execution error for display using unified error system
@@ -60,7 +52,7 @@ function formatExecutionError(
   language: 'javascript' | 'typescript' | 'python'
 ): { message: string; shouldDisplay: boolean } {
   const execError = createExecutionError(error, language);
-  
+
   if (!shouldDisplayError(execError)) {
     return { message: '', shouldDisplay: false };
   }
@@ -86,6 +78,9 @@ export function useCodeRunner() {
   const setIsExecuting = useCodeStore(
     (state: CodeState) => state.setIsExecuting
   );
+  const setPromptRequest = useCodeStore(
+    (state: CodeState) => state.setPromptRequest
+  );
 
   const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
     useSettingsStore();
@@ -104,6 +99,23 @@ export function useCodeRunner() {
     };
   }, []);
 
+  // Listen for JS input requests (synchronous prompt)
+  useEffect(() => {
+    if (!window.codeRunner?.onJSInputRequest) return;
+
+    const unsubscribe = window.codeRunner.onJSInputRequest((request) => {
+      // Use custom UI prompt instead of native prompt (which is blocked/unsupported in Electron renderer)
+      setPromptRequest(
+        request.message,
+        request.type === 'alert-request' ? 'alert' : 'text'
+      );
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [setPromptRequest]);
+
   const runCode = useCallback(
     async (codeToRun?: string) => {
       if (debounceRef.current) {
@@ -117,6 +129,7 @@ export function useCodeRunner() {
         if (currentExecutionIdRef.current) {
           window.codeRunner?.cancel(currentExecutionIdRef.current);
           currentExecutionIdRef.current = null;
+          setPromptRequest(null);
         }
 
         // Clean up previous listener
@@ -204,7 +217,8 @@ export function useCodeRunner() {
                   consoleContent.includes('Execution cancelled') ||
                   consoleContent.includes('_pyodide/_future_helper.py') ||
                   consoleContent.includes('pyodide/webloop.py') ||
-                  (consoleContent.includes('Traceback') && consoleContent.includes('cancelled'));
+                  (consoleContent.includes('Traceback') &&
+                    consoleContent.includes('cancelled'));
 
                 if (!isCancellationMessage) {
                   const consolePrefix =
@@ -250,7 +264,16 @@ export function useCodeRunner() {
                   unsubscribeRef.current();
                   unsubscribeRef.current = null;
                 }
+
+                useHistoryStore.getState().addToHistory({
+                  code: sourceCode,
+                  language: execLanguage,
+                  status: 'success',
+                  executionTime: Date.now() - executionStartTime,
+                });
+
                 setIsExecuting(false);
+                setPromptRequest(null);
                 currentExecutionIdRef.current = null;
               }
             }
@@ -272,16 +295,35 @@ export function useCodeRunner() {
           );
 
           if (!response.success) {
-            appendResult({
-              element: { content: `❌ ${response.error ?? 'Unknown error'}` },
-              type: 'error',
-            });
+            // Only append error if we haven't received any other results yet
+            // OR if the error is not "Execution timeout" (which is handled separately)
+            // This prevents double reporting if the worker already sent an error message
+            const isTimeout = response.error?.includes('timeout');
+            if (isTimeout) {
+              appendResult({
+                element: { content: `❌ ${response.error}` },
+                type: 'error',
+              });
+            } else if (!unsubscribeRef.current) {
+              // If listener is gone, we might have missed it, but usually 'complete' handles cleanup.
+              // If response failed synchronously or without events, show it.
+              appendResult({
+                element: { content: `❌ ${response.error ?? 'Unknown error'}` },
+                type: 'error',
+              });
+            }
           }
         } catch (error: unknown) {
+          // Get language for error context
+          const detectLanguage = useLanguageStore.getState().detectLanguage;
+          const detected = detectLanguage(sourceCode);
+          const errorLang =
+            detected.monacoId === 'python' ? 'python' : 'javascript';
+
           // Record failed execution metrics
-          const execError = createExecutionError(error, execLanguage);
+          const execError = createExecutionError(error, errorLang);
           metrics.recordExecution({
-            language: execLanguage,
+            language: errorLang,
             duration: Date.now() - executionStartTime,
             success: false,
             error: execError.originalMessage,
@@ -291,7 +333,7 @@ export function useCodeRunner() {
           // Use unified error handling system
           const { message, shouldDisplay } = formatExecutionError(
             error,
-            execLanguage
+            errorLang
           );
 
           if (shouldDisplay) {
@@ -301,6 +343,13 @@ export function useCodeRunner() {
                 type: 'error',
               },
             ]);
+
+            useHistoryStore.getState().addToHistory({
+              code: sourceCode,
+              language: errorLang,
+              status: 'error',
+              executionTime: Date.now() - executionStartTime,
+            });
           }
         } finally {
           // DON'T clean up listener here - it will be cleaned up when 'complete' message arrives
@@ -311,6 +360,7 @@ export function useCodeRunner() {
           // (e.g., if an error occurred before setting up the listener)
           if (!unsubscribeRef.current) {
             setIsExecuting(false);
+            setPromptRequest(null);
             currentExecutionIdRef.current = null;
           }
         }

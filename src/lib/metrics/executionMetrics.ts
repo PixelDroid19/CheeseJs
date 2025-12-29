@@ -1,6 +1,6 @@
 /**
  * Execution Metrics System
- * 
+ *
  * Provides structured logging and metrics collection for code execution,
  * transpilation, and worker performance monitoring.
  */
@@ -116,12 +116,12 @@ class MetricsCollector {
   private eventIdCounter = 0;
   private startTime = Date.now();
   private logLevel: LogLevel = LogLevel.INFO;
-  
+
   // Aggregated metrics
   private executionTimes: number[] = [];
   private transpileTimes: number[] = [];
   private queueWaitTimes: number[] = [];
-  
+
   private metrics: AggregatedMetrics = {
     execution: {
       totalExecutions: 0,
@@ -190,7 +190,7 @@ class MetricsCollector {
     };
 
     this.events.push(fullEvent);
-    
+
     // Trim old events if needed
     if (this.events.length > MAX_EVENTS) {
       this.events = this.events.slice(-MAX_EVENTS);
@@ -211,7 +211,7 @@ class MetricsCollector {
     switch (event.type) {
       case MetricType.EXECUTION:
         this.metrics.execution.totalExecutions++;
-        
+
         if (event.success === true) {
           this.metrics.execution.successfulExecutions++;
         } else if (event.success === false) {
@@ -221,39 +221,43 @@ class MetricsCollector {
             this.metrics.execution.failedExecutions++;
           }
         }
-        
+
         if (event.duration !== undefined) {
           this.executionTimes.push(event.duration);
           this.updateExecutionTimeStats();
         }
-        
+
         if (event.language) {
-          this.metrics.execution.byLanguage[event.language] = 
+          this.metrics.execution.byLanguage[event.language] =
             (this.metrics.execution.byLanguage[event.language] || 0) + 1;
         }
         break;
 
-      case MetricType.TRANSPILATION:
+      case MetricType.TRANSPILATION: {
         this.metrics.transpilation.totalTranspilations++;
-        
+
         if (event.name === 'cache_hit') {
           this.metrics.transpilation.cacheHits++;
         } else if (event.name === 'cache_miss') {
           this.metrics.transpilation.cacheMisses++;
         }
-        
+
         if (event.duration !== undefined && event.name !== 'cache_hit') {
           this.transpileTimes.push(event.duration);
-          this.metrics.transpilation.averageTranspileTime = 
+          this.metrics.transpilation.averageTranspileTime =
             this.calculateAverage(this.transpileTimes);
         }
-        
+
         // Update cache hit rate
-        const total = this.metrics.transpilation.cacheHits + 
-                      this.metrics.transpilation.cacheMisses;
-        this.metrics.transpilation.cacheHitRate = 
-          total > 0 ? Math.round((this.metrics.transpilation.cacheHits / total) * 100) : 0;
+        const total =
+          this.metrics.transpilation.cacheHits +
+          this.metrics.transpilation.cacheMisses;
+        this.metrics.transpilation.cacheHitRate =
+          total > 0
+            ? Math.round((this.metrics.transpilation.cacheHits / total) * 100)
+            : 0;
         break;
+      }
 
       case MetricType.WORKER:
         if (event.name === 'worker_restart') {
@@ -263,11 +267,12 @@ class MetricsCollector {
         } else if (event.name === 'health_check_failed') {
           this.metrics.worker.healthCheckFailures++;
         }
-        
+
         if (event.metadata?.queueWaitTime !== undefined) {
           this.queueWaitTimes.push(event.metadata.queueWaitTime as number);
-          this.metrics.worker.averageQueueWaitTime = 
-            this.calculateAverage(this.queueWaitTimes);
+          this.metrics.worker.averageQueueWaitTime = this.calculateAverage(
+            this.queueWaitTimes
+          );
         }
         break;
 
@@ -318,8 +323,8 @@ class MetricsCollector {
         duration,
         metadata,
       });
-      
-      return this.events.find(e => e.id === eventId)!;
+
+      return this.events.find((e) => e.id === eventId)!;
     };
   }
 
@@ -369,7 +374,12 @@ class MetricsCollector {
   /**
    * Log a message
    */
-  private log(level: LogLevel, category: string, message: string, data?: Record<string, unknown>): void {
+  private log(
+    level: LogLevel,
+    category: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
     if (level < this.logLevel) return;
 
     const entry: LogEntry = {
@@ -388,7 +398,10 @@ class MetricsCollector {
     }
 
     // Also log to console in development
-    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+    if (
+      typeof process !== 'undefined' &&
+      process.env?.NODE_ENV === 'development'
+    ) {
       const prefix = `[${category}]`;
       switch (level) {
         case LogLevel.DEBUG:
@@ -407,19 +420,35 @@ class MetricsCollector {
     }
   }
 
-  debug(category: string, message: string, data?: Record<string, unknown>): void {
+  debug(
+    category: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
     this.log(LogLevel.DEBUG, category, message, data);
   }
 
-  info(category: string, message: string, data?: Record<string, unknown>): void {
+  info(
+    category: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
     this.log(LogLevel.INFO, category, message, data);
   }
 
-  warn(category: string, message: string, data?: Record<string, unknown>): void {
+  warn(
+    category: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
     this.log(LogLevel.WARN, category, message, data);
   }
 
-  error(category: string, message: string, data?: Record<string, unknown>): void {
+  error(
+    category: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
     this.log(LogLevel.ERROR, category, message, data);
   }
 
@@ -445,11 +474,11 @@ class MetricsCollector {
     let filtered = this.events;
 
     if (options?.type) {
-      filtered = filtered.filter(e => e.type === options.type);
+      filtered = filtered.filter((e) => e.type === options.type);
     }
 
     if (options?.since) {
-      filtered = filtered.filter(e => e.timestamp >= options.since);
+      filtered = filtered.filter((e) => e.timestamp >= options.since);
     }
 
     if (options?.limit) {
@@ -471,15 +500,15 @@ class MetricsCollector {
     let filtered = this.logs;
 
     if (options?.level !== undefined) {
-      filtered = filtered.filter(e => e.level >= options.level!);
+      filtered = filtered.filter((e) => e.level >= options.level!);
     }
 
     if (options?.category) {
-      filtered = filtered.filter(e => e.category === options.category);
+      filtered = filtered.filter((e) => e.category === options.category);
     }
 
     if (options?.since) {
-      filtered = filtered.filter(e => e.timestamp >= options.since);
+      filtered = filtered.filter((e) => e.timestamp >= options.since);
     }
 
     if (options?.limit) {
@@ -506,7 +535,7 @@ class MetricsCollector {
     this.transpileTimes = [];
     this.queueWaitTimes = [];
     this.startTime = Date.now();
-    
+
     this.metrics = {
       execution: {
         totalExecutions: 0,
@@ -540,12 +569,16 @@ class MetricsCollector {
    * Export metrics as JSON
    */
   exportMetrics(): string {
-    return JSON.stringify({
-      metrics: this.metrics,
-      recentEvents: this.events.slice(-100),
-      recentLogs: this.logs.slice(-100),
-      exportedAt: Date.now(),
-    }, null, 2);
+    return JSON.stringify(
+      {
+        metrics: this.metrics,
+        recentEvents: this.events.slice(-100),
+        recentLogs: this.logs.slice(-100),
+        exportedAt: Date.now(),
+      },
+      null,
+      2
+    );
   }
 }
 
@@ -579,4 +612,3 @@ export function resetMetrics(): void {
 // ============================================================================
 
 export { MetricsCollector };
-

@@ -15,6 +15,7 @@ import {
   User,
   Sparkles,
   Wrench,
+  Bug,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -22,12 +23,27 @@ import { useChatStore } from '../../store/useChatStore';
 import { useAISettingsStore } from '../../store/useAISettingsStore';
 import { useCodeStore } from '../../store/useCodeStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
-import { createCodeAgent, type ToolInvocation, type AgentCallbacks } from '../../lib/ai/codeAgent';
+import {
+  createCodeAgent,
+  type ToolInvocation,
+  type AgentCallbacks,
+  processEditorActions,
+} from '../../features/ai-agent/codeAgent';
 import { ToolInvocationCard, ApprovalDialog } from './ToolInvocationUI';
+import { AgentThinkingIndicator } from './AgentThinkingIndicator';
+import { DiffView } from './DiffView';
+import { QuickActions } from './QuickActions';
+import { CloudWarningDialog } from './CloudWarningDialog';
+import {
+  scrubSensitiveData,
+  getSensitiveDataSummary,
+} from '../../features/ai-agent/scrubber';
 
 // Clean EDITOR_ACTION blocks from displayed text
 function cleanEditorActions(text: string): string {
-  return text.replace(/<<<EDITOR_ACTION>>>[\s\S]*?<<<END_ACTION>>>/g, '').trim();
+  return text
+    .replace(/<<<EDITOR_ACTION>>>[\s\S]*?<<<END_ACTION>>>/g, '')
+    .trim();
 }
 
 // ========== MARKDOWN RENDERER ==========
@@ -44,7 +60,7 @@ function MarkdownContent({ content, onInsertCode }: MarkdownProps) {
   return <>{parts.map((part, i) => renderPart(part, i, onInsertCode))}</>;
 }
 
-type MarkdownPart = 
+type MarkdownPart =
   | { type: 'text'; content: string }
   | { type: 'code'; language: string; content: string }
   | { type: 'inlineCode'; content: string }
@@ -56,7 +72,7 @@ type MarkdownPart =
 
 function parseMarkdown(text: string): MarkdownPart[] {
   const parts: MarkdownPart[] = [];
-  let remaining = text;
+  const _remaining = text;
 
   // Process code blocks first
   const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
@@ -143,25 +159,37 @@ function parseInlineMarkdown(text: string): MarkdownPart[] {
     }
 
     // Regular text with inline formatting
-    parts.push({ type: 'text', content: line + (i < lines.length - 1 ? '\n' : '') });
+    parts.push({
+      type: 'text',
+      content: line + (i < lines.length - 1 ? '\n' : ''),
+    });
     i++;
   }
 
   return parts;
 }
 
-function parseTable(lines: string[], startIndex: number): { part: MarkdownPart; endIndex: number } | null {
+function parseTable(
+  lines: string[],
+  startIndex: number
+): { part: MarkdownPart; endIndex: number } | null {
   const headerLine = lines[startIndex];
   const separatorLine = lines[startIndex + 1];
 
   if (!headerLine || !separatorLine) return null;
 
-  const headers = headerLine.split('|').map(h => h.trim()).filter(h => h);
+  const headers = headerLine
+    .split('|')
+    .map((h) => h.trim())
+    .filter((h) => h);
   const rows: string[][] = [];
 
   let i = startIndex + 2;
   while (i < lines.length && lines[i].includes('|')) {
-    const row = lines[i].split('|').map(c => c.trim()).filter(c => c);
+    const row = lines[i]
+      .split('|')
+      .map((c) => c.trim())
+      .filter((c) => c);
     if (row.length > 0) rows.push(row);
     i++;
   }
@@ -172,7 +200,11 @@ function parseTable(lines: string[], startIndex: number): { part: MarkdownPart; 
   };
 }
 
-function parseList(lines: string[], startIndex: number, ordered: boolean): { part: MarkdownPart; endIndex: number } {
+function parseList(
+  lines: string[],
+  startIndex: number,
+  ordered: boolean
+): { part: MarkdownPart; endIndex: number } {
   const items: string[] = [];
   const pattern = ordered ? /^[\s]*\d+\.\s(.+)$/ : /^[\s]*[-*]\s(.+)$/;
 
@@ -195,12 +227,30 @@ function parseList(lines: string[], startIndex: number, ordered: boolean): { par
   };
 }
 
-function renderPart(part: MarkdownPart, key: number, onInsertCode?: (code: string) => void): React.ReactNode {
+function renderPart(
+  part: MarkdownPart,
+  key: number,
+  onInsertCode?: (code: string) => void
+): React.ReactNode {
   switch (part.type) {
     case 'code':
-      return <CodeBlock key={key} code={part.content} language={part.language} onInsert={onInsertCode} />;
+      return (
+        <CodeBlock
+          key={key}
+          code={part.content}
+          language={part.language}
+          onInsert={onInsertCode}
+        />
+      );
     case 'inlineCode':
-      return <code key={key} className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono">{part.content}</code>;
+      return (
+        <code
+          key={key}
+          className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono"
+        >
+          {part.content}
+        </code>
+      );
     case 'table':
       return <Table key={key} headers={part.headers} rows={part.rows} />;
     case 'list':
@@ -208,7 +258,14 @@ function renderPart(part: MarkdownPart, key: number, onInsertCode?: (code: strin
     case 'heading':
       return <Heading key={key} level={part.level} content={part.content} />;
     case 'blockquote':
-      return <blockquote key={key} className="border-l-2 border-primary/50 pl-3 italic text-muted-foreground">{part.content}</blockquote>;
+      return (
+        <blockquote
+          key={key}
+          className="border-l-2 border-primary/50 pl-3 italic text-muted-foreground"
+        >
+          {part.content}
+        </blockquote>
+      );
     case 'text':
       return <TextWithInline key={key} content={part.content} />;
     default:
@@ -219,7 +276,7 @@ function renderPart(part: MarkdownPart, key: number, onInsertCode?: (code: strin
 function TextWithInline({ content }: { content: string }) {
   // Handle inline code, bold, italic
   const parts: React.ReactNode[] = [];
-  let remaining = content;
+  const _remaining = content;
   let idx = 0;
 
   // Process inline code
@@ -229,31 +286,56 @@ function TextWithInline({ content }: { content: string }) {
 
   while ((match = inlineCodeRegex.exec(content)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(<span key={idx++}>{formatInlineText(content.slice(lastIndex, match.index))}</span>);
+      parts.push(
+        <span key={idx++}>
+          {formatInlineText(content.slice(lastIndex, match.index))}
+        </span>
+      );
     }
-    parts.push(<code key={idx++} className="px-1.5 py-0.5 rounded bg-muted/80 text-xs font-mono text-primary">{match[1]}</code>);
+    parts.push(
+      <code
+        key={idx++}
+        className="px-1.5 py-0.5 rounded bg-muted/80 text-xs font-mono text-primary"
+      >
+        {match[1]}
+      </code>
+    );
     lastIndex = match.index + match[0].length;
   }
 
   if (lastIndex < content.length) {
-    parts.push(<span key={idx++}>{formatInlineText(content.slice(lastIndex))}</span>);
+    parts.push(
+      <span key={idx++}>{formatInlineText(content.slice(lastIndex))}</span>
+    );
   }
 
-  return <span className="whitespace-pre-wrap">{parts.length > 0 ? parts : content}</span>;
+  return (
+    <span className="whitespace-pre-wrap">
+      {parts.length > 0 ? parts : content}
+    </span>
+  );
 }
 
 function formatInlineText(text: string): React.ReactNode {
   // Bold
   const boldParts = text.split(/\*\*([^*]+)\*\*/g);
   if (boldParts.length > 1) {
-    return boldParts.map((part, i) => 
+    return boldParts.map((part, i) =>
       i % 2 === 1 ? <strong key={i}>{part}</strong> : part
     );
   }
   return text;
 }
 
-function CodeBlock({ code, language, onInsert }: { code: string; language: string; onInsert?: (code: string) => void }) {
+function CodeBlock({
+  code,
+  language,
+  onInsert,
+}: {
+  code: string;
+  language: string;
+  onInsert?: (code: string) => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -265,14 +347,20 @@ function CodeBlock({ code, language, onInsert }: { code: string; language: strin
   return (
     <div className="my-2 rounded-lg overflow-hidden border border-border bg-muted/30">
       <div className="flex items-center justify-between px-3 py-1.5 bg-muted/60 border-b border-border">
-        <span className="text-xs text-muted-foreground font-mono">{language || 'code'}</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          {language || 'code'}
+        </span>
         <div className="flex items-center gap-1">
           <button
             onClick={handleCopy}
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
             title="Copy"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-green-500" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
           </button>
           {onInsert && (
             <button
@@ -299,7 +387,10 @@ function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
         <thead className="bg-muted/50">
           <tr>
             {headers.map((h, i) => (
-              <th key={i} className="px-3 py-2 text-left font-medium text-foreground border-b border-border">
+              <th
+                key={i}
+                className="px-3 py-2 text-left font-medium text-foreground border-b border-border"
+              >
                 {h}
               </th>
             ))}
@@ -307,7 +398,10 @@ function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/20">
+            <tr
+              key={i}
+              className="border-b border-border last:border-0 hover:bg-muted/20"
+            >
               {row.map((cell, j) => (
                 <td key={j} className="px-3 py-2 text-foreground/90">
                   <TextWithInline content={cell} />
@@ -324,7 +418,12 @@ function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
 function List({ items, ordered }: { items: string[]; ordered: boolean }) {
   const Tag = ordered ? 'ol' : 'ul';
   return (
-    <Tag className={clsx('my-2 pl-4 space-y-1', ordered ? 'list-decimal' : 'list-disc')}>
+    <Tag
+      className={clsx(
+        'my-2 pl-4 space-y-1',
+        ordered ? 'list-decimal' : 'list-disc'
+      )}
+    >
       {items.map((item, i) => (
         <li key={i} className="text-foreground/90">
           <TextWithInline content={item} />
@@ -335,8 +434,17 @@ function List({ items, ordered }: { items: string[]; ordered: boolean }) {
 }
 
 function Heading({ level, content }: { level: number; content: string }) {
-  const sizes = ['text-xl font-bold', 'text-lg font-bold', 'text-base font-semibold', 'text-sm font-semibold', 'text-sm font-medium', 'text-xs font-medium'];
-  return <div className={clsx('my-2', sizes[level - 1] || sizes[2])}>{content}</div>;
+  const sizes = [
+    'text-xl font-bold',
+    'text-lg font-bold',
+    'text-base font-semibold',
+    'text-sm font-semibold',
+    'text-sm font-medium',
+    'text-xs font-medium',
+  ];
+  return (
+    <div className={clsx('my-2', sizes[level - 1] || sizes[2])}>{content}</div>
+  );
 }
 
 // ========== CHAT COMPONENT ==========
@@ -353,6 +461,13 @@ export function AIChat() {
     input: Record<string, unknown>;
     resolve: (approved: boolean) => void;
   } | null>(null);
+  const [cloudWarning, setCloudWarning] = useState<{
+    pending: boolean;
+    sensitiveItems: string[];
+    pendingMessage: string;
+    pendingCode?: string;
+  } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -369,10 +484,24 @@ export function AIChat() {
     finalizeStreaming,
     setChatOpen,
     toggleChat,
+    agentPhase,
+    thinkingMessage,
+    pendingChange,
+    setAgentPhase,
+    setPendingChange,
+    clearPendingChange,
   } = useChatStore();
 
-  const { enableChat, getCurrentApiKey, getCurrentModel, provider, getLocalConfig, getCustomConfig } =
-    useAISettingsStore();
+  const {
+    enableChat,
+    getCurrentApiKey,
+    getCurrentModel,
+    provider,
+    getLocalConfig,
+    getCustomConfig,
+    strictLocalMode,
+    setProvider,
+  } = useAISettingsStore();
 
   const code = useCodeStore((state) => state.code);
   const setCode = useCodeStore((state) => state.setCode);
@@ -406,9 +535,12 @@ export function AIChat() {
   }, []);
 
   // Handle code insertion
-  const handleInsertCode = useCallback((newCode: string) => {
-    setCode(newCode);
-  }, [setCode]);
+  const handleInsertCode = useCallback(
+    (newCode: string) => {
+      setCode(newCode);
+    },
+    [setCode]
+  );
 
   // Create agent callbacks
   const createAgentCallbacks = useCallback((): AgentCallbacks => {
@@ -434,112 +566,219 @@ export function AIChat() {
         };
       },
       onInsertCode: (newCode: string) => {
-        if (window.editor) {
-          const position = window.editor.getPosition();
-          if (position) {
-            window.editor.executeEdits('ai-agent', [
-              {
-                range: {
-                  startLineNumber: position.lineNumber,
-                  startColumn: position.column,
-                  endLineNumber: position.lineNumber,
-                  endColumn: position.column,
-                },
-                text: newCode,
-                forceMoveMarkers: true,
-              },
-            ]);
-            return;
-          }
-        }
-        setCode(code + '\n' + newCode);
+        console.log('[AIChat] onInsertCode triggered - setting pending change');
+        setAgentPhase('applying', 'Review changes...');
+        setPendingChange({
+          action: 'insert',
+          originalCode: '', // For insertion, we just show the new code
+          newCode: newCode,
+          description: 'Content to be inserted at cursor',
+        });
       },
       onReplaceSelection: (newCode: string) => {
+        console.log(
+          '[AIChat] onReplaceSelection triggered - setting pending change'
+        );
+        let originalCode = '';
         if (window.editor) {
           const selection = window.editor.getSelection();
           if (selection) {
-            window.editor.executeEdits('ai-agent', [
-              {
-                range: selection,
-                text: newCode,
-                forceMoveMarkers: true,
-              },
-            ]);
-            return;
+            const model = window.editor.getModel();
+            if (model) {
+              originalCode = model.getValueInRange(selection);
+            }
           }
         }
-        setCode(newCode);
+
+        setAgentPhase('applying', 'Review changes...');
+        setPendingChange({
+          action: 'replaceSelection',
+          originalCode,
+          newCode,
+          description: 'Replacement for selected code',
+        });
       },
       onReplaceAll: (newCode: string) => {
-        setCode(newCode);
-        if (window.editor) {
-          window.editor.setValue(newCode);
-        }
+        console.log('[AIChat] onReplaceAll triggered - setting pending change');
+        setAgentPhase('applying', 'Review changes...');
+        setPendingChange({
+          action: 'replaceAll',
+          originalCode: code,
+          newCode,
+          description: 'Complete file refactor',
+        });
       },
       onToolInvocation: handleToolInvocation,
     };
-  }, [code, language, setCode, handleToolInvocation]);
+  }, [code, language, handleToolInvocation, setAgentPhase, setPendingChange]);
 
   // Handle send with agent
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isStreaming || !isConfigured) return;
+  const handleSend = useCallback(
+    async (textInput?: string, isAutoCorrection: boolean = false) => {
+      const messageToSend = textInput || input;
+      if (!messageToSend.trim() || isStreaming || !isConfigured) return;
 
-    const userMessage = input.trim();
-    const codeContext = includeCode ? code : undefined;
+      const userMessage = messageToSend.trim();
+      const codeContext = includeCode ? code : undefined;
 
-    addMessage({
-      role: 'user',
-      content: userMessage,
-      codeContext,
-    });
+      // Cloud provider warning check (only if NOT strictLocalMode and NOT local provider)
+      if (provider !== 'local' && !strictLocalMode && !isAutoCorrection) {
+        // Check for sensitive data in code context
+        const sensitiveItems = codeContext
+          ? getSensitiveDataSummary(codeContext)
+          : [];
 
-    setInput('');
-    setStreaming(true);
-    setStreamingContent('');
-    setToolInvocations([]);
+        // Show warning dialog
+        setCloudWarning({
+          pending: true,
+          sensitiveItems,
+          pendingMessage: userMessage,
+          pendingCode: codeContext,
+        });
+        return; // Dialog will re-call handleSend with skipCloudWarning flag
+      }
 
-    try {
-      const apiKey = getCurrentApiKey();
-      const model = getCurrentModel();
-      const localCfg = getLocalConfig();
-      const customCfg = getCustomConfig();
+      // Proceed with message sending
+      addMessage({
+        role: 'user',
+        content: userMessage,
+        codeContext,
+      });
 
-      if (useAgent) {
-        const agent = createCodeAgent(
-          provider,
-          apiKey,
-          model,
-          provider === 'local' ? { baseURL: localCfg.baseURL, modelId: localCfg.modelId } : undefined,
-          createAgentCallbacks(),
-          provider !== 'local' ? customCfg : undefined
-        );
+      if (!isAutoCorrection) {
+        setInput('');
+      }
+      setStreaming(true);
+      setStreamingContent('');
+      setToolInvocations([]);
 
-        const prompt = codeContext
-          ? `Context - Current code in editor (${language}):\n\`\`\`${language}\n${codeContext}\n\`\`\`\n\nUser: ${userMessage}`
-          : userMessage;
+      try {
+        const apiKey = getCurrentApiKey();
+        const model = getCurrentModel();
+        const localCfg = getLocalConfig();
+        const customCfg = getCustomConfig();
 
-        try {
-          const streamResult = agent.stream({ prompt });
-          
-          if (streamResult && streamResult.textStream) {
-            let fullText = '';
-            for await (const chunk of streamResult.textStream) {
-              fullText += chunk;
-              appendStreamingContent(chunk);
+        // Apply data scrubbing for cloud providers
+        const safeCodeContext =
+          provider !== 'local' && codeContext
+            ? scrubSensitiveData(codeContext)
+            : codeContext;
+
+        if (useAgent) {
+          const runAgent = async (disableTools: boolean) => {
+            const currentAgent = createCodeAgent(
+              provider,
+              apiKey,
+              model,
+              provider === 'local'
+                ? { baseURL: localCfg.baseURL, modelId: localCfg.modelId }
+                : undefined,
+              createAgentCallbacks(),
+              provider !== 'local' ? customCfg : undefined,
+              disableTools
+            );
+
+            // Enhance prompt for auto-correction
+            let fullPrompt = userMessage;
+            if (isAutoCorrection) {
+              fullPrompt = `Review and fix the following code based on this error:\n\n${userMessage}\n\nIMPORTANT: Return the FULL corrected code using the appropriate tool.`;
             }
-            finalizeStreaming();
-          } else {
-            const result = await agent.generate({ prompt });
-            if (result.text) {
-              setStreamingContent(result.text);
+
+            const prompt = safeCodeContext
+              ? `Context - Current code in editor (${language}):\n\`\`\`${language}\n${safeCodeContext}\n\`\`\`\n\nUser: ${fullPrompt}`
+              : fullPrompt;
+
+            // Start thinking phase
+            setAgentPhase('thinking', 'Analyzing your request...');
+
+            const streamResult = currentAgent.stream({ prompt });
+
+            // Switch to generating phase once stream starts
+            setAgentPhase('generating', 'Generating response...');
+            console.log(
+              `[AIChat] Stream started (disableTools: ${disableTools})`
+            );
+            let fullText = '';
+
+            if (streamResult && streamResult.textStream) {
+              for await (const chunk of streamResult.textStream) {
+                fullText += chunk;
+                appendStreamingContent(chunk);
+              }
+              console.log(
+                '[AIChat] Stream finished. Full text length:',
+                fullText.length
+              );
+
+              // Process legacy editor actions if present
+              if (disableTools || fullText.includes('<<<EDITOR_ACTION>>>')) {
+                console.log('[AIChat] Processing legacy editor actions...');
+                await processEditorActions(fullText, createAgentCallbacks());
+              }
+
+              if (!fullText && !disableTools) {
+                if (fullText.length === 0) {
+                  throw new Error('Empty response');
+                }
+              }
+
               finalizeStreaming();
             } else {
-              throw new Error('No response from agent');
+              // Fallback for non-streaming response
+              const result = await currentAgent.generate({ prompt });
+              console.log(
+                '[AIChat] Generate finished. Text length:',
+                result.text?.length
+              );
+
+              if (result.text) {
+                setStreamingContent(result.text);
+
+                // Process legacy editor actions if present
+                if (
+                  disableTools ||
+                  result.text.includes('<<<EDITOR_ACTION>>>')
+                ) {
+                  console.log(
+                    '[AIChat] Processing legacy editor actions (non-streaming)...'
+                  );
+                  await processEditorActions(
+                    result.text,
+                    createAgentCallbacks()
+                  );
+                }
+
+                finalizeStreaming();
+              } else {
+                throw new Error('No response from agent');
+              }
+            }
+          };
+
+          try {
+            await runAgent(false);
+          } catch (agentError) {
+            console.warn(
+              '[AIChat] Standard agent failed, retrying with legacy mode...',
+              agentError
+            );
+
+            try {
+              // Clear any partial content from first attempt
+              setStreamingContent('');
+              // Retry with legacy mode (no native tools)
+              await runAgent(true);
+            } catch (retryError) {
+              console.error('[AIChat] Legacy retry failed:', retryError);
+              addMessage({
+                role: 'assistant',
+                content: `Error: ${agentError instanceof Error ? agentError.message : 'Unknown error'}. \n\nRetry failed: ${retryError instanceof Error ? retryError.message : 'Unknown error'}`,
+              });
+              setStreaming(false);
             }
           }
-        } catch (agentError) {
-          console.error('[AIChat] Agent error, falling back to aiService:', agentError);
-          const { aiService } = await import('../../lib/ai');
+        } else {
+          const { aiService } = await import('../../features/ai-agent');
 
           if (!aiService.isReady()) {
             if (provider === 'local') {
@@ -548,92 +787,82 @@ export function AIChat() {
                 modelId: localCfg.modelId,
               });
             } else {
-              aiService.configure(provider, apiKey, model, undefined, customCfg);
+              aiService.configure(
+                provider,
+                apiKey,
+                model,
+                undefined,
+                customCfg
+              );
             }
           }
 
-          const allMsgs = [
+          const allMessages = [
             ...messages,
-            { id: '', role: 'user' as const, content: userMessage, timestamp: Date.now(), codeContext },
+            {
+              id: '',
+              role: 'user' as const,
+              content: userMessage,
+              timestamp: Date.now(),
+              codeContext: safeCodeContext,
+            },
           ];
 
-          await aiService.streamChat(allMsgs, codeContext, language, {
+          let fullResponse = '';
+          const callbacks = createAgentCallbacks();
+
+          await aiService.streamChat(allMessages, safeCodeContext, language, {
             onStart: () => setStreamingContent(''),
-            onToken: (token) => appendStreamingContent(token),
-            onComplete: () => finalizeStreaming(),
-            onError: (err) => {
-              addMessage({ role: 'assistant', content: `Error: ${err.message}` });
+            onToken: (token) => {
+              fullResponse += token;
+              appendStreamingContent(token);
+            },
+            onComplete: () => {
+              processEditorActions(fullResponse, callbacks);
+              finalizeStreaming();
+            },
+            onError: (error) => {
+              addMessage({
+                role: 'assistant',
+                content: `Error: ${error.message}`,
+              });
               setStreaming(false);
             },
           });
         }
-      } else {
-        const { aiService } = await import('../../lib/ai');
-
-        if (!aiService.isReady()) {
-          if (provider === 'local') {
-            aiService.configure(provider, '', '', {
-              baseURL: localCfg.baseURL,
-              modelId: localCfg.modelId,
-            });
-          } else {
-            aiService.configure(provider, apiKey, model, undefined, customCfg);
-          }
-        }
-
-        const allMessages = [
-          ...messages,
-          {
-            id: '',
-            role: 'user' as const,
-            content: userMessage,
-            timestamp: Date.now(),
-            codeContext,
-          },
-        ];
-
-        await aiService.streamChat(allMessages, codeContext, language, {
-          onStart: () => setStreamingContent(''),
-          onToken: (token) => appendStreamingContent(token),
-          onComplete: () => finalizeStreaming(),
-          onError: (error) => {
-            addMessage({
-              role: 'assistant',
-              content: `Error: ${error.message}`,
-            });
-            setStreaming(false);
-          },
+      } catch (error) {
+        console.error('[AIChat] Send error:', error);
+        addMessage({
+          role: 'assistant',
+          content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
+        setStreaming(false);
       }
-    } catch (error) {
-      console.error('[AIChat] Send error:', error);
-      addMessage({
-        role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-      setStreaming(false);
-    }
-  }, [
-    input,
-    isStreaming,
-    isConfigured,
-    includeCode,
-    code,
-    useAgent,
-    provider,
-    language,
-    messages,
-    addMessage,
-    setStreaming,
-    setStreamingContent,
-    appendStreamingContent,
-    finalizeStreaming,
-    getCurrentApiKey,
-    getCurrentModel,
-    getLocalConfig,
-    getCustomConfig,
-    createAgentCallbacks,
-  ]);
+    },
+    [
+      input,
+      isStreaming,
+      isConfigured,
+      includeCode,
+      code,
+      useAgent,
+      provider,
+      strictLocalMode,
+      language,
+      messages,
+      addMessage,
+      setStreaming,
+      setStreamingContent,
+      appendStreamingContent,
+      finalizeStreaming,
+      getCurrentApiKey,
+      getCurrentModel,
+      getLocalConfig,
+      getCustomConfig,
+      createAgentCallbacks,
+      setAgentPhase,
+    ]
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -641,6 +870,31 @@ export function AIChat() {
       handleSend();
     }
   };
+
+  // Expose auto-correction function globally for the console/result component to use
+  useEffect(() => {
+    (
+      window as Window & {
+        triggerAIAutoCorrection?: (errorMessage: string) => void;
+      }
+    ).triggerAIAutoCorrection = (errorMessage: string) => {
+      if (!isChatOpen) {
+        setChatOpen(true);
+      }
+      // Small delay to ensure state updates
+      setTimeout(() => {
+        handleSend(`Fix this error: ${errorMessage}`, true);
+      }, 100);
+    };
+
+    return () => {
+      delete (
+        window as Window & {
+          triggerAIAutoCorrection?: (errorMessage: string) => void;
+        }
+      ).triggerAIAutoCorrection;
+    };
+  }, [handleSend, isChatOpen, setChatOpen]);
 
   const handleApprove = useCallback(() => {
     if (pendingApproval) {
@@ -663,6 +917,7 @@ export function AIChat() {
       {/* Toggle Button */}
       <motion.button
         onClick={toggleChat}
+        data-testid="toggle-chat"
         className={clsx(
           'fixed bottom-4 right-4 z-50 p-3 rounded-full shadow-lg transition-all',
           'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -683,20 +938,30 @@ export function AIChat() {
             exit={{ opacity: 0, x: 300, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className={clsx(
-              'fixed right-4 bottom-4 top-16 w-[420px] z-50 flex flex-col rounded-xl shadow-2xl overflow-hidden border',
-              'bg-background border-border'
+              'fixed right-6 bottom-6 top-20 w-[450px] z-50 flex flex-col rounded-2xl shadow-2xl overflow-hidden font-sans',
+              'bg-background/95 backdrop-blur-xl border border-white/10 ring-1 ring-white/5'
             )}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-foreground">AI Agent</span>
-                {useAgent && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary/20 text-primary">
-                    Tools
+            <div className="flex items-center justify-between px-5 py-4 bg-background/30 backdrop-blur-md border-b border-border/10">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center ring-1 ring-white/10 shadow-sm">
+                  <Bot className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-sm text-foreground tracking-tight">
+                    Code Assistant
                   </span>
-                )}
+                  <div className="flex items-center gap-1.5 opacity-60">
+                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                      {provider === 'local' ? 'Local' : 'Cloud'}
+                    </span>
+                    <span className="text-[10px] text-border">•</span>
+                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                      {useAgent ? 'Agent Active' : 'Chat'}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -711,6 +976,7 @@ export function AIChat() {
                 </button>
                 <button
                   onClick={() => setChatOpen(false)}
+                  data-testid="close-ai-chat"
                   className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -720,6 +986,17 @@ export function AIChat() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Agent Thinking Indicator */}
+              <AnimatePresence>
+                {agentPhase !== 'idle' && (
+                  <AgentThinkingIndicator
+                    phase={agentPhase}
+                    message={thinkingMessage}
+                    className="mb-2"
+                  />
+                )}
+              </AnimatePresence>
+
               {!isConfigured && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-4">
                   <Bot className="w-12 h-12 text-muted-foreground/30 mb-3" />
@@ -733,23 +1010,76 @@ export function AIChat() {
               )}
 
               {isConfigured && messages.length === 0 && !isStreaming && (
-                <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                  <Sparkles className="w-12 h-12 text-primary/30 mb-3" />
-                  <p className="text-foreground font-medium mb-1">AI Agent Ready</p>
-                  <p className="text-muted-foreground text-sm">
-                    I can help you write, analyze, and modify code.
-                  </p>
-                  <div className="mt-3 space-y-1 text-left text-xs text-muted-foreground">
-                    <p>• "Refactor this code"</p>
-                    <p>• "Write a function that..."</p>
-                    <p>• "Explain what this code does"</p>
-                    <p>• "Fix the bugs in this code"</p>
+                <div className="flex flex-col items-center justify-center h-full px-4 py-8 overflow-y-auto">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center text-center mb-8"
+                  >
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/20 via-primary/5 to-transparent mb-4 ring-1 ring-primary/20">
+                      <Sparkles className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      How can I help you?
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-[260px] leading-relaxed">
+                      I can help you write code, fix bugs, and refactor your
+                      project.
+                    </p>
+                  </motion.div>
+
+                  <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
+                    {[
+                      {
+                        icon: Wrench,
+                        label: 'Refactor Code',
+                        desc: 'Improve structure',
+                        prompt: 'Refactor this code to follow best practices',
+                      },
+                      {
+                        icon: Code,
+                        label: 'Write Function',
+                        desc: 'Generate new logic',
+                        prompt: 'Write a typescript function that...',
+                      },
+                      {
+                        icon: MessageSquare,
+                        label: 'Explain',
+                        desc: 'Understand logic',
+                        prompt: 'Explain what this code does line by line',
+                      },
+                      {
+                        icon: Bug,
+                        label: 'Fix Bugs',
+                        desc: 'Find & resolve issues',
+                        prompt: 'Analyze this code for bugs and fix them',
+                      },
+                    ].map((item, i) => (
+                      <motion.button
+                        key={i}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        onClick={() => handleSend(item.prompt)}
+                        className="flex flex-col items-start p-3 text-left rounded-xl border border-border/50 bg-card/50 hover:bg-accent/50 hover:border-accent transition-all group"
+                      >
+                        <item.icon className="w-5 h-5 text-primary mb-2 group-hover:scale-105 transition-transform" />
+                        <span className="text-sm font-medium text-foreground">
+                          {item.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {item.desc}
+                        </span>
+                      </motion.button>
+                    ))}
                   </div>
                 </div>
               )}
 
               {messages.map((message) => (
-                <div
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   key={message.id}
                   className={clsx(
                     'flex gap-3',
@@ -758,10 +1088,10 @@ export function AIChat() {
                 >
                   <div
                     className={clsx(
-                      'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center',
+                      'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border',
                       message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
+                        ? 'bg-foreground text-background border-transparent'
+                        : 'bg-background text-foreground border-border/40'
                     )}
                   >
                     {message.role === 'user' ? (
@@ -772,25 +1102,37 @@ export function AIChat() {
                   </div>
                   <div
                     className={clsx(
-                      'flex-1 rounded-lg px-3 py-2 text-sm',
+                      'flex-1 text-sm max-w-[90%]',
                       message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground'
+                        ? 'px-4 py-2.5 bg-muted/40 text-foreground rounded-2xl rounded-tr-sm'
+                        : 'px-0 py-1 text-foreground'
                     )}
                   >
                     {message.role === 'user' ? (
-                      <span className="whitespace-pre-wrap">{message.content}</span>
+                      <span className="whitespace-pre-wrap leading-relaxed">
+                        {message.content}
+                      </span>
                     ) : (
-                      <MarkdownContent content={message.content} onInsertCode={handleInsertCode} />
+                      <MarkdownContent
+                        content={
+                          message.content
+                            .replace(/<<<EDITOR_ACTION>>>[\s\S]*$/, '')
+                            .trim() ||
+                          (message.content.includes('<<<EDITOR_ACTION>>>')
+                            ? 'Applying changes...'
+                            : '')
+                        }
+                        onInsertCode={handleInsertCode}
+                      />
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
 
               {/* Tool Invocations */}
               {toolInvocations.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="space-y-3 px-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <Wrench className="w-3.5 h-3.5" />
                     <span>Tool Activity</span>
                   </div>
@@ -804,25 +1146,30 @@ export function AIChat() {
               )}
 
               {/* Streaming message */}
-              {isStreaming && currentStreamingContent && (
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+              {isStreaming && (
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full border border-border/50 flex items-center justify-center bg-background text-foreground/70">
                     <Bot className="w-4 h-4" />
                   </div>
-                  <div className="flex-1 rounded-lg px-3 py-2 text-sm bg-muted text-foreground">
-                    <MarkdownContent content={currentStreamingContent} onInsertCode={handleInsertCode} />
-                    <span className="inline-block w-2 h-4 bg-primary/50 animate-pulse ml-0.5" />
-                  </div>
-                </div>
-              )}
-
-              {isStreaming && !currentStreamingContent && (
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 rounded-lg px-3 py-2 text-sm bg-muted text-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                  <div className="flex-1 space-y-2">
+                    {currentStreamingContent && (
+                      <div className="rounded-xl px-0 py-1 text-sm text-foreground">
+                        <MarkdownContent
+                          content={currentStreamingContent.replace(
+                            /<<<EDITOR_ACTION>>>[\s\S]*$/,
+                            ''
+                          )}
+                          onInsertCode={handleInsertCode}
+                        />
+                        <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5 align-middle" />
+                      </div>
+                    )}
+                    {!currentStreamingContent && (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Generating...</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -830,81 +1177,93 @@ export function AIChat() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="border-t border-border p-3 bg-muted/20">
-              {/* Options Row */}
-              <div className="flex items-center gap-2 mb-2">
-                <button
-                  onClick={() => setIncludeCode(!includeCode)}
-                  className={clsx(
-                    'flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors',
-                    includeCode
-                      ? 'bg-primary/20 text-primary'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <Code className="w-3 h-3" />
-                  {t('chat.includeCode', 'Include code')}
-                </button>
-                <button
-                  onClick={() => setUseAgent(!useAgent)}
-                  className={clsx(
-                    'flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors',
-                    useAgent
-                      ? 'bg-primary/20 text-primary'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
-                  )}
-                  title="Enable agent mode with tools"
-                >
-                  <Wrench className="w-3 h-3" />
-                  Agent
-                </button>
-              </div>
+            {/* Input Area */}
+            <div className="p-4 bg-transparent">
+              {/* Quick Actions */}
+              <QuickActions
+                onAction={(prompt) => handleSend(prompt, false)}
+                disabled={!isConfigured || isStreaming}
+                className="mb-3"
+              />
 
-              <div className="flex items-end gap-2">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    isConfigured
-                      ? t('chat.placeholder', 'Ask about your code...')
-                      : t('chat.configureFirst', 'Configure AI in Settings first')
-                  }
-                  disabled={!isConfigured || isStreaming}
-                  rows={1}
-                  className={clsx(
-                    'flex-1 resize-none rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all',
-                    'bg-background border border-border text-foreground placeholder:text-muted-foreground',
-                    'disabled:opacity-50 disabled:cursor-not-allowed',
-                    'min-h-[40px] max-h-[120px]'
-                  )}
-                  style={{
-                    height: 'auto',
-                    minHeight: '40px',
-                  }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    target.style.height = 'auto';
-                    target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-                  }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isStreaming || !isConfigured}
-                  className={clsx(
-                    'p-2 rounded-lg transition-all',
-                    'bg-primary text-primary-foreground hover:bg-primary/90',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
-                >
-                  {isStreaming ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </button>
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl blur opacity-20 group-hover:opacity-100 transition duration-700"></div>
+                <div className="relative flex flex-col bg-background/50 backdrop-blur-md border border-border/40 rounded-xl shadow-sm transition-all focus-within:ring-1 focus-within:ring-primary/20 focus-within:border-primary/20 focus-within:bg-background/80">
+                  <textarea
+                    data-testid="ai-chat-input"
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      isConfigured
+                        ? t('chat.placeholder', 'Ask about your code...')
+                        : t(
+                            'chat.configureFirst',
+                            'Configure AI in Settings first'
+                          )
+                    }
+                    disabled={!isConfigured || isStreaming}
+                    rows={1}
+                    className="w-full resize-none bg-transparent px-4 py-3 text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] max-h-[150px] placeholder:text-muted-foreground/40 font-sans"
+                    style={{
+                      height: 'auto',
+                      minHeight: '48px',
+                    }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = `${Math.min(target.scrollHeight, 150)}px`;
+                    }}
+                  />
+
+                  {/* Toolbar */}
+                  <div className="flex items-center justify-between px-2 pb-2">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setIncludeCode(!includeCode)}
+                        className={clsx(
+                          'flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-200 border border-transparent',
+                          includeCode
+                            ? 'bg-primary/10 text-primary border-primary/20'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                      >
+                        <Code className="w-3 h-3" />
+                        {includeCode ? 'Context On' : 'Context Off'}
+                      </button>
+                      <button
+                        onClick={() => setUseAgent(!useAgent)}
+                        className={clsx(
+                          'flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-200 border border-transparent',
+                          useAgent
+                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                      >
+                        <Wrench className="w-3 h-3" />
+                        Tools
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => handleSend()}
+                      disabled={!input.trim() || isStreaming || !isConfigured}
+                      className={clsx(
+                        'p-2 rounded-lg transition-all duration-300 shadow-sm',
+                        !input.trim() || isStreaming || !isConfigured
+                          ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                          : 'bg-primary text-primary-foreground hover:scale-105 hover:shadow-md'
+                      )}
+                    >
+                      {isStreaming ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -923,8 +1282,92 @@ export function AIChat() {
           />
         )}
       </AnimatePresence>
+
+      {/* Diff View Modal */}
+      <AnimatePresence>
+        {pendingChange && (
+          <DiffView
+            change={pendingChange}
+            onAccept={() => {
+              // Apply the change based on action type
+              if (pendingChange.action === 'replaceAll') {
+                setCode(pendingChange.newCode);
+                if (window.editor) {
+                  window.editor.setValue(pendingChange.newCode);
+                }
+              } else if (pendingChange.action === 'insert') {
+                if (window.editor) {
+                  const position = window.editor.getPosition();
+                  if (position) {
+                    window.editor.executeEdits('ai-agent-diff', [
+                      {
+                        range: {
+                          startLineNumber: position.lineNumber,
+                          startColumn: position.column,
+                          endLineNumber: position.lineNumber,
+                          endColumn: position.column,
+                        },
+                        text: pendingChange.newCode,
+                        forceMoveMarkers: true,
+                      },
+                    ]);
+                  }
+                } else {
+                  setCode(code + '\n' + pendingChange.newCode);
+                }
+              } else if (pendingChange.action === 'replaceSelection') {
+                if (window.editor) {
+                  const selection = window.editor.getSelection();
+                  if (selection) {
+                    window.editor.executeEdits('ai-agent-diff', [
+                      {
+                        range: selection,
+                        text: pendingChange.newCode,
+                        forceMoveMarkers: true,
+                      },
+                    ]);
+                  }
+                } else {
+                  setCode(pendingChange.newCode);
+                }
+              }
+              clearPendingChange();
+            }}
+            onReject={() => {
+              clearPendingChange();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Cloud Warning Dialog */}
+      <CloudWarningDialog
+        isOpen={cloudWarning?.pending ?? false}
+        providerName={
+          provider === 'openai'
+            ? 'OpenAI'
+            : provider === 'anthropic'
+              ? 'Anthropic'
+              : provider === 'google'
+                ? 'Google AI'
+                : provider
+        }
+        sensitiveItems={cloudWarning?.sensitiveItems ?? []}
+        onConfirm={() => {
+          if (cloudWarning) {
+            // Clear warning and proceed by calling handleSend with isAutoCorrection=true to skip warning
+            const pendingMsg = cloudWarning.pendingMessage;
+            setCloudWarning(null);
+            // Use timeout to ensure state is updated before calling handleSend
+            setTimeout(() => handleSend(pendingMsg, true), 0);
+          }
+        }}
+        onCancel={() => setCloudWarning(null)}
+        onEnableLocalMode={() => {
+          setProvider('local');
+          setCloudWarning(null);
+        }}
+      />
     </>
   );
 }
-
-

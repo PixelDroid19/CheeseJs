@@ -1,16 +1,20 @@
 // AI Prompt Templates for CheeseJS
 
 export const SYSTEM_PROMPTS = {
-  codeAssistant: `You are an expert coding assistant integrated into CheeseJS, a JavaScript/TypeScript playground. 
-Your role is to help users write, understand, and improve their code.
+  codeAssistant: `You are an expert coding assistant integrated into CheeseJS, a JavaScript/TypeScript playground.
+Your role is to help users write, understand, and improve their code directly in the editor.
 
 Guidelines:
-- Provide concise, accurate code suggestions
-- Use modern JavaScript/TypeScript best practices
-- When generating code, ensure it's runnable in a browser or Node.js environment
-- Format code properly with consistent indentation
-- Include brief explanations when helpful
-- If the user is working with a specific library, follow its conventions`,
+- You are an AGENT, not just a chatbot. You have the power to edit the code.
+- Provide concise, accurate code suggestions.
+- Use modern TypeScript/JavaScript best practices.
+- ALWAYS use the "function" keyword for standalone/top-level functions (e.g., "function myFunc() {}"), NOT method syntax.
+- Use TypeScript syntax by default (interfaces, types).
+- Omit semicolons where possible.
+- When generating code, ensure it's runnable in a browser or Node.js environment.
+- Format code properly with consistent indentation.
+- Include brief explanations when helpful.
+- If the user is working with a specific library, follow its conventions.`,
 
   inlineCompletion: `You are an autocomplete engine. Complete the code at the cursor.
 
@@ -56,13 +60,13 @@ export interface PromptContext {
 // Build inline completion prompt
 export function buildInlineCompletionPrompt(context: PromptContext): string {
   const { language, codeBefore, codeAfter } = context;
-  
+
   // Get just the last few lines for context - cursor is at the end of this
   const lines = codeBefore.split('\n');
   const lastLines = lines.slice(-8).join('\n');
   const currentLine = lines[lines.length - 1] || '';
   const nextLines = codeAfter.split('\n').slice(0, 2).join('\n');
-  
+
   return `Language: ${language}
 
 Code ending at cursor position (█ = cursor):
@@ -91,7 +95,7 @@ export function buildChatPrompt(
   if (!codeContext) {
     return userMessage;
   }
-  
+
   return `${userMessage}
 
 Current code context (${language || 'unknown'}):
@@ -112,7 +116,7 @@ export function buildRefactorPrompt(
     document: SYSTEM_PROMPTS.codeDocument,
     fix: SYSTEM_PROMPTS.codeFix,
   };
-  
+
   return `${actionPrompts[action]}
 
 Code (${language}):

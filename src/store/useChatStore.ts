@@ -1,13 +1,31 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ChatMessage } from '../lib/ai/types';
+import type { ChatMessage } from '../features/ai-agent/types';
+
+// Agent phase type for thinking state UI
+export type AgentPhase = 'idle' | 'thinking' | 'generating' | 'applying';
+
+// Pending code change for diff view
+export interface PendingCodeChange {
+  originalCode: string;
+  newCode: string;
+  action: 'insert' | 'replaceSelection' | 'replaceAll';
+  description?: string;
+}
 
 interface ChatState {
   messages: ChatMessage[];
   isStreaming: boolean;
   currentStreamingContent: string;
   isChatOpen: boolean;
-  
+
+  // Agent thinking state
+  agentPhase: AgentPhase;
+  thinkingMessage: string;
+
+  // Pending code change for diff view
+  pendingChange: PendingCodeChange | null;
+
   // Actions
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   updateLastAssistantMessage: (content: string) => void;
@@ -18,6 +36,13 @@ interface ChatState {
   finalizeStreaming: () => void;
   setChatOpen: (open: boolean) => void;
   toggleChat: () => void;
+
+  // Agent phase actions
+  setAgentPhase: (phase: AgentPhase, message?: string) => void;
+
+  // Pending change actions
+  setPendingChange: (change: PendingCodeChange | null) => void;
+  clearPendingChange: () => void;
 }
 
 function generateId(): string {
@@ -31,6 +56,9 @@ export const useChatStore = create<ChatState>()(
       isStreaming: false,
       currentStreamingContent: '',
       isChatOpen: false,
+      agentPhase: 'idle',
+      thinkingMessage: '',
+      pendingChange: null,
 
       addMessage: (message) =>
         set((state) => {
@@ -52,14 +80,14 @@ export const useChatStore = create<ChatState>()(
         set((state) => {
           const messages = [...state.messages];
           const lastIndex = messages.length - 1;
-          
+
           if (lastIndex >= 0 && messages[lastIndex].role === 'assistant') {
             messages[lastIndex] = {
               ...messages[lastIndex],
               content,
             };
           }
-          
+
           return { messages };
         }),
 
@@ -68,11 +96,15 @@ export const useChatStore = create<ChatState>()(
           messages: [],
           currentStreamingContent: '',
           isStreaming: false,
+          agentPhase: 'idle',
+          thinkingMessage: '',
+          pendingChange: null,
         }),
 
       setStreaming: (streaming) => set({ isStreaming: streaming }),
 
-      setStreamingContent: (content) => set({ currentStreamingContent: content }),
+      setStreamingContent: (content) =>
+        set({ currentStreamingContent: content }),
 
       appendStreamingContent: (chunk) =>
         set((state) => ({
@@ -94,15 +126,29 @@ export const useChatStore = create<ChatState>()(
             ],
             currentStreamingContent: '',
             isStreaming: false,
+            agentPhase: 'idle',
+            thinkingMessage: '',
           }));
         } else {
-          set({ isStreaming: false });
+          set({ isStreaming: false, agentPhase: 'idle', thinkingMessage: '' });
         }
       },
 
       setChatOpen: (open) => set({ isChatOpen: open }),
-      
+
       toggleChat: () => set((state) => ({ isChatOpen: !state.isChatOpen })),
+
+      // Agent phase management
+      setAgentPhase: (phase, message) =>
+        set({
+          agentPhase: phase,
+          thinkingMessage: message || getDefaultPhaseMessage(phase),
+        }),
+
+      // Pending change management
+      setPendingChange: (change) => set({ pendingChange: change }),
+
+      clearPendingChange: () => set({ pendingChange: null }),
     }),
     {
       name: 'chat-storage',
@@ -114,3 +160,16 @@ export const useChatStore = create<ChatState>()(
   )
 );
 
+// Default messages for each phase
+function getDefaultPhaseMessage(phase: AgentPhase): string {
+  switch (phase) {
+    case 'thinking':
+      return 'Analyzing your request...';
+    case 'generating':
+      return 'Generating code...';
+    case 'applying':
+      return 'Preparing changes...';
+    default:
+      return '';
+  }
+}

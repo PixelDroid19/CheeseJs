@@ -1,6 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
 @theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
@@ -40,6 +44,25 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 :root {
@@ -94,7 +117,7 @@
 /* Theme Configuration
   -------------------
   Themes are applied via the 'dark' class (for dark mode) and 'data-theme' attribute (for specific theme overrides).
-  
+
   To add a new theme:
   1. Define it in src/themes/index.ts
   2. If it's a dark theme, set type: 'dark' (this applies the .dark class)
@@ -135,8 +158,10 @@
 
 /* One Dark Theme Override */
 [data-theme='onedark'] {
-  --background: 220 13% 18%; /* #282c34 */
-  --foreground: 220 13% 71%; /* #abb2bf */
+  --background: 220 13% 18%;
+  /* #282c34 */
+  --foreground: 220 13% 71%;
+  /* #abb2bf */
 
   --card: 220 13% 18%;
   --card-foreground: 220 13% 71%;
@@ -144,54 +169,68 @@
   --popover: 220 13% 18%;
   --popover-foreground: 220 13% 71%;
 
-  --primary: 207 82% 66%; /* #61afef Blue */
+  --primary: 207 82% 66%;
+  /* #61afef Blue */
   --primary-foreground: 220 13% 18%;
 
-  --secondary: 286 60% 67%; /* #c678dd Purple */
+  --secondary: 286 60% 67%;
+  /* #c678dd Purple */
   --secondary-foreground: 220 13% 18%;
 
-  --muted: 219 14% 23%; /* #333842 */
+  --muted: 219 14% 23%;
+  /* #333842 */
   --muted-foreground: 220 13% 55%;
 
   --accent: 219 14% 23%;
   --accent-foreground: 220 13% 71%;
 
-  --destructive: 355 65% 65%; /* #e06c75 Red */
+  --destructive: 355 65% 65%;
+  /* #e06c75 Red */
   --destructive-foreground: 220 13% 18%;
 
-  --success: 95 38% 62%; /* #98c379 Green */
+  --success: 95 38% 62%;
+  /* #98c379 Green */
   --success-foreground: 220 13% 18%;
 
-  --warning: 29 54% 61%; /* #d19a66 Orange */
+  --warning: 29 54% 61%;
+  /* #d19a66 Orange */
   --warning-foreground: 220 13% 18%;
 
-  --info: 187 47% 55%; /* #56b6c2 Cyan */
+  --info: 187 47% 55%;
+  /* #56b6c2 Cyan */
   --info-foreground: 220 13% 18%;
 
-  --border: 220 13% 23%; /* #3e4451 */
+  --border: 220 13% 23%;
+  /* #3e4451 */
   --input: 220 13% 23%;
   --ring: 207 82% 66%;
 }
 
 /* Midnight Theme Override */
 [data-theme='midnight'] {
-  --background: 222 47% 11%; /* Slate 900 */
-  --foreground: 214 32% 91%; /* Slate 200 */
+  --background: 222 47% 11%;
+  /* Slate 900 */
+  --foreground: 214 32% 91%;
+  /* Slate 200 */
 
-  --card: 215 28% 17%; /* Slate 800 */
+  --card: 215 28% 17%;
+  /* Slate 800 */
   --card-foreground: 214 32% 91%;
 
   --popover: 215 28% 17%;
   --popover-foreground: 214 32% 91%;
 
-  --primary: 199 89% 48%; /* Sky 400 */
+  --primary: 199 89% 48%;
+  /* Sky 400 */
   --primary-foreground: 222 47% 11%;
 
-  --secondary: 215 25% 27%; /* Slate 700 */
+  --secondary: 215 25% 27%;
+  /* Slate 700 */
   --secondary-foreground: 214 32% 91%;
 
   --muted: 215 25% 27%;
-  --muted-foreground: 215 16% 47%; /* Slate 500 */
+  --muted-foreground: 215 16% 47%;
+  /* Slate 500 */
 
   --accent: 215 25% 27%;
   --accent-foreground: 214 32% 91%;

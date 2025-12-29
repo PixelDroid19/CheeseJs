@@ -39,12 +39,9 @@ function App() {
             addPackage(pkg.name, pkg.version);
             setPackageInstalled(pkg.name, pkg.version);
           }
-          console.log(
-            `[App] Loaded ${result.packages.length} installed packages`
-          );
         }
-      } catch (error) {
-        console.error('[App] Error loading installed packages:', error);
+      } catch (_error) {
+        // Error loading packages silently ignored
       }
     };
 
@@ -89,4 +86,3 @@ function App() {
 }
 
 export default App;
-

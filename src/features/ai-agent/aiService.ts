@@ -2,9 +2,25 @@
 // Using AI SDK 6 - https://ai-sdk.dev/docs
 // OPTIMIZED: Reduced memory usage, cleanup methods
 import { generateText, streamText, type CoreMessage } from 'ai';
-import { createProviderInstance, type ProviderInstance, type LocalProviderConfig } from './providers';
-import { SYSTEM_PROMPTS, buildInlineCompletionPrompt, buildChatPrompt, buildRefactorPrompt, type PromptContext } from './prompts';
-import type { AIProvider, AICompletionResponse, AIStreamCallbacks, ChatMessage, CustomProviderConfig } from './types';
+import {
+  createProviderInstance,
+  type ProviderInstance,
+  type LocalProviderConfig,
+} from './providers';
+import {
+  SYSTEM_PROMPTS,
+  buildInlineCompletionPrompt,
+  buildChatPrompt,
+  buildRefactorPrompt,
+  type PromptContext,
+} from './prompts';
+import type {
+  AIProvider,
+  AICompletionResponse,
+  AIStreamCallbacks,
+  ChatMessage,
+  CustomProviderConfig,
+} from './types';
 
 class AIService {
   private providerInstance: ProviderInstance | null = null;
@@ -28,14 +44,21 @@ class AIService {
       this.cleanup();
       return;
     }
-    
+
     try {
       // Clean up previous instance before creating new one
       this.cleanup();
-      
-      this.providerInstance = createProviderInstance(provider, apiKey, modelId, localConfig, customConfig);
+
+      this.providerInstance = createProviderInstance(
+        provider,
+        apiKey,
+        modelId,
+        localConfig,
+        customConfig
+      );
       this.currentProvider = provider;
-      const displayModel = localConfig?.modelId || customConfig?.modelId || modelId;
+      const displayModel =
+        localConfig?.modelId || customConfig?.modelId || modelId;
       console.log(`[AIService] Configured with ${provider}/${displayModel}`);
     } catch (error) {
       console.error('[AIService] Failed to configure:', error);
@@ -134,9 +157,9 @@ class AIService {
   ): CoreMessage[] {
     // Only keep last 10 messages to reduce memory
     const recentMessages = messages.slice(-10);
-    
+
     return recentMessages
-      .filter(msg => msg.role !== 'system')
+      .filter((msg) => msg.role !== 'system')
       .map((msg): CoreMessage => {
         const content = msg.codeContext
           ? buildChatPrompt(msg.content, msg.codeContext, language)
@@ -186,7 +209,9 @@ class AIService {
       callbacks.onComplete?.(fullText);
     } catch (error) {
       console.error('[AIService] Stream chat failed:', error);
-      callbacks.onError?.(error instanceof Error ? error : new Error(String(error)));
+      callbacks.onError?.(
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -236,7 +261,9 @@ class AIService {
       }
     } catch (error) {
       console.error('[AIService] Refactor failed:', error);
-      callbacks?.onError?.(error instanceof Error ? error : new Error(String(error)));
+      callbacks?.onError?.(
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }

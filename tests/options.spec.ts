@@ -1,21 +1,47 @@
-import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import {
+  test,
+  expect,
+  _electron as electron,
+  ElectronApplication,
+  Page,
+} from '@playwright/test';
 import path from 'path';
+import electronPath from 'electron';
 
 let app: ElectronApplication;
-let window: Page;
+let page: Page;
 
 test.beforeAll(async () => {
-  const electronPath = require('electron');
-  const appPath = path.join(__dirname, '..');
+  const appPath = process.cwd();
   const mainScript = path.join(appPath, 'dist-electron/main.js');
 
   app = await electron.launch({
-    executablePath: electronPath,
+    executablePath: electronPath as unknown as string,
     args: [mainScript],
   });
 
-  window = await app.firstWindow();
-  await window.waitForLoadState('domcontentloaded');
+  page = await app.firstWindow();
+  await page.waitForLoadState('domcontentloaded');
+
+  // Wait for Monaco to be initialized
+  await page.waitForFunction(() => window.monaco && window.monaco.editor);
+});
+
+test.beforeEach(async () => {
+  // Ensure AI Chat is closed
+  const chatInput = page.getByTestId('ai-chat-input');
+  if (await chatInput.isVisible()) {
+    // Try to find the close button or toggle button
+    // The chat usually has a close button or we can toggle it off
+    const toggleButton = page.getByTestId('toggle-chat');
+    if (await toggleButton.isVisible()) {
+      await toggleButton.click();
+    } else {
+      // Fallback: try clicking outside or looking for a close button inside the chat
+      // Assuming there is a toggle button as per AIChat.tsx
+    }
+    await expect(chatInput).not.toBeVisible();
+  }
 });
 
 test.afterAll(async () => {
@@ -23,39 +49,48 @@ test.afterAll(async () => {
 });
 
 test.describe('Application Options & Behavior', () => {
-  
   test('should toggle "Show undefined" and affect output', async () => {
     // 1. Open Settings
-    await window.getByRole('button', { name: /Settings|Configuraci|Ajustes/i }).click();
-    
+    await page
+      .getByRole('button', { name: /Settings|Configuraci|Ajustes/i })
+      .click();
+
     // 2. Go to Advanced
-    await window.getByRole('button', { name: /Advanced|Avanzado|Avanzadas/i }).click();
+    await page
+      .getByRole('button', { name: /Advanced|Avanzado|Avanzadas/i })
+      .click();
 
     // 3. Find "Show undefined" toggle
     // The label text in Spanish is "Mostrar valores indefinidos explícitamente"
-    const row = window.locator('.flex.items-center.justify-between', { hasText: /Show undefined|Mostrar valores indefinidos/i });
+    const row = page.locator('.flex.items-center.justify-between', {
+      hasText: /Show undefined|Mostrar valores indefinidos/i,
+    });
     await expect(row).toBeVisible();
-    
+
     // Click the toggle inside the row (label wrapper)
     await row.locator('label').click();
 
     // Close settings
-    const settingsModal = window.locator('.fixed.inset-0.z-\\[100\\]');
+    const settingsModal = page.locator('.fixed.inset-0.z-\\[100\\]');
     await settingsModal.locator('button:has(svg.lucide-x)').click();
 
     // 4. Run code that returns undefined explicitly
-    await window.evaluate(() => {
-      // @ts-ignore
+    await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
       const model = window.monaco.editor.getModels()[0];
-      model.setValue("undefined");
+      model.setValue('undefined');
     });
 
-    await window.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await window.waitForTimeout(1000);
+    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
+    await page.waitForTimeout(1000);
 
-    const output = await window.evaluate(() => {
-      // @ts-ignore
-      return window.monaco.editor.getModels().map(m => m.getValue()).join('\n');
+    const output = await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
+
+      return window.monaco.editor
+        .getModels()
+        .map((m: any) => m.getValue())
+        .join('\n');
     });
 
     // If enabled, it should show 'undefined'
@@ -63,18 +98,22 @@ test.describe('Application Options & Behavior', () => {
   });
 
   test('should handle runtime errors gracefully', async () => {
-    await window.evaluate(() => {
-      // @ts-ignore
+    await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
       const model = window.monaco.editor.getModels()[0];
       model.setValue("throw new Error('Test Error')");
     });
 
-    await window.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await window.waitForTimeout(1000);
+    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
+    await page.waitForTimeout(1000);
 
-    const output = await window.evaluate(() => {
-      // @ts-ignore
-      return window.monaco.editor.getModels().map(m => m.getValue()).join('\n');
+    const output = await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
+
+      return window.monaco.editor
+        .getModels()
+        .map((m: any) => m.getValue())
+        .join('\n');
     });
 
     expect(output).toContain('Test Error');
@@ -82,35 +121,45 @@ test.describe('Application Options & Behavior', () => {
 
   test('should support Magic Comments', async () => {
     // 1. Ensure Magic Comments are enabled
-    await window.getByRole('button', { name: /Settings|Configuraci|Ajustes/i }).click();
-    await window.getByRole('button', { name: /Advanced|Avanzado|Avanzadas/i }).click();
-    
-    const row = window.locator('.flex.items-center.justify-between', { hasText: /Magic Comments|Comentarios mágicos/i });
+    await page
+      .getByRole('button', { name: /Settings|Configuraci|Ajustes/i })
+      .click();
+    await page
+      .getByRole('button', { name: /Advanced|Avanzado|Avanzadas/i })
+      .click();
+
+    const row = page.locator('.flex.items-center.justify-between', {
+      hasText: /Magic Comments|Comentarios mágicos/i,
+    });
     await expect(row).toBeVisible();
-    
+
     // Toggle it
     await row.locator('label').click();
-    
+
     // Close settings
-    const settingsModal = window.locator('.fixed.inset-0.z-\\[100\\]');
+    const settingsModal = page.locator('.fixed.inset-0.z-\\[100\\]');
     await settingsModal.locator('button:has(svg.lucide-x)').click();
 
     // 2. Run code with //?
-    await window.evaluate(() => {
-      // @ts-ignore
+    await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
       const model = window.monaco.editor.getModels()[0];
-      model.setValue("const x = 10;\nx //?");
+      model.setValue('const x = 10;\nx //?');
     });
 
-    await window.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await window.waitForTimeout(1000);
+    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
+    await page.waitForTimeout(1000);
 
-    const output = await window.evaluate(() => {
-      // @ts-ignore
+    const output = await page.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
       // Check all models content (output might be in second model)
-      return window.monaco.editor.getModels().map(m => m.getValue()).join('\n');
+
+      return window.monaco.editor
+        .getModels()
+        .map((m: any) => m.getValue())
+        .join('\n');
     });
-    
+
     // Expect output to contain '10' (the result of magic comment)
     expect(output).toContain('10');
   });

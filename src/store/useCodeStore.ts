@@ -33,6 +33,10 @@ export interface CodeState {
   setIsExecuting: (isExecuting: boolean) => void;
   isPendingRun: boolean;
   setIsPendingRun: (isPendingRun: boolean) => void;
+  // Prompt state
+  promptRequest: string | null;
+  promptType: 'text' | 'alert';
+  setPromptRequest: (message: string | null, type?: 'text' | 'alert') => void;
   // Memory management
   pruneOldResults: () => void;
 }
@@ -44,10 +48,12 @@ export interface CodeState {
 export const useCodeStore = create<CodeState>()(
   persist(
     (set, get) => ({
-      code: 'console.log("Hello World");',
+      code: '',
       result: [],
       isExecuting: false,
       isPendingRun: false,
+      promptRequest: null,
+      promptType: 'text',
 
       setCode: (code) => set({ code }),
 
@@ -68,11 +74,14 @@ export const useCodeStore = create<CodeState>()(
           return { result: newResults };
         }),
 
-      clearResult: () => set({ result: [] }),
+      clearResult: () => set({ result: [], promptRequest: null }),
 
       setIsExecuting: (isExecuting) => set({ isExecuting }),
 
       setIsPendingRun: (isPendingRun) => set({ isPendingRun }),
+
+      setPromptRequest: (message, type = 'text') =>
+        set({ promptRequest: message, promptType: type }),
 
       // Manual pruning for explicit cleanup
       pruneOldResults: () => {

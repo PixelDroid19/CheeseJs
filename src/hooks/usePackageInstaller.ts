@@ -38,13 +38,9 @@ export function usePackageInstaller() {
       incrementInstallAttempt(packageName);
 
       try {
-        console.log(`[usePackageInstaller] Installing ${packageName}...`);
         const result = await window.packageManager.install(packageName);
 
         if (result.success) {
-          console.log(
-            `[usePackageInstaller] Successfully installed ${packageName}@${result.version}`
-          );
           setPackageInstalled(packageName, result.version);
           return result;
         } else {
@@ -86,13 +82,9 @@ export function usePackageInstaller() {
       }
 
       try {
-        console.log(`[usePackageInstaller] Uninstalling ${packageName}...`);
         const result = await window.packageManager.uninstall(packageName);
 
         if (result.success) {
-          console.log(
-            `[usePackageInstaller] Successfully uninstalled ${packageName}`
-          );
           removePackage(packageName);
           return result;
         } else {
@@ -128,9 +120,6 @@ export function usePackageInstaller() {
           addPackage(pkg.name, pkg.version);
           setPackageInstalled(pkg.name, pkg.version);
         }
-        console.log(
-          `[usePackageInstaller] Loaded ${result.packages.length} installed packages`
-        );
       }
     } catch (error) {
       console.error(
