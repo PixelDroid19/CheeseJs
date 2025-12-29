@@ -25,7 +25,7 @@ export default {
     // Type must not be empty
     'type-empty': [2, 'never'],
     // Subject must start with lowercase
-    'subject-case': [2, 'always', 'lower-case'],
+    'subject-case': [0],
     // Header max length
     'header-max-length': [2, 'always', 100],
     // Body max line length

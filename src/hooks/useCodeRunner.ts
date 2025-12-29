@@ -381,6 +381,7 @@ export function useCodeRunner() {
       loopProtection,
       showUndefined,
       magicComments,
+      setPromptRequest,
     ]
   );
 
