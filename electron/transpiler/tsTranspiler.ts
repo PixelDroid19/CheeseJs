@@ -29,6 +29,8 @@ export interface TransformOptions {
   experimentalDecorators?: boolean;
   /** Enable JSX parsing */
   jsx?: boolean;
+  /** Enable visual execution (line tracking) */
+  visualExecution?: boolean;
 }
 
 /**
@@ -79,6 +81,7 @@ function getCompilerOptions(options?: TransformOptions): ts.CompilerOptions {
 }
 
 import { createLoopProtectionTransformer } from './loopProtection.js';
+import { createVisualExecutionTransformer } from './visualExecution.js';
 
 /**
  * Transform code using TypeScript Compiler
@@ -92,6 +95,12 @@ export function transpileWithTypeScript(
   const transformers: ts.CustomTransformers = {
     before: [],
   };
+
+  // Add visual execution transformer if enabled (before loop protection)
+  // We want to track lines before loop protection adds its own logic
+  if (options?.visualExecution) {
+    transformers.before?.push(createVisualExecutionTransformer());
+  }
 
   // Add loop protection transformer if enabled
   if (options?.loopProtection) {

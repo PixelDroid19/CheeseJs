@@ -4,6 +4,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { themeOptions } from '../../../themes';
 import { Select } from '../ui/Select';
 import { Slider } from '../ui/Slider';
+import { Toggle } from '../ui/Toggle';
 import { SectionHeader } from '../ui/SectionHeader';
 import clsx from 'clsx';
 
@@ -16,7 +17,36 @@ export function AppearanceTab() {
     setFontSize,
     uiFontSize,
     setUiFontSize,
+    captureTheme,
+    setCaptureTheme,
+    captureIncludeOutput,
+    setCaptureIncludeOutput,
   } = useSettingsStore();
+
+  const CAPTURE_THEMES = [
+    {
+      name: 'Purple',
+      value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    },
+    {
+      name: 'Sunset',
+      value: 'linear-gradient(120deg, #f6d365 0%, #fda085 100%)',
+    },
+    {
+      name: 'Ocean',
+      value: 'linear-gradient(to top, #0ba360 0%, #3cba92 100%)',
+    },
+    {
+      name: 'Midnight',
+      value: 'linear-gradient(to top, #0f2027 0%, #203a43 60%, #2c5364 100%)',
+    },
+    {
+      name: 'Fire',
+      value: 'linear-gradient(to top, #ff0844 0%, #ffb199 100%)',
+    },
+    { name: 'Clean', value: '#e2e8f0' },
+    { name: 'Transparent', value: 'transparent' },
+  ];
 
   return (
     <motion.div
@@ -79,6 +109,52 @@ export function AppearanceTab() {
               onChange={(e) => setUiFontSize(Number(e.target.value))}
               className="w-full"
             />
+          </div>
+        </div>
+
+        <div className="space-y-6 pt-6 border-t border-border">
+          <SectionHeader
+            title={
+              t('settings.categories.capture') || 'Personalización de Captura'
+            }
+          />
+
+          <div className="flex items-center justify-between mb-6">
+            <label className={clsx('text-sm font-medium', 'text-foreground')}>
+              {t('settings.captureIncludeOutput') ||
+                'Incluir salida en captura'}
+            </label>
+            <Toggle
+              checked={captureIncludeOutput}
+              onChange={setCaptureIncludeOutput}
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className={clsx('text-sm font-medium', 'text-foreground')}>
+              {t('settings.captureBackground') || 'Fondo de Captura'}
+            </label>
+            <div className="grid grid-cols-7 gap-4">
+              {CAPTURE_THEMES.map((theme) => (
+                <button
+                  key={theme.name}
+                  onClick={() => setCaptureTheme(theme.value)}
+                  className={clsx(
+                    'w-12 h-12 rounded-full border transition-all duration-200 shadow-sm relative overflow-hidden',
+                    captureTheme === theme.value
+                      ? 'border-primary ring-2 ring-primary ring-offset-2 ring-offset-background scale-110 shadow-md'
+                      : 'border-border hover:scale-110 hover:border-primary/50 hover:shadow-md'
+                  )}
+                  style={{
+                    background:
+                      theme.value === 'transparent'
+                        ? 'conic-gradient(at center, #e2e8f0 0.25turn, #ffffff 0.25turn 0.5turn, #e2e8f0 0.5turn 0.75turn, #ffffff 0.75turn) top left / 10px 10px repeat'
+                        : theme.value,
+                  }}
+                  title={theme.name}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>

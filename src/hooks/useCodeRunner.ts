@@ -6,18 +6,20 @@ import {
   isLanguageExecutable,
   getLanguageDisplayName,
 } from '../store/useLanguageStore';
+import { useExecutionVisualizerStore } from '../store/useExecutionVisualizerStore';
 import { createExecutionError, shouldDisplayError } from '../lib/errors';
 import { getMetrics } from '../lib/metrics';
 import { useHistoryStore } from '../store/useHistoryStore';
 
 // Type for execution results from the worker
 interface ExecutionResultData {
-  type: 'result' | 'console' | 'debug' | 'error' | 'complete';
+  type: 'result' | 'console' | 'debug' | 'error' | 'complete' | 'line-executed';
   id: string;
   data?: unknown;
   line?: number;
   jsType?: string;
   consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir';
+  variables?: Record<string, { value: string; type: string }>;
 }
 
 // Error types for better error handling
@@ -140,6 +142,12 @@ export function useCodeRunner() {
         clearResult();
         setIsExecuting(true);
 
+        // Start visual execution tracking
+        const visualizer = useExecutionVisualizerStore.getState();
+        if (visualizer.enabled) {
+          visualizer.startExecution();
+        }
+
         const executionId = generateExecutionId();
         currentExecutionIdRef.current = executionId;
 
@@ -171,6 +179,18 @@ export function useCodeRunner() {
             (result: ExecutionResultData) => {
               // Only process results for current execution
               if (result.id !== executionId) return;
+
+              // Handle line execution events for visual execution
+              if (result.type === 'line-executed') {
+                const visualizer = useExecutionVisualizerStore.getState();
+                if (visualizer.enabled && result.line !== undefined) {
+                  visualizer.setActiveLine(result.line);
+                  if (result.variables) {
+                    visualizer.updateVariables(result.variables);
+                  }
+                }
+                return; // Don't show in output panel
+              }
 
               if (result.type === 'debug') {
                 // Line-numbered output
@@ -238,6 +258,9 @@ export function useCodeRunner() {
                   codeLength: sourceCode.length,
                 });
 
+                // End visual execution tracking
+                useExecutionVisualizerStore.getState().endExecution();
+
                 // Execution completed - clean up listener
                 if (unsubscribeRef.current) {
                   unsubscribeRef.current();
@@ -269,6 +292,7 @@ export function useCodeRunner() {
               loopProtection,
               magicComments,
               language: execLanguage,
+              visualExecution: visualizer.enabled,
             }
           );
 

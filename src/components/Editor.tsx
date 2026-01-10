@@ -9,6 +9,7 @@ import { useLanguageStore } from '../store/useLanguageStore';
 import { registerPackageCommands } from '../lib/monacoCommands';
 import { useDebouncedFunction } from '../hooks/useDebounce';
 import { useCodeRunner } from '../hooks/useCodeRunner';
+import { useExecutionHighlight } from '../hooks/useExecutionHighlight';
 import {
   registerMonacoProviders,
   disposeMonacoProviders,
@@ -25,6 +26,7 @@ import {
   setupMonacoEnvironment,
 } from '../utils/monaco-config';
 import { EditorErrorBoundary } from './editor-error-boundary';
+import { VariableInspector } from './VariableInspector';
 
 // Setup Monaco workers before initialization
 setupMonacoEnvironment();
@@ -65,23 +67,11 @@ function CodeEditor() {
 
   const { runCode } = useCodeRunner();
 
-  useEffect(() => {
-    const handleFormat = () => {
-      monacoRef.current?.getAction('editor.action.formatDocument')?.run();
-    };
-    window.addEventListener('trigger-format', handleFormat);
-
-    return () => {
-      window.removeEventListener('trigger-format', handleFormat);
-      // Dispose Monaco providers on unmount
-      disposeMonacoProviders();
-      disposePythonMonacoProviders();
-      // Dispose ATA subscription
-      if (ataDisposeRef.current) {
-        ataDisposeRef.current();
-      }
-    };
-  }, []);
+  // Apply execution line highlighting
+  useExecutionHighlight({
+    editorRef: monacoRef,
+    monacoRef: monacoInstanceRef,
+  });
 
   /**
    * Safely cleanup old Monaco models to prevent memory leaks.
@@ -169,6 +159,31 @@ function CodeEditor() {
     },
     []
   );
+
+  useEffect(() => {
+    const handleFormat = () => {
+      monacoRef.current?.getAction('editor.action.formatDocument')?.run();
+    };
+    window.addEventListener('trigger-format', handleFormat);
+
+    return () => {
+      window.removeEventListener('trigger-format', handleFormat);
+
+      // Cleanup models to prevent memory leaks
+      if (monacoRef.current) {
+        cleanupModels(monacoRef.current);
+      }
+
+      // Dispose Monaco providers on unmount
+      disposeMonacoProviders();
+      disposePythonMonacoProviders();
+
+      // Dispose ATA subscription
+      if (ataDisposeRef.current) {
+        ataDisposeRef.current();
+      }
+    };
+  }, [cleanupModels]);
 
   useEffect(() => {
     if (monacoRef.current) {
@@ -419,7 +434,7 @@ function CodeEditor() {
   );
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full relative">
       <Editor
         // Use a generic path - we control language via setModelLanguage
         // Using .ts extension ensures TypeScript features work correctly when in TS mode
@@ -482,6 +497,8 @@ function CodeEditor() {
         beforeMount={handleEditorWillMount}
         onMount={handleEditorDidMount}
       />
+      {/* Variable inspector for visual execution */}
+      <VariableInspector />
     </div>
   );
 }

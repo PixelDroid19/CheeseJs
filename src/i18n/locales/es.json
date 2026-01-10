@@ -4,6 +4,9 @@
     "theme": "Tema",
     "language": "Idioma",
     "fontSize": "Tamaño de fuente",
+    "uiFontSize": "Tamaño de fuente (UI)",
+    "captureIncludeOutput": "Incluir salida en captura",
+    "captureBackground": "Fondo de Captura",
     "close": "Cerrar",
     "categories": {
       "general": "Configuración General",
@@ -14,7 +17,8 @@
       "npm": "Integración NPM",
       "pypi": "PyPI (Python)",
       "snippets": "Fragmentos (Snippets)",
-      "advanced": "Opciones Avanzadas"
+      "advanced": "Opciones Avanzadas",
+      "capture": "Personalización de Captura"
     },
     "descriptions": {
       "general": "Configura el comportamiento general del editor",

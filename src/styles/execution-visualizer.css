@@ -1,0 +1,312 @@
+/**
+ * Execution Visualizer Styles
+ *
+ * Animations and styles for real-time code execution visualization.
+ */
+
+/* ============================================================================
+   ACTIVE LINE HIGHLIGHTING
+   ============================================================================ */
+
+/* Main active line style - subtle glow effect */
+.active-execution-line {
+  background: linear-gradient(
+    90deg,
+    rgba(74, 222, 128, 0.2) 0%,
+    rgba(74, 222, 128, 0.1) 50%,
+    transparent 100%
+  );
+  border-left: 3px solid #4ade80;
+  animation: execution-pulse 0.4s ease-out;
+}
+
+/* Glyph margin indicator */
+.active-execution-glyph {
+  background: #4ade80;
+  border-radius: 50%;
+  width: 8px !important;
+  height: 8px !important;
+  margin-left: 4px;
+  margin-top: 6px;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+}
+
+/* Previous line fade-out effect */
+.previous-execution-line {
+  background: rgba(74, 222, 128, 0.08);
+  animation: fade-out 0.3s ease-out forwards;
+}
+
+/* Pulse animation for active line */
+@keyframes execution-pulse {
+  0% {
+    background: linear-gradient(
+      90deg,
+      rgba(74, 222, 128, 0.4) 0%,
+      rgba(74, 222, 128, 0.3) 50%,
+      transparent 100%
+    );
+    box-shadow: inset 0 0 20px rgba(74, 222, 128, 0.3);
+  }
+
+  100% {
+    background: linear-gradient(
+      90deg,
+      rgba(74, 222, 128, 0.2) 0%,
+      rgba(74, 222, 128, 0.1) 50%,
+      transparent 100%
+    );
+    box-shadow: inset 0 0 0 rgba(74, 222, 128, 0);
+  }
+}
+
+@keyframes fade-out {
+  from {
+    background: rgba(74, 222, 128, 0.08);
+  }
+
+  to {
+    background: transparent;
+  }
+}
+
+/* ============================================================================
+   VARIABLE INSPECTOR
+   ============================================================================ */
+
+.variable-inspector {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(30, 30, 40, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px 16px;
+  min-width: 180px;
+  max-width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+
+.variable-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.variable-inspector-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.variable-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  margin: 4px 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 0.2s ease;
+}
+
+.variable-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.variable-name {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: #93c5fd;
+  font-weight: 500;
+}
+
+.variable-value {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: #fcd34d;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variable-type {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 4px;
+}
+
+/* Variable change animation */
+.variable-changed {
+  animation: variable-flash 0.4s ease-out;
+}
+
+@keyframes variable-flash {
+  0% {
+    background: rgba(251, 191, 36, 0.4);
+    transform: scale(1.02);
+  }
+
+  50% {
+    background: rgba(251, 191, 36, 0.2);
+  }
+
+  100% {
+    background: rgba(255, 255, 255, 0.03);
+    transform: scale(1);
+  }
+}
+
+/* ============================================================================
+   FLOW VISUALIZATION
+   ============================================================================ */
+
+.flow-indicator {
+  position: absolute;
+  left: -24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flow-arrow {
+  width: 16px;
+  height: 16px;
+  color: #a78bfa;
+  animation: flow-appear 0.2s ease-out;
+}
+
+.flow-arrow.if {
+  color: #4ade80;
+}
+
+.flow-arrow.else {
+  color: #f87171;
+}
+
+.flow-arrow.loop {
+  color: #60a5fa;
+}
+
+.flow-arrow.call {
+  color: #c084fc;
+}
+
+@keyframes flow-appear {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ============================================================================
+   SPEED CONTROLS
+   ============================================================================ */
+
+.execution-speed-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.speed-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.speed-button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.speed-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.speed-button.active {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+/* ============================================================================
+   EXECUTION TOGGLE
+   ============================================================================ */
+
+.visualization-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.visualization-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.visualization-toggle-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.visualization-toggle-switch {
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.2);
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.visualization-toggle-switch.active {
+  background: rgba(74, 222, 128, 0.6);
+}
+
+.visualization-toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s ease;
+}
+
+.visualization-toggle-switch.active::after {
+  transform: translateX(14px);
+}

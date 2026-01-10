@@ -91,6 +91,15 @@ interface ResultMessage {
   consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir';
 }
 
+/**
+ * Progress tracking for Pyodide initialization stages
+ */
+interface PyodideInitProgress {
+  stage: 'loading-wasm' | 'loading-micropip' | 'setting-up-env' | 'ready';
+  progress: number; // 0-100
+  message: string;
+}
+
 // Pyodide instance (loaded lazily)
 let pyodide: PyodideInterface | null = null;
 let isLoading = false;
@@ -117,6 +126,7 @@ interface MemoryStats {
   heapTotal: number;
   executionsSinceCleanup: number;
   lastCleanupTime: number;
+  pyObjects: number;
 }
 
 let memoryStats: MemoryStats = {
@@ -124,6 +134,7 @@ let memoryStats: MemoryStats = {
   heapTotal: 0,
   executionsSinceCleanup: 0,
   lastCleanupTime: Date.now(),
+  pyObjects: 0,
 };
 
 // Memory warning threshold (in bytes) - 500MB
@@ -254,13 +265,18 @@ del _name
  */
 async function forceGarbageCollection(py: PyodideInterface): Promise<void> {
   try {
-    const _collected = py.runPython(`
+    const collected = py.runPython(`
 import gc
 gc.collect()
 gc.collect()  # Run twice to collect circular references
 len(gc.garbage)  # Return number of uncollectable objects
 `);
-    // Collected count captured for potential future use
+    if (collected > 0) {
+      console.debug(
+        '[PythonExecutor] GC collected uncollectable objects:',
+        collected
+      );
+    }
   } catch (error) {
     console.warn('[PythonExecutor] GC error:', error);
   }
@@ -308,7 +324,8 @@ async function checkAndCleanMemory(py: PyodideInterface): Promise<void> {
   }
 
   // Check memory usage
-  const _usage = await getMemoryUsage(py);
+  const usage = await getMemoryUsage(py);
+  memoryStats.pyObjects = usage.pyObjects;
 
   // Update memory stats
   if (typeof process !== 'undefined' && process.memoryUsage) {
@@ -317,19 +334,29 @@ async function checkAndCleanMemory(py: PyodideInterface): Promise<void> {
     memoryStats.heapTotal = mem.heapTotal;
   }
 
-  // Warn if memory is high
+  // Warn and cleanup if memory is high
   if (memoryStats.heapUsed > MEMORY_WARNING_THRESHOLD) {
     console.warn(
-      `[PythonExecutor] High memory usage: ${Math.round(memoryStats.heapUsed / 1024 / 1024)}MB`
+      `[PythonExecutor] High memory usage: ${Math.round(memoryStats.heapUsed / 1024 / 1024)}MB - triggering cleanup`
     );
     parentPort?.postMessage({
       type: 'status',
       id: 'memory-warning',
       data: {
-        message: `High memory usage detected (${Math.round(memoryStats.heapUsed / 1024 / 1024)}MB). Consider resetting the Python runtime.`,
+        message: `High memory usage detected (${Math.round(memoryStats.heapUsed / 1024 / 1024)}MB). Performing automatic cleanup.`,
         memoryStats,
       },
     });
+
+    // Trigger namespace cleanup to reclaim memory
+    await cleanupPythonNamespace(py);
+    memoryStats.executionsSinceCleanup = 0;
+    memoryStats.lastCleanupTime = Date.now();
+
+    // Force garbage collection if available
+    if (typeof global !== 'undefined' && (global as { gc?: () => void }).gc) {
+      (global as { gc: () => void }).gc();
+    }
   }
 }
 
@@ -358,6 +385,17 @@ function serializeValue(val: unknown): { content: string; jsType: string } {
 }
 
 /**
+ * Send initialization progress update to the main process
+ */
+function sendInitProgress(progress: PyodideInitProgress): void {
+  parentPort?.postMessage({
+    type: 'status',
+    id: 'init-progress',
+    data: progress,
+  });
+}
+
+/**
  * Load Pyodide runtime
  */
 async function initializePyodide(): Promise<PyodideInterface> {
@@ -380,10 +418,11 @@ async function initializePyodide(): Promise<PyodideInterface> {
 
   pyodideLoadPromise = (async () => {
     try {
-      parentPort?.postMessage({
-        type: 'status',
-        id: 'init',
-        data: { message: 'Loading Python runtime...' },
+      // Stage 1: Loading WASM core (0-40%)
+      sendInitProgress({
+        stage: 'loading-wasm',
+        progress: 0,
+        message: 'Loading Python WASM core...',
       });
 
       // Find pyodide package location - use path directly without file:// prefix
@@ -419,8 +458,22 @@ async function initializePyodide(): Promise<PyodideInterface> {
         },
       });
 
+      // Stage 2: Loading micropip (40-70%)
+      sendInitProgress({
+        stage: 'loading-micropip',
+        progress: 40,
+        message: 'Loading package manager...',
+      });
+
       // Load micropip for package installation
       await instance.loadPackage('micropip');
+
+      // Stage 3: Setting up environment (70-90%)
+      sendInitProgress({
+        stage: 'setting-up-env',
+        progress: 70,
+        message: 'Setting up Python environment...',
+      });
 
       // Set up debug function in Python
       // We provide both 'debug' (legacy) and '__pyDebug' (language-specific) for compatibility
@@ -687,10 +740,12 @@ setattr(builtins, '_transform_for_async_input', _transform_for_async_input)
 
       isInitializing = false;
       pyodide = instance;
-      parentPort?.postMessage({
-        type: 'status',
-        id: 'init',
-        data: { message: 'Python runtime ready' },
+
+      // Stage 4: Ready (100%)
+      sendInitProgress({
+        stage: 'ready',
+        progress: 100,
+        message: 'Python runtime ready',
       });
 
       return instance;

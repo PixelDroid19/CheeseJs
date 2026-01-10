@@ -47,12 +47,13 @@ interface ExecuteOptions {
 }
 
 interface ResultMessage {
-  type: 'result' | 'console' | 'debug' | 'error' | 'complete';
+  type: 'result' | 'console' | 'debug' | 'error' | 'complete' | 'line-executed';
   id: string;
   data: unknown;
   line?: number;
   jsType?: string;
   consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir';
+  variables?: Record<string, { value: string; type: string }>;
 }
 
 // Active execution tracking for cancellation
@@ -334,6 +335,33 @@ function createSandboxContext(
   const require = createRequireFunction();
   const checkCancellation = createCancellationCheckFunction();
 
+  // Line execution tracking for visual execution
+  const lineExecutedFunc = (
+    line: number,
+    variables?: Record<string, unknown>
+  ) => {
+    // Serialize variables if provided
+    const serializedVars = variables
+      ? Object.fromEntries(
+          Object.entries(variables).map(([name, value]) => [
+            name,
+            {
+              value: customInspect(value, 2),
+              type: value === null ? 'null' : typeof value,
+            },
+          ])
+        )
+      : undefined;
+
+    parentPort?.postMessage({
+      type: 'line-executed',
+      id: executionId,
+      line,
+      data: null,
+      variables: serializedVars,
+    } as ResultMessage);
+  };
+
   // CommonJS module support
   const moduleExports = {};
   const moduleObj = { exports: moduleExports };
@@ -345,6 +373,9 @@ function createSandboxContext(
     console,
     debug: debugFunc,
     __jsDebug: debugFunc,
+
+    // Line execution tracking for visual execution
+    __lineExecuted: lineExecutedFunc,
 
     // Cancellation checkpoint for cooperative cancellation
     __checkCancellation__: checkCancellation,

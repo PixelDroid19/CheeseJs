@@ -12,6 +12,7 @@ interface ExecutionOptions {
   loopProtection?: boolean;
   magicComments?: boolean;
   language?: 'javascript' | 'typescript' | 'python';
+  visualExecution?: boolean;
 }
 
 interface ExecutionResult {
@@ -121,6 +122,14 @@ interface Window {
     minimizeApp: () => void;
     showContextMenu: () => void;
     onToggleMagicComments: (callback: () => void) => void;
+    // Shell operations
+    // Shell operations
+    showItemInFolder: (path: string) => Promise<void>;
+    // Capture operations
+    saveImage: (
+      buffer: ArrayBuffer,
+      filename: string
+    ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   };
   codeRunner: CodeRunner;
   packageManager: PackageManager;
@@ -130,4 +139,3 @@ interface Window {
   editor?: unknown;
   useCodeStore?: unknown;
 }
-

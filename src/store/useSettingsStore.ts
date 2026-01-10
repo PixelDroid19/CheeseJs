@@ -29,10 +29,14 @@ interface SettingsState {
   autoRunAfterInstall: boolean;
   autoInstallPackages: boolean;
   uiFontSize: number;
+  captureTheme: string;
+  captureIncludeOutput: boolean;
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
   setFontSize: (size: number) => void;
   setUiFontSize: (size: number) => void;
+  setCaptureTheme: (theme: string) => void;
+  setCaptureIncludeOutput: (include: boolean) => void;
   setIsSettingsOpen: (isOpen: boolean) => void;
   toggleSettings: () => void;
   setShowTopLevelResults: (show: boolean) => void;
@@ -67,10 +71,15 @@ export const useSettingsStore = create<SettingsState>()(
       autoRunAfterInstall: true,
       autoInstallPackages: true, // Default to auto-install
       uiFontSize: 14,
+      captureTheme: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      captureIncludeOutput: true,
       setLanguage: (language) => set({ language }),
       setThemeName: (themeName) => set({ themeName }),
       setFontSize: (fontSize) => set({ fontSize }),
       setUiFontSize: (uiFontSize) => set({ uiFontSize }),
+      setCaptureTheme: (captureTheme) => set({ captureTheme }),
+      setCaptureIncludeOutput: (captureIncludeOutput) =>
+        set({ captureIncludeOutput }),
       setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
       toggleSettings: () =>
         set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
@@ -106,6 +115,8 @@ export const useSettingsStore = create<SettingsState>()(
         executionEnvironment: state.executionEnvironment,
         autoRunAfterInstall: state.autoRunAfterInstall,
         autoInstallPackages: state.autoInstallPackages,
+        captureTheme: state.captureTheme,
+        captureIncludeOutput: state.captureIncludeOutput,
       }),
     }
   )

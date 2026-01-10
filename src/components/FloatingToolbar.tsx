@@ -7,6 +7,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useRuntimeStatus } from '../hooks/useRuntimeStatus';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { SnippetsMenu } from './SnippetsMenu';
+import { CaptureControls } from './CaptureControls';
 import clsx from 'clsx';
 
 export default function FloatingToolbar() {
@@ -14,7 +15,7 @@ export default function FloatingToolbar() {
   const { runCode } = useCodeRunner();
   const toggleSettings = useSettingsStore((state) => state.toggleSettings);
   const currentLanguage = useLanguageStore((state) => state.currentLanguage);
-  const { isLoading, message } = useRuntimeStatus(
+  const { isLoading, message, status } = useRuntimeStatus(
     currentLanguage === 'python' ? 'python' : 'javascript'
   );
 
@@ -42,9 +43,21 @@ export default function FloatingToolbar() {
               className="flex items-center gap-2 px-3 text-xs text-muted-foreground"
             >
               <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-              <span className="whitespace-nowrap text-amber-500/80">
-                {message || 'Loading Python...'}
-              </span>
+              <div className="flex flex-col gap-1">
+                <span className="whitespace-nowrap text-amber-500/80">
+                  {message || 'Loading Python...'}
+                </span>
+                {status.progress > 0 && status.progress < 100 && (
+                  <div className="w-24 bg-amber-500/20 rounded-full h-1">
+                    <motion.div
+                      className="bg-amber-500 h-1 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${status.progress}%` }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    />
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -56,6 +69,14 @@ export default function FloatingToolbar() {
           disabled={isLoading && currentLanguage === 'python'}
         />
         <SnippetsMenu />
+
+        {/* Separator */}
+        <div className="w-px h-6 bg-border mx-1" />
+
+        <CaptureControls />
+
+        <div className="w-px h-6 bg-border mx-1" />
+
         <ToolbarButton
           icon={<Brush className="w-5 h-5" />}
           onClick={handleLint}
