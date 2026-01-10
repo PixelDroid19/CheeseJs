@@ -17,9 +17,12 @@ import CodeEditor from './components/Editor';
 import ResultDisplay from './components/Result';
 import { InputTooltip } from './components/InputTooltip';
 import { AIChat } from './components/AI/AIChat';
+import { KnowledgeBaseModal } from './components/KnowledgeBase/KnowledgeBaseModal';
+import { useRagStore } from './store/useRagStore';
 
 function App() {
   const { setMagicComments } = useSettingsStore();
+  const { loadDocuments, handleProgress } = useRagStore();
   const addPackage = usePackagesStore(
     (state: PackagesState) => state.addPackage
   );
@@ -57,6 +60,20 @@ function App() {
     }
   }, [setMagicComments]);
 
+  // RAG Progress Listener
+  useEffect(() => {
+    if (window.rag?.onProgress) {
+      // Initial load
+      loadDocuments();
+
+      // Listen for progress
+      const cleanup = window.rag.onProgress((progress) => {
+        handleProgress(progress);
+      });
+      return cleanup;
+    }
+  }, [handleProgress, loadDocuments]);
+
   return (
     <>
       <Suspense fallback={null}>
@@ -65,6 +82,7 @@ function App() {
       <FloatingToolbar />
       <InputTooltip />
       <AIChat />
+      <KnowledgeBaseModal />
       <Layout>
         <RecoverableErrorBoundary
           fallback={<EditorFallback />}

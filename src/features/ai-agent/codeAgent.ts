@@ -255,6 +255,57 @@ function getTools(callbacks?: AgentCallbacks) {
         return { success: true, explanation };
       },
     }),
+    searchDocumentation: tool({
+      description: 'Search the documentation for relevant information (RAG)',
+      parameters: z.object({
+        query: z.string().describe('The search query'),
+      }),
+      execute: async ({ query }) => {
+        const invocationId = `tool_${Date.now()}_searchDocumentation`;
+        callbacks?.onToolInvocation?.({
+          id: invocationId,
+          toolName: 'searchDocumentation',
+          state: 'running',
+          input: { query },
+        });
+
+        let result = '';
+        try {
+          if (typeof window !== 'undefined' && window.rag) {
+            const searchResult = await window.rag.search(query, 5);
+            if (searchResult.success && searchResult.results) {
+              result = searchResult.results
+                .map(
+                  (r) =>
+                    `[Content]: ${r.content}\n[Metadata]: ${JSON.stringify(
+                      r.metadata
+                    )}`
+                )
+                .join('\n\n');
+              if (!result) result = 'No relevant documentation found.';
+            } else {
+              result =
+                'Error searching documentation: ' +
+                (searchResult.error || 'Unknown error');
+            }
+          } else {
+            result = 'RAG system is not available in this environment.';
+          }
+        } catch (error) {
+          result = 'Error searching documentation: ' + String(error);
+        }
+
+        callbacks?.onToolInvocation?.({
+          id: invocationId,
+          toolName: 'searchDocumentation',
+          state: 'completed',
+          input: { query },
+          output: { success: true, resultCount: result.length },
+        });
+
+        return { result };
+      },
+    }),
   };
 }
 

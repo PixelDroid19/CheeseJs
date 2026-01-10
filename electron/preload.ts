@@ -91,6 +91,57 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('toggle-magic-comments', () => callback()),
 });
 
+import { RagDocument, RagConfig, SearchOptions, SubStep } from './rag/types';
+
+contextBridge.exposeInMainWorld('rag', {
+  ingest: (doc: RagDocument) => ipcRenderer.invoke('rag:ingest', doc),
+  search: (query: string, limit?: number) =>
+    ipcRenderer.invoke('rag:search', query, limit),
+  clear: () => ipcRenderer.invoke('rag:clear'),
+  indexCodebase: () => ipcRenderer.invoke('rag:index-codebase'),
+
+  // Document Management
+  getDocuments: () => ipcRenderer.invoke('rag:get-documents'),
+  addFile: (filePath: string) => ipcRenderer.invoke('rag:add-file', filePath),
+  addUrl: (url: string) => ipcRenderer.invoke('rag:add-url', url),
+  removeDocument: (id: string) => ipcRenderer.invoke('rag:remove-document', id),
+
+  // Configuration
+  getConfig: () => ipcRenderer.invoke('rag:get-config'),
+  setConfig: (config: Partial<RagConfig>) =>
+    ipcRenderer.invoke('rag:set-config', config),
+
+  // Advanced Search
+  searchAdvanced: (query: string, options?: SearchOptions) =>
+    ipcRenderer.invoke('rag:search-advanced', query, options),
+
+  // Strategy Decision
+  decideStrategy: (documentIds: string[], query: string) =>
+    ipcRenderer.invoke('rag:decide-strategy', documentIds, query),
+
+  // Progress Events
+  onProgress: (
+    callback: (progress: {
+      id: string;
+      status: string;
+      message: string;
+      subSteps?: SubStep[];
+    }) => void
+  ) => {
+    const handler = (
+      _: unknown,
+      progress: {
+        id: string;
+        status: string;
+        message: string;
+        subSteps?: SubStep[];
+      }
+    ) => callback(progress);
+    ipcRenderer.on('rag:progress', handler);
+    return () => ipcRenderer.removeListener('rag:progress', handler);
+  },
+});
+
 contextBridge.exposeInMainWorld('codeRunner', {
   /**
    * Execute code in the sandboxed VM

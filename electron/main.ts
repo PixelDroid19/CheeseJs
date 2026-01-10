@@ -18,6 +18,7 @@ import {
   getNodeModulesPath,
   initPackagesDirectory,
 } from './packages/packageManager.js';
+import { setupRagHandlers } from './rag/ipc.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -94,6 +95,7 @@ async function initApp() {
       workerPool,
       transformCode,
     });
+    setupRagHandlers();
 
     // 4. Create Main Window
     windowManager.createWindow();

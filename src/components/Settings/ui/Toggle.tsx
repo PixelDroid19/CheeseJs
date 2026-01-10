@@ -4,17 +4,19 @@ interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
+  description?: string;
 }
 
-export function Toggle({ checked, onChange, label }: ToggleProps) {
+export function Toggle({ checked, onChange, label, description }: ToggleProps) {
   return (
     <label
       className={clsx(
-        'flex items-center cursor-pointer group',
-        label && 'space-x-3'
+        'flex cursor-pointer group',
+        label && 'gap-3',
+        description ? 'items-start' : 'items-center'
       )}
     >
-      <div className="relative">
+      <div className={clsx('relative', description && 'mt-0.5')}>
         <input
           type="checkbox"
           checked={checked}
@@ -35,14 +37,24 @@ export function Toggle({ checked, onChange, label }: ToggleProps) {
           )}
         ></div>
       </div>
-      {label && (
-        <span
-          className={clsx(
-            'text-sm transition-colors text-muted-foreground group-hover:text-foreground'
+      {(label || description) && (
+        <div className="flex flex-col">
+          {label && (
+            <span
+              className={clsx(
+                'text-sm transition-colors',
+                description
+                  ? 'font-medium text-foreground'
+                  : 'text-muted-foreground group-hover:text-foreground'
+              )}
+            >
+              {label}
+            </span>
           )}
-        >
-          {label}
-        </span>
+          {description && (
+            <span className="text-xs text-muted-foreground">{description}</span>
+          )}
+        </div>
       )}
     </label>
   );

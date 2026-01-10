@@ -1,11 +1,18 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Settings, Brush, Loader2 } from 'lucide-react';
+import {
+  Play,
+  Settings,
+  Brush,
+  Loader2,
+  Database as DatabaseIcon,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCodeRunner } from '../hooks/useCodeRunner';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useRuntimeStatus } from '../hooks/useRuntimeStatus';
 import { useLanguageStore } from '../store/useLanguageStore';
+import { useRagStore } from '../store/useRagStore';
 import { SnippetsMenu } from './SnippetsMenu';
 import clsx from 'clsx';
 
@@ -14,6 +21,7 @@ export default function FloatingToolbar() {
   const { runCode } = useCodeRunner();
   const toggleSettings = useSettingsStore((state) => state.toggleSettings);
   const currentLanguage = useLanguageStore((state) => state.currentLanguage);
+  const setModalOpen = useRagStore((state) => state.setModalOpen);
   const { isLoading, message } = useRuntimeStatus(
     currentLanguage === 'python' ? 'python' : 'javascript'
   );
@@ -74,6 +82,12 @@ export default function FloatingToolbar() {
           onClick={toggleSettings}
           label={t('toolbar.settings')}
           testId="settings-button"
+        />
+        <div className="w-px h-6 bg-border mx-1" />
+        <ToolbarButton
+          icon={<DatabaseIcon className="w-5 h-5" />}
+          onClick={() => setModalOpen(true)}
+          label="Knowledge Base"
         />
       </motion.div>
     </div>

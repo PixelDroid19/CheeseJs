@@ -117,6 +117,60 @@ interface PythonPackageManager {
 }
 
 // ============================================================================
+// RAG TYPES
+// ============================================================================
+
+interface RegisteredDocument {
+  id: string;
+  title: string;
+  type: 'file' | 'url' | 'codebase';
+  pathOrUrl: string;
+  addedAt: number;
+  status: 'pending' | 'processing' | 'indexed' | 'error';
+  chunkCount: number;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+type InjectionStrategy = 'auto' | 'always-retrieve' | 'always-inject';
+
+interface RagConfig {
+  retrievalLimit: number;
+  retrievalThreshold: number;
+  injectionStrategy: InjectionStrategy;
+  maxContextTokens: number;
+}
+
+interface SearchOptions {
+  limit?: number;
+  threshold?: number;
+  strategy?: 'auto' | 'retrieve' | 'inject-full';
+  maxTokens?: number;
+  documentIds?: string[];
+}
+
+interface SubStep {
+  id: string;
+  name: string;
+  status: 'waiting' | 'loading' | 'done' | 'error';
+  progress?: number;
+  message?: string;
+}
+
+interface StrategyDecision {
+  strategy: 'inject-full' | 'retrieve';
+  reason: string;
+  tokenCount?: number;
+}
+
+interface SearchResult {
+  id: string;
+  content: string;
+  score: number;
+  metadata: Record<string, unknown>;
+}
+
+// ============================================================================
 // WINDOW INTERFACE
 // ============================================================================
 
@@ -132,6 +186,93 @@ interface Window {
   codeRunner: CodeRunner;
   packageManager: PackageManager;
   pythonPackageManager: PythonPackageManager;
+  rag: {
+    ingest: (doc: {
+      id: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }) => Promise<{ success: boolean; count?: number; error?: string }>;
+    search: (
+      query: string,
+      limit?: number
+    ) => Promise<{
+      success: boolean;
+      results?: SearchResult[];
+      error?: string;
+    }>;
+    clear: () => Promise<{ success: boolean; error?: string }>;
+    indexCodebase: () => Promise<{
+      success: boolean;
+      count?: number;
+      docs?: number;
+      error?: string;
+    }>;
+
+    // Document Management
+    getDocuments: () => Promise<{
+      success: boolean;
+      documents?: RegisteredDocument[];
+      error?: string;
+    }>;
+    addFile: (
+      filePath: string
+    ) => Promise<{
+      success: boolean;
+      document?: RegisteredDocument;
+      error?: string;
+    }>;
+    addUrl: (
+      url: string
+    ) => Promise<{
+      success: boolean;
+      document?: RegisteredDocument;
+      error?: string;
+    }>;
+    removeDocument: (
+      id: string
+    ) => Promise<{ success: boolean; error?: string }>;
+
+    // Configuration
+    getConfig: () => Promise<{
+      success: boolean;
+      config?: RagConfig;
+      error?: string;
+    }>;
+    setConfig: (
+      config: Partial<RagConfig>
+    ) => Promise<{ success: boolean; config?: RagConfig; error?: string }>;
+
+    // Advanced Search
+    searchAdvanced: (
+      query: string,
+      options?: SearchOptions
+    ) => Promise<{
+      success: boolean;
+      results?: SearchResult[];
+      meta?: { limit: number; threshold: number; totalResults: number };
+      error?: string;
+    }>;
+
+    // Strategy Decision
+    decideStrategy: (
+      documentIds: string[],
+      query: string
+    ) => Promise<{
+      success: boolean;
+      decision?: StrategyDecision;
+      error?: string;
+    }>;
+
+    // Progress Events
+    onProgress: (
+      callback: (progress: {
+        id: string;
+        status: 'pending' | 'processing' | 'indexed' | 'error';
+        message: string;
+        subSteps?: SubStep[];
+      }) => void
+    ) => () => void;
+  };
   // E2E testing properties
   monaco?: typeof import('monaco-editor');
   editor?: import('monaco-editor').editor.IStandaloneCodeEditor;

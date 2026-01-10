@@ -46,37 +46,25 @@ export function AppearanceTab() {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className={clsx('text-sm font-medium', 'text-foreground')}>
-                {t('settings.fontSize')} (Editor)
-              </label>
-              <span className={clsx('text-sm', 'text-muted-foreground')}>
-                {fontSize}px
-              </span>
-            </div>
             <Slider
-              min="12"
-              max="32"
+              label={`${t('settings.fontSize')} (Editor)`}
+              min={12}
+              max={32}
               value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
+              onChange={setFontSize}
+              formatValue={(v) => `${v}px`}
               className="w-full"
             />
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className={clsx('text-sm font-medium', 'text-foreground')}>
-                {t('settings.uiFontSize') || 'Tamaño de fuente (UI)'}
-              </label>
-              <span className={clsx('text-sm', 'text-muted-foreground')}>
-                {uiFontSize}px
-              </span>
-            </div>
             <Slider
-              min="10"
-              max="24"
+              label={t('settings.uiFontSize') || 'Tamaño de fuente (UI)'}
+              min={10}
+              max={24}
               value={uiFontSize}
-              onChange={(e) => setUiFontSize(Number(e.target.value))}
+              onChange={setUiFontSize}
+              formatValue={(v) => `${v}px`}
               className="w-full"
             />
           </div>

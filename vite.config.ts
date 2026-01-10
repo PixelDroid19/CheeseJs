@@ -28,7 +28,14 @@ export default defineConfig(({ mode }) => ({
         vite: {
           build: {
             rollupOptions: {
-              external: ['typescript'],
+              external: [
+                'typescript',
+                '@lancedb/lancedb',
+                'pdf-parse',
+                'mammoth',
+                'onnxruntime-node',
+                '@xenova/transformers',
+              ],
               output: {
                 format: 'es',
               },
@@ -146,7 +153,7 @@ export default defineConfig(({ mode }) => ({
     headers: {
       // Content Security Policy for Electron renderer
       'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' blob:; child-src 'self' blob:; worker-src 'self' blob:;",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' blob:; child-src 'self' blob:; worker-src 'self' blob:;",
     },
     // Proxy for AI API calls to avoid CORS issues in development
     proxy: {

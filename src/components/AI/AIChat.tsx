@@ -12,10 +12,9 @@ import {
   Check,
   Loader2,
   Bot,
-  User,
   Sparkles,
   Wrench,
-  Bug,
+  Database,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +22,7 @@ import { useChatStore } from '../../store/useChatStore';
 import { useAISettingsStore } from '../../store/useAISettingsStore';
 import { useCodeStore } from '../../store/useCodeStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
+import { useRagStore } from '../../store/useRagStore';
 import {
   createCodeAgent,
   type ToolInvocation,
@@ -34,6 +34,7 @@ import { AgentThinkingIndicator } from './AgentThinkingIndicator';
 import { DiffView } from './DiffView';
 import { QuickActions } from './QuickActions';
 import { CloudWarningDialog } from './CloudWarningDialog';
+import { ChatToolsMenu } from './ChatToolsMenu';
 import {
   scrubSensitiveData,
   getSensitiveDataSummary,
@@ -542,6 +543,12 @@ export function AIChat() {
     [setCode]
   );
 
+  const { setModalOpen, getPinnedDocsContext, pinnedDocIds } = useRagStore();
+
+  const handleIndexCodebase = useCallback(async () => {
+    setModalOpen(true);
+  }, [setModalOpen]);
+
   // Create agent callbacks
   const createAgentCallbacks = useCallback((): AgentCallbacks => {
     return {
@@ -684,9 +691,57 @@ export function AIChat() {
               fullPrompt = `Review and fix the following code based on this error:\n\n${userMessage}\n\nIMPORTANT: Return the FULL corrected code using the appropriate tool.`;
             }
 
-            const prompt = safeCodeContext
-              ? `Context - Current code in editor (${language}):\n\`\`\`${language}\n${safeCodeContext}\n\`\`\`\n\nUser: ${fullPrompt}`
-              : fullPrompt;
+            // Check for @docs or @kb reference and search RAG
+            let ragContext = '';
+            const docsMatch = userMessage.match(
+              /@(docs|kb)\s*(?:\(([^)]+)\))?/i
+            );
+            if (docsMatch && window.rag) {
+              const searchQuery =
+                docsMatch[2] ||
+                userMessage.replace(/@(docs|kb)\s*(?:\([^)]+\))?/i, '').trim();
+              if (searchQuery) {
+                try {
+                  setAgentPhase('thinking', 'Searching knowledge base...');
+                  const searchResult = await window.rag.search(searchQuery, 5);
+                  if (
+                    searchResult.success &&
+                    searchResult.results &&
+                    searchResult.results.length > 0
+                  ) {
+                    ragContext = '\n\n--- Knowledge Base Context ---\n';
+                    ragContext += searchResult.results
+                      .map((r, i) => `[Document ${i + 1}]:\n${r.content}`)
+                      .join('\n\n');
+                    ragContext += '\n--- End Knowledge Base Context ---\n\n';
+                  }
+                } catch (e) {
+                  console.warn('RAG search failed:', e);
+                }
+              }
+              // Remove the @docs/@kb reference from the message
+              fullPrompt = userMessage
+                .replace(/@(docs|kb)\s*(?:\([^)]+\))?/i, '')
+                .trim();
+            }
+
+            // Get pinned docs context (always included if there are pinned docs)
+            let pinnedContext = '';
+            if (pinnedDocIds.length > 0) {
+              try {
+                setAgentPhase('thinking', 'Loading pinned documentation...');
+                pinnedContext = await getPinnedDocsContext();
+              } catch (e) {
+                console.warn('Failed to get pinned docs:', e);
+              }
+            }
+
+            const allContext = pinnedContext + ragContext;
+            let prompt = safeCodeContext
+              ? `Context - Current code in editor (${language}):\n\`\`\`${language}\n${safeCodeContext}\n\`\`\`${allContext}\n\nUser: ${fullPrompt}`
+              : allContext
+                ? `${allContext}User: ${fullPrompt}`
+                : fullPrompt;
 
             // Start thinking phase
             setAgentPhase('thinking', 'Analyzing your request...');
@@ -861,6 +916,8 @@ export function AIChat() {
       getCustomConfig,
       createAgentCallbacks,
       setAgentPhase,
+      getPinnedDocsContext,
+      pinnedDocIds,
     ]
   );
 
@@ -942,45 +999,70 @@ export function AIChat() {
               'bg-background/95 backdrop-blur-xl border border-white/10 ring-1 ring-white/5'
             )}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 bg-background/30 backdrop-blur-md border-b border-border/10">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center ring-1 ring-white/10 shadow-sm">
-                  <Bot className="w-4 h-4 text-primary" />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold text-sm text-foreground tracking-tight">
-                    Code Assistant
-                  </span>
-                  <div className="flex items-center gap-1.5 opacity-60">
-                    <span className="text-[10px] font-medium uppercase tracking-wider">
-                      {provider === 'local' ? 'Local' : 'Cloud'}
-                    </span>
-                    <span className="text-[10px] text-border">•</span>
-                    <span className="text-[10px] font-medium uppercase tracking-wider">
-                      {useAgent ? 'Agent Active' : 'Chat'}
-                    </span>
+            {/* Header - Premium Design */}
+            <div className="relative px-4 py-3 border-b border-white/5">
+              {/* Gradient Background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5" />
+
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {/* Animated Logo */}
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-primary/20 rounded-xl blur-md animate-pulse" />
+                    <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary/30 to-primary/5 flex items-center justify-center ring-1 ring-primary/20">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className="font-bold text-base text-foreground tracking-tight">
+                      Code Assistant
+                    </h2>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {/* Live Status Indicator */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative">
+                          <span className="absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75 animate-ping" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                        </div>
+                        <span className="text-[10px] font-semibold text-green-500 uppercase tracking-wider">
+                          {isStreaming ? 'Generating' : 'Ready'}
+                        </span>
+                      </div>
+                      <span className="text-border">•</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                        {provider === 'local' ? 'Local AI' : 'Cloud'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    clearChat();
-                    setToolInvocations([]);
-                  }}
-                  className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                  title={t('chat.clear', 'Clear chat')}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setChatOpen(false)}
-                  data-testid="close-ai-chat"
-                  className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={handleIndexCodebase}
+                    className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-primary transition-all"
+                    title="Knowledge Base"
+                  >
+                    <Database className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      clearChat();
+                      setToolInvocations([]);
+                    }}
+                    className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all"
+                    title={t('chat.clear', 'New conversation')}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setChatOpen(false)}
+                    data-testid="close-ai-chat"
+                    className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1010,68 +1092,109 @@ export function AIChat() {
               )}
 
               {isConfigured && messages.length === 0 && !isStreaming && (
-                <div className="flex flex-col items-center justify-center h-full px-4 py-8 overflow-y-auto">
+                <div className="flex flex-col h-full px-4 py-6">
+                  {/* Welcome Header */}
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center text-center mb-8"
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center mb-6"
                   >
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/20 via-primary/5 to-transparent mb-4 ring-1 ring-primary/20">
-                      <Sparkles className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                      How can I help you?
+                    <h3 className="text-xl font-bold text-foreground mb-1">
+                      What can I build for you?
                     </h3>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-[260px] leading-relaxed">
-                      I can help you write code, fix bugs, and refactor your
-                      project.
+                    <p className="text-sm text-muted-foreground">
+                      Select an action or type your request below
                     </p>
                   </motion.div>
 
-                  <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
+                  {/* Quick Actions - Horizontal Pills */}
+                  <div className="flex flex-wrap gap-2 justify-center mb-6">
                     {[
                       {
                         icon: Wrench,
-                        label: 'Refactor Code',
-                        desc: 'Improve structure',
+                        label: 'Refactor',
                         prompt: 'Refactor this code to follow best practices',
+                        color: 'from-blue-500/20 to-blue-500/5',
                       },
                       {
                         icon: Code,
-                        label: 'Write Function',
-                        desc: 'Generate new logic',
-                        prompt: 'Write a typescript function that...',
+                        label: 'Generate',
+                        prompt: 'Write a function that...',
+                        color: 'from-green-500/20 to-green-500/5',
                       },
                       {
                         icon: MessageSquare,
                         label: 'Explain',
-                        desc: 'Understand logic',
-                        prompt: 'Explain what this code does line by line',
+                        prompt: 'Explain what this code does',
+                        color: 'from-purple-500/20 to-purple-500/5',
                       },
                       {
-                        icon: Bug,
-                        label: 'Fix Bugs',
-                        desc: 'Find & resolve issues',
-                        prompt: 'Analyze this code for bugs and fix them',
+                        icon: Database,
+                        label: '@docs',
+                        prompt: '@docs How do I...',
+                        color: 'from-amber-500/20 to-amber-500/5',
                       },
                     ].map((item, i) => (
                       <motion.button
                         key={i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        onClick={() => handleSend(item.prompt)}
-                        className="flex flex-col items-start p-3 text-left rounded-xl border border-border/50 bg-card/50 hover:bg-accent/50 hover:border-accent transition-all group"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        onClick={() => setInput(item.prompt)}
+                        className={clsx(
+                          'flex items-center gap-2 px-4 py-2 rounded-full',
+                          'bg-gradient-to-r border border-white/10',
+                          item.color,
+                          'hover:border-white/20 hover:scale-105 transition-all'
+                        )}
                       >
-                        <item.icon className="w-5 h-5 text-primary mb-2 group-hover:scale-105 transition-transform" />
-                        <span className="text-sm font-medium text-foreground">
+                        <item.icon className="w-4 h-4 text-foreground/80" />
+                        <span className="text-sm font-medium text-foreground/90">
                           {item.label}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {item.desc}
                         </span>
                       </motion.button>
                     ))}
+                  </div>
+
+                  {/* Capabilities Cards */}
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="grid gap-3">
+                      {[
+                        {
+                          title: 'Code Generation',
+                          desc: 'Write functions, classes, and complete modules',
+                          icon: '⚡',
+                        },
+                        {
+                          title: 'Bug Fixing',
+                          desc: 'Identify and fix issues in your code',
+                          icon: '🔧',
+                        },
+                        {
+                          title: 'Documentation',
+                          desc: 'Search pinned docs for context-aware help',
+                          icon: '📚',
+                        },
+                      ].map((cap, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 + i * 0.1 }}
+                          className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5"
+                        >
+                          <span className="text-lg">{cap.icon}</span>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              {cap.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {cap.desc}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1082,50 +1205,43 @@ export function AIChat() {
                   animate={{ opacity: 1, y: 0 }}
                   key={message.id}
                   className={clsx(
-                    'flex gap-3',
-                    message.role === 'user' && 'flex-row-reverse'
+                    'group',
+                    message.role === 'user' ? 'flex justify-end' : ''
                   )}
                 >
-                  <div
-                    className={clsx(
-                      'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border',
-                      message.role === 'user'
-                        ? 'bg-foreground text-background border-transparent'
-                        : 'bg-background text-foreground border-border/40'
-                    )}
-                  >
-                    {message.role === 'user' ? (
-                      <User className="w-4 h-4" />
-                    ) : (
-                      <Bot className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div
-                    className={clsx(
-                      'flex-1 text-sm max-w-[90%]',
-                      message.role === 'user'
-                        ? 'px-4 py-2.5 bg-muted/40 text-foreground rounded-2xl rounded-tr-sm'
-                        : 'px-0 py-1 text-foreground'
-                    )}
-                  >
-                    {message.role === 'user' ? (
-                      <span className="whitespace-pre-wrap leading-relaxed">
+                  {message.role === 'user' ? (
+                    /* User Message - Right aligned, minimal */
+                    <div className="max-w-[85%] px-4 py-2.5 bg-primary/10 text-foreground rounded-2xl rounded-br-md border border-primary/10">
+                      <span className="whitespace-pre-wrap leading-relaxed text-sm">
                         {message.content}
                       </span>
-                    ) : (
-                      <MarkdownContent
-                        content={
-                          message.content
-                            .replace(/<<<EDITOR_ACTION>>>[\s\S]*$/, '')
-                            .trim() ||
-                          (message.content.includes('<<<EDITOR_ACTION>>>')
-                            ? 'Applying changes...'
-                            : '')
-                        }
-                        onInsertCode={handleInsertCode}
-                      />
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    /* AI Message - Full width, clean */
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                          <Sparkles className="w-3 h-3 text-primary" />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Assistant
+                        </span>
+                      </div>
+                      <div className="pl-8 text-sm text-foreground/90">
+                        <MarkdownContent
+                          content={
+                            message.content
+                              .replace(/<<<EDITOR_ACTION>>>[\s\S]*$/, '')
+                              .trim() ||
+                            (message.content.includes('<<<EDITOR_ACTION>>>')
+                              ? 'Applying changes...'
+                              : '')
+                          }
+                          onInsertCode={handleInsertCode}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               ))}
 
@@ -1205,10 +1321,11 @@ export function AIChat() {
                     }
                     disabled={!isConfigured || isStreaming}
                     rows={1}
-                    className="w-full resize-none bg-transparent px-4 py-3 text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] max-h-[150px] placeholder:text-muted-foreground/40 font-sans"
+                    className="w-full resize-none bg-transparent px-4 py-3 text-sm text-foreground focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] max-h-[150px] placeholder:text-muted-foreground/70 font-sans"
                     style={{
                       height: 'auto',
                       minHeight: '48px',
+                      color: 'var(--color-foreground)',
                     }}
                     onInput={(e) => {
                       const target = e.target as HTMLTextAreaElement;
@@ -1219,32 +1336,20 @@ export function AIChat() {
 
                   {/* Toolbar */}
                   <div className="flex items-center justify-between px-2 pb-2">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setIncludeCode(!includeCode)}
-                        className={clsx(
-                          'flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-200 border border-transparent',
-                          includeCode
-                            ? 'bg-primary/10 text-primary border-primary/20'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        )}
-                      >
-                        <Code className="w-3 h-3" />
-                        {includeCode ? 'Context On' : 'Context Off'}
-                      </button>
-                      <button
-                        onClick={() => setUseAgent(!useAgent)}
-                        className={clsx(
-                          'flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-200 border border-transparent',
-                          useAgent
-                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        )}
-                      >
-                        <Wrench className="w-3 h-3" />
-                        Tools
-                      </button>
-                    </div>
+                    <ChatToolsMenu
+                      includeCode={includeCode}
+                      setIncludeCode={setIncludeCode}
+                      useAgent={useAgent}
+                      setUseAgent={setUseAgent}
+                      onInsertDocs={() => {
+                        const currentInput = input.trim();
+                        if (!currentInput.includes('@docs')) {
+                          setInput(`@docs ${currentInput}`);
+                          inputRef.current?.focus();
+                        }
+                      }}
+                      inputHasDocs={input.includes('@docs')}
+                    />
 
                     <button
                       onClick={() => handleSend()}
