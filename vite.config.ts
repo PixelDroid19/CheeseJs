@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
       ),
     },
   },
+  assetsInclude: ['**/*.node'],
   plugins: [
     tailwindcss(),
     react(),
@@ -28,7 +29,7 @@ export default defineConfig(({ mode }) => ({
         vite: {
           build: {
             rollupOptions: {
-              external: ['typescript'],
+              external: ['typescript', '@swc/core'],
               output: {
                 format: 'es',
               },
@@ -86,6 +87,19 @@ export default defineConfig(({ mode }) => ({
           build: {
             rollupOptions: {
               external: ['@swc/core'],
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
+      },
+      {
+        // Plugin worker process (isolated UtilityProcess for plugins)
+        entry: 'electron/workers/pluginWorker.ts',
+        vite: {
+          build: {
+            rollupOptions: {
               output: {
                 format: 'es',
               },

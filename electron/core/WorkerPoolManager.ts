@@ -32,13 +32,14 @@ interface BrowserWindowLike {
 export interface ExecutionRequest {
   id: string;
   code: string;
-  language?: 'javascript' | 'typescript' | 'python';
+  language?: string;
   options: {
     timeout?: number;
     showUndefined?: boolean;
     showTopLevelResults?: boolean;
     loopProtection?: boolean;
     magicComments?: boolean;
+    memoryLimit?: number;
   };
 }
 
@@ -113,8 +114,7 @@ export class WorkerPoolManager {
   setMainWindow(window: BrowserWindowLike | null): void {
     this.mainWindow = window;
     // Forward main window to code worker pool
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.codeWorkerPool?.setMainWindow(window as any);
+    this.codeWorkerPool?.setMainWindow(window);
   }
 
   setNodeModulesPath(newPath: string): void {

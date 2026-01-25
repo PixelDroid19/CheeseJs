@@ -1,6 +1,7 @@
 import onedark from './onedark.json';
 import light from './light.json';
 import midnight from './midnight.json';
+import sketchy from './sketchy.json';
 
 export type ThemeType = 'light' | 'dark';
 
@@ -29,6 +30,12 @@ export const themesConfig: Record<string, ThemeDefinition> = {
     label: 'Light',
     type: 'light',
     monacoTheme: light,
+  },
+  sketchy: {
+    name: 'sketchy',
+    label: 'Sketchy',
+    type: 'light',
+    monacoTheme: sketchy,
   },
 };
 

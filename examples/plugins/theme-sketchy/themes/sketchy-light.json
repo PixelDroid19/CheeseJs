@@ -1,0 +1,66 @@
+{
+  "base": "vs",
+  "inherit": true,
+  "rules": [
+    { "token": "comment", "foreground": "808080", "fontStyle": "italic" },
+    { "token": "keyword", "foreground": "ffb7b2", "fontStyle": "bold" },
+    { "token": "string", "foreground": "0ba360" },
+    { "token": "number", "foreground": "0000ff" },
+    { "token": "type", "foreground": "ffff6b", "background": "000000" },
+    { "token": "function", "foreground": "ffff6b", "background": "000000" }
+  ],
+  "colors": {
+    "editor.background": "#faf8ef",
+    "editor.foreground": "#2c2c2c",
+    "editor.lineHighlightBackground": "#f0f0f0",
+    "editorCursor.foreground": "#2c2c2c",
+    "editorWhitespace.foreground": "#d4d4d4",
+
+    "sideBar.background": "#faf8ef",
+    "sideBar.foreground": "#2c2c2c",
+    "sideBar.border": "#2c2c2c",
+
+    "activityBar.background": "#faf8ef",
+    "activityBar.foreground": "#2c2c2c",
+
+    "statusBar.background": "#faf8ef",
+    "statusBar.foreground": "#2c2c2c",
+    "statusBar.border": "#2c2c2c",
+
+    "titleBar.activeBackground": "#faf8ef",
+    "titleBar.activeForeground": "#2c2c2c",
+    "titleBar.border": "#2c2c2c",
+
+    "tab.activeBackground": "#faf8ef",
+    "tab.activeForeground": "#2c2c2c",
+    "tab.inactiveBackground": "#f0f0f0",
+    "tab.inactiveForeground": "#666666",
+
+    "button.background": "#faf8ef",
+    "button.foreground": "#2c2c2c",
+    "button.hoverBackground": "#f0f0f0",
+
+    "input.background": "#faf8ef",
+    "input.foreground": "#2c2c2c",
+    "input.border": "#2c2c2c"
+  },
+  "uiColors": {
+    "editorBackground": "#faf8ef",
+    "editorForeground": "#2c2c2c",
+    "panelBackground": "#faf8ef",
+    "panelForeground": "#2c2c2c",
+    "panelBorder": "#2c2c2c",
+    "sidebarBackground": "#faf8ef",
+    "sidebarForeground": "#2c2c2c",
+    "sidebarBorder": "#2c2c2c",
+    "titleBarBackground": "#faf8ef",
+    "titleBarForeground": "#2c2c2c",
+    "titleBarBorder": "#2c2c2c",
+    "buttonBackground": "#faf8ef",
+    "buttonForeground": "#2c2c2c",
+    "buttonHoverBackground": "#f0f0f0",
+    "inputBackground": "#faf8ef",
+    "inputForeground": "#2c2c2c",
+    "inputBorder": "#2c2c2c"
+  }
+}

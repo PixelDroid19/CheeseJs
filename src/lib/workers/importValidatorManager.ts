@@ -95,7 +95,10 @@ class ImportValidatorManager {
           }
         }, 3000);
       } catch (error) {
-        console.error('[ImportValidatorManager] Failed to create worker:', error);
+        console.error(
+          '[ImportValidatorManager] Failed to create worker:',
+          error
+        );
         reject(error);
       }
     });
@@ -168,10 +171,7 @@ class ImportValidatorManager {
   /**
    * Synchronous validation fallback for small files or when worker fails
    */
-  validateSync(
-    code: string,
-    installedPackages: string[]
-  ): ValidationResponse {
+  validateSync(code: string, installedPackages: string[]): ValidationResponse {
     const patterns = [
       { regex: /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g, group: 1 },
       { regex: /import\s+['"]([^'"]+)['"]/g, group: 1 },
@@ -213,7 +213,8 @@ class ImportValidatorManager {
 
         if (packagePath.startsWith('@')) {
           const parts = packagePath.split('/');
-          packageName = parts.length >= 2 ? `${parts[0]}/${parts[1]}` : packagePath;
+          packageName =
+            parts.length >= 2 ? `${parts[0]}/${parts[1]}` : packagePath;
         } else {
           packageName = packagePath.split('/')[0];
         }
@@ -277,4 +278,3 @@ class ImportValidatorManager {
 
 // Singleton instance
 export const importValidator = new ImportValidatorManager();
-

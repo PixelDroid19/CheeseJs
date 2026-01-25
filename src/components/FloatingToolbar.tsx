@@ -1,6 +1,15 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Settings, Brush, Loader2 } from 'lucide-react';
+import {
+  Play,
+  Settings,
+  Loader2,
+  FlaskConical,
+  Brush,
+  Columns,
+  Rows,
+  Terminal,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCodeRunner } from '../hooks/useCodeRunner';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -14,6 +23,14 @@ export default function FloatingToolbar() {
   const { t } = useTranslation();
   const { runCode } = useCodeRunner();
   const toggleSettings = useSettingsStore((state) => state.toggleSettings);
+  const toggleTestPanel = useSettingsStore((state) => state.toggleTestPanel);
+  const showTestPanel = useSettingsStore((state) => state.showTestPanel);
+  const toggleConsole = useSettingsStore((state) => state.toggleConsole);
+  const showConsole = useSettingsStore((state) => state.showConsole);
+  const splitDirection = useSettingsStore((state) => state.splitDirection);
+  const toggleSplitDirection = useSettingsStore(
+    (state) => state.toggleSplitDirection
+  );
   const currentLanguage = useLanguageStore((state) => state.currentLanguage);
   const { isLoading, message, status } = useRuntimeStatus(
     currentLanguage === 'python' ? 'python' : 'javascript'
@@ -75,6 +92,37 @@ export default function FloatingToolbar() {
 
         <CaptureControls />
 
+        {/* Separator */}
+        <div className="w-px h-6 bg-border mx-1" />
+
+        <ToolbarButton
+          icon={<FlaskConical className="w-5 h-5" />}
+          onClick={toggleTestPanel}
+          label={t('toolbar.tests', 'Tests')}
+          isActive={showTestPanel}
+          className={showTestPanel ? 'active' : ''}
+        />
+
+        <ToolbarButton
+          icon={<Terminal className="w-5 h-5" />}
+          onClick={toggleConsole}
+          label={t('toolbar.console', 'Toggle Console')}
+          isActive={showConsole}
+          className={showConsole ? 'active' : ''}
+        />
+
+        <ToolbarButton
+          icon={
+            splitDirection === 'horizontal' ? (
+              <Rows className="w-5 h-5" />
+            ) : (
+              <Columns className="w-5 h-5" />
+            )
+          }
+          onClick={toggleSplitDirection}
+          label={t('toolbar.toggleLayout', 'Toggle Layout')}
+        />
+
         <div className="w-px h-6 bg-border mx-1" />
 
         <ToolbarButton
@@ -98,12 +146,14 @@ function ToolbarButton({
   label,
   isActive = false,
   disabled = false,
+  className,
 }: {
   icon: React.ReactNode;
   onClick: () => void;
   label: string;
   isActive?: boolean;
   disabled?: boolean;
+  className?: string;
 }) {
   return (
     <motion.button
@@ -113,6 +163,7 @@ function ToolbarButton({
       disabled={disabled}
       className={clsx(
         'p-3 rounded-full transition-colors relative group',
+        className,
         disabled
           ? 'text-muted-foreground/50 cursor-not-allowed'
           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'

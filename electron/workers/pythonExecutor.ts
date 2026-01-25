@@ -468,6 +468,14 @@ async function initializePyodide(): Promise<PyodideInterface> {
       // Load micropip for package installation
       await instance.loadPackage('micropip');
 
+      // Verify micropip is available
+      const hasMicropip = instance.runPython(
+        'import importlib.util; importlib.util.find_spec("micropip") is not None'
+      );
+      if (!hasMicropip) {
+        throw new Error('Failed to load micropip package manager');
+      }
+
       // Stage 3: Setting up environment (70-90%)
       sendInitProgress({
         stage: 'setting-up-env',

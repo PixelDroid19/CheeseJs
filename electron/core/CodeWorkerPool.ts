@@ -47,7 +47,7 @@ export interface CodeWorkerResult {
 export interface ExecutionRequest {
   id: string;
   code: string;
-  language?: 'javascript' | 'typescript' | 'python';
+  language?: string;
   options: {
     timeout?: number;
     showUndefined?: boolean;

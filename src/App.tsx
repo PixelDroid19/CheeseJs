@@ -16,15 +16,22 @@ const Settings = lazy(() => import('./components/Settings/Settings'));
 import CodeEditor from './components/Editor';
 import ResultDisplay from './components/Result';
 import { InputTooltip } from './components/InputTooltip';
+import { TestPanel } from './components/TestPanel';
+import { ConsolePanel } from './components/ConsolePanel';
+
+import { usePluginSystem } from './hooks/usePluginSystem';
 
 function App() {
-  const { setMagicComments } = useSettingsStore();
+  const { setMagicComments, showTestPanel } = useSettingsStore();
   const addPackage = usePackagesStore(
     (state: PackagesState) => state.addPackage
   );
   const setPackageInstalled = usePackagesStore(
     (state: PackagesState) => state.setPackageInstalled
   );
+
+  // Initialize plugin system
+  usePluginSystem();
 
   // Load installed packages from disk on app start
   useEffect(() => {
@@ -63,22 +70,37 @@ function App() {
       </Suspense>
       <FloatingToolbar />
       <InputTooltip />
-      <Layout>
-        <RecoverableErrorBoundary
-          fallback={<EditorFallback />}
-          componentName="CodeEditor"
-          config={{ maxRetries: 3, shouldRecover: true }}
-        >
-          <CodeEditor />
-        </RecoverableErrorBoundary>
-        <RecoverableErrorBoundary
-          fallback={<ResultFallback />}
-          componentName="ResultDisplay"
-          config={{ maxRetries: 3, shouldRecover: true }}
-        >
-          <ResultDisplay />
-        </RecoverableErrorBoundary>
-      </Layout>
+
+      {/* Main layout with optional test panel */}
+      <div className="flex h-full">
+        <div className={showTestPanel ? 'flex-1 h-full' : 'w-full h-full'}>
+          <Layout>
+            <RecoverableErrorBoundary
+              fallback={<EditorFallback />}
+              componentName="CodeEditor"
+              config={{ maxRetries: 3, shouldRecover: true }}
+            >
+              <CodeEditor />
+            </RecoverableErrorBoundary>
+            <RecoverableErrorBoundary
+              fallback={<ResultFallback />}
+              componentName="ResultDisplay"
+              config={{ maxRetries: 3, shouldRecover: true }}
+            >
+              <ResultDisplay />
+            </RecoverableErrorBoundary>
+          </Layout>
+        </div>
+
+        {/* Test Panel Sidebar */}
+        {showTestPanel && (
+          <div className="w-80 shrink-0">
+            <TestPanel />
+          </div>
+        )}
+      </div>
+
+      <ConsolePanel />
     </>
   );
 }

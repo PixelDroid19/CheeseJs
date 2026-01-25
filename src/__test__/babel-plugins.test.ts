@@ -85,6 +85,22 @@ describe('loop-protection plugin', () => {
     expect(result).toContain('}');
     expect(result).toContain('Loop limit exceeded');
   });
+
+  it('should handle for-in loops', () => {
+    const code = `for (const key in obj) { doSomething(); }`;
+    const result = transform(code, loopProtection);
+
+    expect(result).toContain('let _loopCounter');
+    expect(result).toContain('Loop limit exceeded');
+  });
+
+  it('should handle for-of loops', () => {
+    const code = `for (const item of list) { doSomething(); }`;
+    const result = transform(code, loopProtection);
+
+    expect(result).toContain('let _loopCounter');
+    expect(result).toContain('Loop limit exceeded');
+  });
 });
 
 describe('magic-comments plugin', () => {

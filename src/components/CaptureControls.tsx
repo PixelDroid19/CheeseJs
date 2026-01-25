@@ -178,23 +178,14 @@ export function CaptureControls() {
   return (
     <>
       <motion.button
-        whileHover={{ scale: 1.05 }}
+        whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={handleCapture}
         disabled={isCapturing}
-        className="p-2 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+        className="p-3 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50 relative group transition-colors"
         title="Capture Code Card"
       >
-        {isCapturing ? (
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1 }}
-          >
-            <Camera className="w-4 h-4" />
-          </motion.div>
-        ) : (
-          <Camera className="w-4 h-4" />
-        )}
+        <Camera className="w-5 h-5" />
       </motion.button>
 
       {/* Hidden Code Card for rendering */}

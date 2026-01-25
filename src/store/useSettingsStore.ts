@@ -31,9 +31,19 @@ interface SettingsState {
   uiFontSize: number;
   captureTheme: string;
   captureIncludeOutput: boolean;
+  showTestPanel: boolean;
+  showConsole: boolean;
+  consoleFilters: {
+    log: boolean;
+    warn: boolean;
+    error: boolean;
+    info: boolean;
+  };
+  splitDirection: 'horizontal' | 'vertical';
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
   setFontSize: (size: number) => void;
+
   setUiFontSize: (size: number) => void;
   setCaptureTheme: (theme: string) => void;
   setCaptureIncludeOutput: (include: boolean) => void;
@@ -51,6 +61,15 @@ interface SettingsState {
   setExecutionEnvironment: (env: 'node' | 'browser') => void;
   setAutoRunAfterInstall: (autoRun: boolean) => void;
   setAutoInstallPackages: (autoInstall: boolean) => void;
+  setShowTestPanel: (show: boolean) => void;
+  toggleTestPanel: () => void;
+  setShowConsole: (show: boolean) => void;
+  toggleConsole: () => void;
+  setConsoleFilters: (
+    filters: Partial<SettingsState['consoleFilters']>
+  ) => void;
+  setSplitDirection: (direction: 'horizontal' | 'vertical') => void;
+  toggleSplitDirection: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -73,6 +92,15 @@ export const useSettingsStore = create<SettingsState>()(
       uiFontSize: 14,
       captureTheme: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       captureIncludeOutput: true,
+      showTestPanel: false,
+      showConsole: false,
+      consoleFilters: {
+        log: true,
+        warn: true,
+        error: true,
+        info: true,
+      },
+      splitDirection: 'horizontal',
       setLanguage: (language) => set({ language }),
       setThemeName: (themeName) => set({ themeName }),
       setFontSize: (fontSize) => set({ fontSize }),
@@ -97,6 +125,22 @@ export const useSettingsStore = create<SettingsState>()(
         set({ autoRunAfterInstall }),
       setAutoInstallPackages: (autoInstallPackages) =>
         set({ autoInstallPackages }),
+      setShowTestPanel: (showTestPanel) => set({ showTestPanel }),
+      toggleTestPanel: () =>
+        set((state) => ({ showTestPanel: !state.showTestPanel })),
+      setShowConsole: (showConsole) => set({ showConsole }),
+      toggleConsole: () =>
+        set((state) => ({ showConsole: !state.showConsole })),
+      setConsoleFilters: (filters) =>
+        set((state) => ({
+          consoleFilters: { ...state.consoleFilters, ...filters },
+        })),
+      setSplitDirection: (splitDirection) => set({ splitDirection }),
+      toggleSplitDirection: () =>
+        set((state) => ({
+          splitDirection:
+            state.splitDirection === 'horizontal' ? 'vertical' : 'horizontal',
+        })),
     }),
     {
       name: 'settings-storage',
@@ -117,6 +161,9 @@ export const useSettingsStore = create<SettingsState>()(
         autoInstallPackages: state.autoInstallPackages,
         captureTheme: state.captureTheme,
         captureIncludeOutput: state.captureIncludeOutput,
+        showConsole: state.showConsole,
+        consoleFilters: state.consoleFilters,
+        splitDirection: state.splitDirection,
       }),
     }
   )

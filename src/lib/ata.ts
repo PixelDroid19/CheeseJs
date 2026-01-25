@@ -61,7 +61,7 @@ function isNodeBuiltin(packageName: string): boolean {
   const normalizedName = packageName.startsWith('node:')
     ? packageName.slice(5)
     : packageName;
-  
+
   return NODE_BUILTIN_MODULES.has(normalizedName);
 }
 
@@ -134,8 +134,18 @@ async function fetchAndAddTypes(
       const libPath = `file:///node_modules/${packageName}/index.d.ts`;
 
       // Add to both JS and TS defaults
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ts = (monaco as any).typescript;
+      interface LanguageDefaults {
+        addExtraLib(content: string, filePath?: string): void;
+      }
+
+      const languages = monaco.languages as unknown as {
+        typescript: {
+          javascriptDefaults: LanguageDefaults;
+          typescriptDefaults: LanguageDefaults;
+        };
+      };
+
+      const ts = languages.typescript;
       ts.javascriptDefaults.addExtraLib(content, libPath);
       ts.typescriptDefaults.addExtraLib(content, libPath);
 
@@ -216,8 +226,18 @@ function addFallbackDeclaration(monaco: Monaco, packageName: string) {
   const content = `declare module "${packageName}" { const value: any; export default value; export = value; }`;
   const libPath = `file:///node_modules/${packageName}/fallback.d.ts`;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ts = (monaco as any).typescript;
+  const ts = (
+    monaco.languages as unknown as {
+      typescript: {
+        javascriptDefaults: {
+          addExtraLib(content: string, filePath?: string): void;
+        };
+        typescriptDefaults: {
+          addExtraLib(content: string, filePath?: string): void;
+        };
+      };
+    }
+  ).typescript;
   ts.javascriptDefaults.addExtraLib(content, libPath);
   ts.typescriptDefaults.addExtraLib(content, libPath);
 }
@@ -247,8 +267,18 @@ declare module "node:${normalizedName}" {
 
   const libPath = `file:///node_modules/@types/node/${normalizedName}.d.ts`;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ts = (monaco as any).typescript;
+  const ts = (
+    monaco.languages as unknown as {
+      typescript: {
+        javascriptDefaults: {
+          addExtraLib(content: string, filePath?: string): void;
+        };
+        typescriptDefaults: {
+          addExtraLib(content: string, filePath?: string): void;
+        };
+      };
+    }
+  ).typescript;
   ts.javascriptDefaults.addExtraLib(content, libPath);
   ts.typescriptDefaults.addExtraLib(content, libPath);
 }

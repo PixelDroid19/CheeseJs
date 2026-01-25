@@ -14,6 +14,8 @@
       "npm": "NPM",
       "pypi": "PyPI (Python)",
       "snippets": "Snippets",
+      "plugins": "Plugins",
+      "marketplace": "Marketplace",
       "advanced": "Advanced"
     },
     "descriptions": {
@@ -25,6 +27,8 @@
       "npm": "Manage NPM packages and configuration",
       "pypi": "Manage Python packages from PyPI",
       "snippets": "Manage your reusable code snippets",
+      "plugins": "Manage installed plugins and extensions",
+      "marketplace": "Discover and install new plugins",
       "advanced": "Advanced settings and developer options"
     },
     "snippets": {
@@ -32,6 +36,31 @@
       "saveCurrent": "Save Current Code",
       "empty": "No snippets saved yet.",
       "confirmLoad": "Replace current code with snippet?"
+    },
+    "plugins": {
+      "title": "Plugins",
+      "description": "Extend CheeseJS with custom languages, formatters, and UI panels.",
+      "openFolder": "Open Plugins Folder",
+      "noPlugins": "No plugins installed",
+      "reload": "Reload Plugins",
+      "openFolderTooltip": "Open the local folder where plugins are installed."
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "description": "Browse and install community plugins.",
+      "search": "Search plugins...",
+      "allCategories": "All Categories",
+      "sortBy": "Sort by",
+      "sort": {
+        "downloads": "Most Downloads",
+        "rating": "Highest Rated",
+        "updated": "Recently Updated",
+        "name": "Name"
+      },
+      "install": "Install",
+      "installing": "Installing...",
+      "installed": "Installed",
+      "noResults": "No plugins found"
     },
     "advanced": {
       "environment": "Environment",
@@ -112,7 +141,16 @@
   "toolbar": {
     "run": "Run Code",
     "format": "Format Code",
-    "settings": "Open Settings"
+    "settings": "Open Settings",
+    "toggleLayout": "Toggle Layout",
+    "tests": "Tests",
+    "console": "Toggle Console"
+  },
+  "console": {
+    "title": "Detailed Console",
+    "clear": "Clear Console",
+    "close": "Close Console",
+    "empty": "No output yet..."
   },
   "errors": {
     "title": "Something went wrong",
@@ -127,7 +165,15 @@
     "notFound": "Package not found",
     "install": "Install Package",
     "installPython": "Install via micropip",
-    "retry": "Retry"
+    "retry": "Retry",
+    "dismiss": "Dismiss",
+    "copyCommand": "Copy install command",
+    "managerUnavailable": "Package manager not available. Copy the command to install manually."
+  },
+  "result": {
+    "filters": "Filters",
+    "clear": "Clear",
+    "noOutput": "No output yet"
   },
   "common": {
     "comingSoon": "Coming soon"

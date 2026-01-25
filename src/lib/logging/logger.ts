@@ -172,9 +172,21 @@ class Logger {
     if (
       this.config.ipcEnabled &&
       typeof window !== 'undefined' &&
-      window.electron?.ipcRenderer
+      (
+        window as unknown as {
+          electron?: {
+            ipcRenderer?: { send: (channel: string, data: unknown) => void };
+          };
+        }
+      ).electron?.ipcRenderer
     ) {
-      window.electron.ipcRenderer.send('log-entry', entry);
+      (
+        window as unknown as {
+          electron: {
+            ipcRenderer: { send: (channel: string, data: unknown) => void };
+          };
+        }
+      ).electron.ipcRenderer.send('log-entry', entry);
     }
 
     // Notify listeners
@@ -278,8 +290,8 @@ class Logger {
       result = result.filter((e) => e.namespace === filter.namespace);
     }
 
-    if (filter?.since) {
-      result = result.filter((e) => e.timestamp >= filter.since);
+    if (filter?.since !== undefined) {
+      result = result.filter((e) => e.timestamp >= filter.since!);
     }
 
     return result;
@@ -325,16 +337,35 @@ class Logger {
   // ===========================================================================
 
   /**
+   * Safe JSON stringify that handles circular references
+   */
+  private safeStringify(value: unknown, space?: number): string {
+    const cache = new Set();
+    return JSON.stringify(
+      value,
+      (_key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (cache.has(value)) {
+            return '[Circular]';
+          }
+          cache.add(value);
+        }
+        return value;
+      },
+      space
+    );
+  }
+
+  /**
    * Export all logs as JSON
    */
   export(): string {
-    return JSON.stringify(
+    return this.safeStringify(
       {
         config: this.config,
         entries: this.entries,
         exportedAt: new Date().toISOString(),
       },
-      null,
       2
     );
   }
@@ -346,7 +377,7 @@ class Logger {
     return this.entries
       .map((e) => {
         const time = new Date(e.timestamp).toISOString();
-        const data = e.data ? ` ${JSON.stringify(e.data)}` : '';
+        const data = e.data ? ` ${this.safeStringify(e.data)}` : '';
         return `[${time}] ${e.level.toUpperCase()} [${e.namespace}] ${e.message}${data}`;
       })
       .join('\n');

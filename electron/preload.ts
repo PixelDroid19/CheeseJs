@@ -281,4 +281,307 @@ contextBridge.exposeInMainWorld('pythonPackageManager', {
   },
 });
 
+// ============================================================================
+// PLUGIN API
+// ============================================================================
+
+interface PluginInfo {
+  manifest: {
+    id: string;
+    name: string;
+    version: string;
+    description?: string;
+    main: string;
+  };
+  status: 'installed' | 'active' | 'disabled' | 'error';
+  error?: string;
+  loadedAt?: number;
+}
+
+const pluginStateCallbacks = new Set<(plugins: PluginInfo[]) => void>();
+
+ipcRenderer.on(
+  'plugins:state-changed',
+  (_event: unknown, plugins: PluginInfo[]) => {
+    pluginStateCallbacks.forEach((callback) => callback(plugins));
+  }
+);
+
+contextBridge.exposeInMainWorld('pluginAPI', {
+  /**
+   * List all discovered plugins
+   */
+  list: async (): Promise<PluginInfo[]> => {
+    return ipcRenderer.invoke('plugins:list');
+  },
+
+  /**
+   * Activate a plugin
+   */
+  activate: async (id: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('plugins:activate', id);
+  },
+
+  /**
+   * Deactivate a plugin
+   */
+  deactivate: async (id: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('plugins:deactivate', id);
+  },
+
+  /**
+   * Install a plugin from a directory path
+   */
+  install: async (
+    sourcePath: string
+  ): Promise<{ success: boolean; plugin: PluginInfo }> => {
+    return ipcRenderer.invoke('plugins:install', sourcePath);
+  },
+
+  /**
+   * Install a plugin from a URL
+   */
+  installFromUrl: async (
+    url: string,
+    pluginId?: string
+  ): Promise<{ success: boolean; path?: string; error?: string }> => {
+    return ipcRenderer.invoke('plugins:install-from-url', url, pluginId);
+  },
+
+  /**
+   * Uninstall a plugin
+   */
+  uninstall: async (id: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('plugins:uninstall', id);
+  },
+
+  /**
+   * Get the plugins directory path
+   */
+  getPath: async (): Promise<string> => {
+    return ipcRenderer.invoke('plugins:get-path');
+  },
+
+  /**
+   * Read a file from the filesystem
+   */
+  readFile: async (path: string): Promise<string> => {
+    return ipcRenderer.invoke('plugins:read-file', path);
+  },
+
+  /**
+   * Listen for plugin state changes
+   */
+  onStateChanged: (callback: (plugins: PluginInfo[]) => void) => {
+    pluginStateCallbacks.add(callback);
+    return () => {
+      pluginStateCallbacks.delete(callback);
+    };
+  },
+});
+
+// ============================================================================
+// TEST RUNNER API
+// ============================================================================
+
+interface TestResult {
+  name: string;
+  fullName: string;
+  status: 'passed' | 'failed' | 'skipped' | 'running';
+  duration?: number;
+  error?: string;
+  stack?: string;
+  line?: number;
+}
+
+// ============================================================================
+// WASM LANGUAGES API
+// ============================================================================
+
+interface WasmLanguageInfo {
+  id: string;
+  name: string;
+  version: string;
+  extensions: string[];
+  status: 'loading' | 'ready' | 'error';
+  error?: string;
+}
+
+const wasmLanguageCallbacks = new Set<
+  (languages: WasmLanguageInfo[]) => void
+>();
+
+ipcRenderer.on(
+  'wasm-languages:changed',
+  (_event: unknown, languages: WasmLanguageInfo[]) => {
+    wasmLanguageCallbacks.forEach((callback) => callback(languages));
+  }
+);
+
+contextBridge.exposeInMainWorld('wasmLanguages', {
+  /**
+   * Get all available WASM languages
+   */
+  getAll: async (): Promise<{
+    success: boolean;
+    languages: WasmLanguageInfo[];
+  }> => {
+    return ipcRenderer.invoke('get-wasm-languages');
+  },
+
+  /**
+   * Check if a language is available and ready
+   */
+  isReady: async (languageId: string): Promise<boolean> => {
+    const result = await ipcRenderer.invoke('is-worker-ready', languageId);
+    return result.ready;
+  },
+
+  /**
+   * Get Monaco configuration for a WASM language
+   */
+  getMonacoConfig: async (
+    languageId: string
+  ): Promise<{
+    success: boolean;
+    config?: Record<string, unknown>;
+  }> => {
+    return ipcRenderer.invoke('get-wasm-monaco-config', languageId);
+  },
+
+  /**
+   * Subscribe to WASM language changes
+   */
+  onChanged: (callback: (languages: WasmLanguageInfo[]) => void) => {
+    wasmLanguageCallbacks.add(callback);
+    return () => {
+      wasmLanguageCallbacks.delete(callback);
+    };
+  },
+});
+
+interface CoverageData {
+  lines: number;
+  statements: number;
+  functions: number;
+  branches: number;
+  uncoveredLines: number[];
+}
+
+const testResultCallbacks = new Set<
+  (result: { filePath: string; test: TestResult }) => void
+>();
+const testCompleteCallbacks = new Set<
+  (result: {
+    filePath: string;
+    status: 'passed' | 'failed';
+    coverage?: CoverageData;
+  }) => void
+>();
+const testErrorCallbacks = new Set<(error: { message: string }) => void>();
+
+ipcRenderer.on(
+  'test-runner:result',
+  (_event: unknown, data: { filePath: string; test: TestResult }) => {
+    testResultCallbacks.forEach((callback) => callback(data));
+  }
+);
+
+ipcRenderer.on(
+  'test-runner:complete',
+  (
+    _event: unknown,
+    data: {
+      filePath: string;
+      status: 'passed' | 'failed';
+      coverage?: CoverageData;
+    }
+  ) => {
+    testCompleteCallbacks.forEach((callback) => callback(data));
+  }
+);
+
+ipcRenderer.on(
+  'test-runner:error',
+  (_event: unknown, data: { message: string }) => {
+    testErrorCallbacks.forEach((callback) => callback(data));
+  }
+);
+
+contextBridge.exposeInMainWorld('testRunner', {
+  /**
+   * Run inline test code from the playground editor
+   */
+  runInline: async (code: string): Promise<void> => {
+    return ipcRenderer.invoke('test-runner:run-inline', code);
+  },
+
+  /**
+   * Run all tests or tests in a specific file
+   */
+  run: async (filePath?: string): Promise<void> => {
+    return ipcRenderer.invoke('test-runner:run', filePath);
+  },
+
+  /**
+   * Run a single test
+   */
+  runSingle: async (filePath: string, testName: string): Promise<void> => {
+    return ipcRenderer.invoke('test-runner:run-single', filePath, testName);
+  },
+
+  /**
+   * Stop running tests
+   */
+  stop: (): void => {
+    ipcRenderer.send('test-runner:stop');
+  },
+
+  /**
+   * Check if test runner is ready
+   */
+  isReady: async (): Promise<boolean> => {
+    const result = await ipcRenderer.invoke('test-runner:is-ready');
+    return result.ready;
+  },
+
+  /**
+   * Subscribe to test results
+   */
+  onResult: (
+    callback: (result: { filePath: string; test: TestResult }) => void
+  ) => {
+    testResultCallbacks.add(callback);
+    return () => {
+      testResultCallbacks.delete(callback);
+    };
+  },
+
+  /**
+   * Subscribe to test completion
+   */
+  onComplete: (
+    callback: (result: {
+      filePath: string;
+      status: 'passed' | 'failed';
+      coverage?: CoverageData;
+    }) => void
+  ) => {
+    testCompleteCallbacks.add(callback);
+    return () => {
+      testCompleteCallbacks.delete(callback);
+    };
+  },
+
+  /**
+   * Subscribe to test errors
+   */
+  onError: (callback: (error: { message: string }) => void) => {
+    testErrorCallbacks.add(callback);
+    return () => {
+      testErrorCallbacks.delete(callback);
+    };
+  },
+});
+
 setTimeout(removeLoading, 1000);

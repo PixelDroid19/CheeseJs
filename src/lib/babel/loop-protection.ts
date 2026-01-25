@@ -3,7 +3,7 @@ import type * as BabelTypes from '@babel/types';
 
 /**
  * Loop Protection Plugin
- * 
+ *
  * Injects protection against infinite loops and adds cancellation checkpoints.
  * Features:
  * - Maximum iteration limit (default: 10000)
@@ -20,7 +20,9 @@ export default function ({
 
   return {
     visitor: {
-      'WhileStatement|DoWhileStatement|ForStatement'(path) {
+      'WhileStatement|DoWhileStatement|ForStatement|ForInStatement|ForOfStatement'(
+        path
+      ) {
         // Create a unique identifier for the loop counter
         const counterId = path.scope.generateUidIdentifier('loopCounter');
 
@@ -37,7 +39,7 @@ export default function ({
         // if (_loopCounter % CHECK_INTERVAL === 0 && typeof __checkCancellation__ !== 'undefined' && __checkCancellation__()) {
         //   throw new Error("Execution cancelled");
         // }
-        
+
         // Loop limit check
         const loopLimitCheck = t.ifStatement(
           t.binaryExpression(
@@ -70,7 +72,10 @@ export default function ({
               ),
               t.binaryExpression(
                 '!==',
-                t.unaryExpression('typeof', t.identifier('__checkCancellation__')),
+                t.unaryExpression(
+                  'typeof',
+                  t.identifier('__checkCancellation__')
+                ),
                 t.stringLiteral('undefined')
               )
             ),
@@ -103,7 +108,9 @@ export default function ({
           const node = path.node as
             | BabelTypes.WhileStatement
             | BabelTypes.DoWhileStatement
-            | BabelTypes.ForStatement;
+            | BabelTypes.ForStatement
+            | BabelTypes.ForInStatement
+            | BabelTypes.ForOfStatement;
           node.body = t.blockStatement([
             loopLimitCheck,
             cancellationCheck,

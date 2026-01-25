@@ -49,7 +49,7 @@ export function transformCode(
     magicComments: options.magicComments,
     language: 'typescript' as const,
   };
-  
+
   const cached = cache.get(code, cacheOptions);
   if (cached) {
     return cached;

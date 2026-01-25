@@ -10,11 +10,13 @@ import {
   appLog,
   mainLogger,
 } from './core/index.js';
-import { transformCode } from './transpiler/tsTranspiler.js';
+import { transformCode } from './transpiler/swcTranspiler.js';
 import {
   getNodeModulesPath,
   initPackagesDirectory,
 } from './packages/packageManager.js';
+import { registerTestHandlers } from './core/handlers/TestHandlers.js';
+import { pluginHost } from './core/plugins/plugin-host.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,7 +56,7 @@ async function initApp() {
     workerPool = new WorkerPoolManager(__dirname, nodeModulesPath);
 
     // Start workers early for performance (especially Python)
-    Promise.all([
+    await Promise.all([
       workerPool.initializeCodeWorker(),
       workerPool.initializePythonWorker().catch((err) => {
         appLog.warn(
@@ -62,6 +64,7 @@ async function initApp() {
           err
         );
       }),
+      pluginHost.initialize(),
     ]);
 
     // 2. Initialize Window Manager
@@ -77,11 +80,15 @@ async function initApp() {
           // Configure logger with main window for IPC forwarding
           mainLogger.setMainWindow(win);
           workerPool?.setMainWindow(win);
+          pluginHost.setMainWindow(win);
+          // Register test handlers with window for result streaming
+          registerTestHandlers(win);
         },
         onWindowClosed: () => {
           // Cleanup if needed
           mainLogger.setMainWindow(null);
           workerPool?.setMainWindow(null);
+          pluginHost.setMainWindow(null);
         },
       }
     );

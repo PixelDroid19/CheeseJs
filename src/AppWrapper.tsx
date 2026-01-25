@@ -16,6 +16,13 @@ function AppWrapper() {
     document.documentElement.classList.toggle('dark', isDark);
     if (theme) {
       document.documentElement.setAttribute('data-theme', theme.name);
+
+      // Apply sketchy class to body for global overrides that can't be done via data-theme alone
+      if (theme.name === 'sketchy') {
+        document.body.classList.add('theme-sketchy');
+      } else {
+        document.body.classList.remove('theme-sketchy');
+      }
     }
   }, [themeName]);
 

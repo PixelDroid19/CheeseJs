@@ -9,6 +9,9 @@ vi.mock('electron', () => ({
     handle: vi.fn(),
     on: vi.fn(),
   },
+  app: {
+    getPath: vi.fn().mockReturnValue('/mock/userdata'),
+  },
 }));
 
 // Mock WorkerPoolManager

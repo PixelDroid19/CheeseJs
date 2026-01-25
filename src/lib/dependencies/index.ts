@@ -12,4 +12,3 @@ export {
   type DetectedDependency,
   type DependencyDetectionResult,
 } from './detector';
-

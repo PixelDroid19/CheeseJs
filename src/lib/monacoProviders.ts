@@ -21,7 +21,8 @@ let completionProvider: IDisposable | null = null;
 
 // Track pending validation and queued request
 let pendingValidation: Promise<void> | null = null;
-let queuedValidation: { model: editor.ITextModel; monaco: Monaco } | null = null;
+let queuedValidation: { model: editor.ITextModel; monaco: Monaco } | null =
+  null;
 
 // Extract package name from import statement at cursor position
 function getPackageAtPosition(
@@ -171,7 +172,10 @@ function validateImports(model: editor.ITextModel, monaco: Monaco): void {
 
         // Only process if model is still valid
         if (!queuedModel.isDisposed()) {
-          pendingValidation = validateImportsAsync(queuedModel, queuedMonaco).finally(() => {
+          pendingValidation = validateImportsAsync(
+            queuedModel,
+            queuedMonaco
+          ).finally(() => {
             pendingValidation = null;
             // Recursively check for more queued requests
             if (queuedValidation) {
@@ -294,7 +298,7 @@ export function registerMonacoProviders(
 
           // Try to get cached info from npm
           const pkgInfo = getCachedPackageInfo(packageName);
-          if (pkgInfo) {
+          if (pkgInfo && !('error' in pkgInfo)) {
             contents.push({ value: '---', isTrusted: true });
 
             if (pkgInfo.description) {

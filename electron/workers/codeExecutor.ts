@@ -408,7 +408,7 @@ function createSandboxContext(
     EvalError,
     Float32Array,
     Float64Array,
-    Function, // Needed for dynamic function creation
+    // Function removed for security - prevents new Function('code') sandbox escape
     Int8Array,
     Int16Array,
     Int32Array,
@@ -489,7 +489,8 @@ function createSandboxContext(
         : undefined,
     // Symbol.dispose and Symbol.asyncDispose are already on Symbol
 
-    // WebAssembly
+    // WebAssembly - Required for Pyodide (Python) and future language support (Rust, C/C++)
+    // Note: wasm: false in codeGeneration only blocks compiling from strings, not pre-compiled modules
     WebAssembly,
 
     // Built-in objects
@@ -499,7 +500,7 @@ function createSandboxContext(
     Atomics,
 
     // Global functions
-    eval,
+    // eval removed for security - prevents eval('code') sandbox escape
     isNaN,
     isFinite,
     parseFloat,
@@ -547,7 +548,13 @@ function createSandboxContext(
     Infinity,
   };
 
-  const context = vm.createContext(globals);
+  const context = vm.createContext(globals, {
+    name: `code-execution-${executionId}`,
+    codeGeneration: {
+      strings: false, // SECURITY: Disable eval() and new Function('string')
+      wasm: true, // ENABLED: Required for Pyodide (Python) and future Wasm languages (Rust, C/C++)
+    },
+  });
 
   // Set globalThis to point to the context itself
   context.globalThis = context;

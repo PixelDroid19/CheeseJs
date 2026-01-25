@@ -63,10 +63,13 @@ export function findMatchingParen(code: string, startIndex: number): number {
 // ============================================================================
 
 /**
- * Transform
+ * Transform console.log/warn/error/info/debug to debug() calls
  * Uses a parser-based approach to handle nested parentheses
  */
-export function transformConsoleTodebug(code: string): string {
+export function transformConsoleTodebug(
+  code: string,
+  debugFn: string = 'debug'
+): string {
   const lines = code.split('\n');
   const result: string[] = [];
 
@@ -93,9 +96,9 @@ export function transformConsoleTodebug(code: string): string {
 
         let replacement;
         if (args === '') {
-          replacement = `debug(${lineNumber})`;
+          replacement = `${debugFn}(${lineNumber})`;
         } else {
-          replacement = `debug(${lineNumber}, ${args})`;
+          replacement = `${debugFn}(${lineNumber}, ${args})`;
         }
 
         line = before + replacement + after;
@@ -159,9 +162,9 @@ if (${counterVar} % ${cancellationCheckInterval} === 0 && typeof __checkCancella
 // ============================================================================
 
 /**
- * Patterns that should be skipped when wrapping top-level expressions
+ * Base patterns that should be skipped when wrapping top-level expressions
  */
-const SKIP_PATTERNS = [
+const BASE_SKIP_PATTERNS = [
   'import ',
   'export ',
   'const ',
@@ -201,26 +204,30 @@ const SKIP_PATTERNS = [
   '[',
   '(',
   ')',
-  'debug(',
-  'await debug(',
   'yield ',
   '.',
   '//',
   '/*',
   '*',
+  'using ',
+  'await using ',
 ];
 
 /**
  * Check if a line should be skipped based on skip patterns
  */
-function shouldSkipLine(trimmed: string): boolean {
+function shouldSkipLine(trimmed: string, debugFn: string = 'debug'): boolean {
   // Skip empty lines
   if (!trimmed) return true;
 
-  // Check skip patterns
-  for (const pattern of SKIP_PATTERNS) {
+  // Check base skip patterns
+  for (const pattern of BASE_SKIP_PATTERNS) {
     if (trimmed.startsWith(pattern)) return true;
   }
+
+  // Check dynamic debug function patterns
+  if (trimmed.startsWith(`${debugFn}(`)) return true;
+  if (trimmed.startsWith(`await ${debugFn}(`)) return true;
 
   // Skip closing brackets with just semicolons
   if (/^[\])}]+;?$/.test(trimmed)) return true;
@@ -234,7 +241,10 @@ function shouldSkipLine(trimmed: string): boolean {
 /**
  * Wrap top-level expressions in debug calls
  */
-export function wrapTopLevelExpressions(code: string): string {
+export function wrapTopLevelExpressions(
+  code: string,
+  debugFn: string = 'debug'
+): string {
   const lines = code.split('\n');
   const result: string[] = [];
 
@@ -244,7 +254,7 @@ export function wrapTopLevelExpressions(code: string): string {
     const lineNumber = i + 1;
 
     // Skip lines based on patterns
-    if (shouldSkipLine(trimmed)) {
+    if (shouldSkipLine(trimmed, debugFn)) {
       result.push(line);
       continue;
     }
@@ -273,7 +283,7 @@ export function wrapTopLevelExpressions(code: string): string {
     ) {
       const expr = trimmed.slice(0, -1);
       const indent = line.match(/^\s*/)?.[0] || '';
-      result.push(`${indent}debug(${lineNumber}, ${expr});`);
+      result.push(`${indent}${debugFn}(${lineNumber}, ${expr});`);
     } else {
       result.push(line);
     }
@@ -290,7 +300,10 @@ export function wrapTopLevelExpressions(code: string): string {
  * Apply magic comments (//?  or //?) to inject debug calls
  * This must run BEFORE TypeScript transpilation since TS removes comments
  */
-export function applyMagicComments(code: string): string {
+export function applyMagicComments(
+  code: string,
+  debugFn: string = 'debug'
+): string {
   const lines = code.split('\n');
   const result: string[] = [];
 
@@ -313,13 +326,13 @@ export function applyMagicComments(code: string): string {
         const [, keyword, varName, value] = varMatch;
         // Output: const x = value; debug(line, x);
         result.push(`${keyword} ${varName} = ${value};`);
-        result.push(`debug(${lineNumber}, ${varName});`);
+        result.push(`${debugFn}(${lineNumber}, ${varName});`);
       } else {
         // For expressions: expr //? -> debug(line, expr)
         const exprMatch = codePart.match(/^(.+?);?\s*$/);
         if (exprMatch) {
           const expr = exprMatch[1];
-          result.push(`debug(${lineNumber}, ${expr});`);
+          result.push(`${debugFn}(${lineNumber}, ${expr});`);
         } else {
           result.push(line);
         }
@@ -344,9 +357,10 @@ export function applyCodeTransforms(
   options: TransformOptions = {}
 ): string {
   let transformed = code;
+  const debugFn = options.debugFunctionName || 'debug';
 
   // Transform console calls to debug
-  transformed = transformConsoleTodebug(transformed);
+  transformed = transformConsoleTodebug(transformed, debugFn);
 
   // Apply loop protection if enabled
   if (options.loopProtection) {
@@ -355,8 +369,21 @@ export function applyCodeTransforms(
 
   // Apply expression wrapping if enabled
   if (options.showTopLevelResults !== false) {
-    transformed = wrapTopLevelExpressions(transformed);
+    transformed = wrapTopLevelExpressions(transformed, debugFn);
   }
 
   return transformed;
+}
+
+/**
+ * Apply magic comments before transpilation
+ * Exported separately since it needs to run BEFORE transpilation
+ */
+export function applyMagicCommentsTransform(
+  code: string,
+  options: TransformOptions = {}
+): string {
+  if (!options.magicComments) return code;
+  const debugFn = options.debugFunctionName || 'debug';
+  return applyMagicComments(code, debugFn);
 }

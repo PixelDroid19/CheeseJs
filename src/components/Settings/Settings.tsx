@@ -12,6 +12,8 @@ import {
   Wrench,
   FileCode,
   Bug,
+  Puzzle,
+  Store,
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import clsx from 'clsx';
@@ -21,6 +23,8 @@ import { GeneralTab } from './tabs/GeneralTab';
 import { AppearanceTab } from './tabs/AppearanceTab';
 import { AdvancedTab } from './tabs/AdvancedTab';
 import { SnippetsTab } from './tabs/SnippetsTab';
+import { PluginTab } from './tabs/PluginTab';
+import { MarketplaceTab } from './tabs/MarketplaceTab';
 
 type Tab =
   | 'general'
@@ -31,6 +35,8 @@ type Tab =
   | 'npm'
   | 'pypi'
   | 'snippets'
+  | 'plugins'
+  | 'marketplace'
   | 'advanced';
 
 export default function Settings() {
@@ -67,6 +73,16 @@ export default function Settings() {
       label: t('settings.categories.pypi', 'PyPI (Python)'),
       icon: Bug,
     },
+    {
+      id: 'plugins',
+      label: t('settings.categories.plugins', 'Plugins'),
+      icon: Puzzle,
+    },
+    {
+      id: 'marketplace',
+      label: t('settings.categories.marketplace', 'Marketplace'),
+      icon: Store,
+    },
     { id: 'advanced', label: t('settings.categories.advanced'), icon: Wrench },
   ];
 
@@ -80,7 +96,7 @@ export default function Settings() {
             exit={{ opacity: 0, scale: 0.98, y: 10 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className={clsx(
-              'max-w-4xl w-full mx-4 h-[600px] max-h-[90vh] flex rounded-xl shadow-2xl overflow-hidden border',
+              'settings-modal max-w-4xl w-full mx-4 h-[600px] max-h-[90vh] flex rounded-xl shadow-2xl overflow-hidden border',
               'bg-background text-foreground border-border'
             )}
           >
@@ -106,9 +122,9 @@ export default function Settings() {
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={clsx(
-                        'w-full px-4 py-3 text-sm font-medium rounded-md transition-all flex items-center gap-3',
+                        'settings-sidebar-item w-full px-4 py-3 text-sm font-medium rounded-md transition-all flex items-center gap-3',
                         isActive
-                          ? 'bg-accent text-accent-foreground'
+                          ? 'bg-accent text-accent-foreground active'
                           : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground'
                       )}
                     >
@@ -160,6 +176,8 @@ export default function Settings() {
                   {activeTab === 'pypi' && <PythonPackageManager />}
                   {activeTab === 'advanced' && <AdvancedTab />}
                   {activeTab === 'snippets' && <SnippetsTab />}
+                  {activeTab === 'plugins' && <PluginTab />}
+                  {activeTab === 'marketplace' && <MarketplaceTab />}
 
                   {/* Placeholders for other tabs */}
                   {['compilation', 'formatting', 'ai'].includes(activeTab) && (

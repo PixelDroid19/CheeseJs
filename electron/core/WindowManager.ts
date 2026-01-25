@@ -6,6 +6,7 @@
  */
 
 import { BrowserWindow, ipcMain, Menu, nativeImage, app } from 'electron';
+
 import path from 'node:path';
 
 // ============================================================================
@@ -133,8 +134,7 @@ export class WindowManager {
   }
 
   private setupApplicationMenu(): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const template: any[] = [
+    const template: Electron.MenuItemConstructorOptions[] = [
       {
         label: 'File',
         submenu: [{ role: 'quit' }],

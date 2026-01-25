@@ -1,6 +1,12 @@
 import type { PluginObj } from '@babel/core';
 import type * as BabelTypes from '@babel/types';
 
+export interface StrayExpressionPluginState {
+  opts?: {
+    internalLogLevel?: string;
+  };
+}
+
 export default function ({
   types: t,
 }: {
@@ -8,8 +14,7 @@ export default function ({
 }): PluginObj {
   return {
     visitor: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ExpressionStatement(path, state: any) {
+      ExpressionStatement(path, state: StrayExpressionPluginState) {
         // Only transform top-level expressions (Program body)
         if (!t.isProgram(path.parent)) return;
 
@@ -170,8 +175,7 @@ export default function ({
 
         path.skip(); // Don't process the new node
       },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      VariableDeclaration(path, state: any) {
+      VariableDeclaration(path, state: StrayExpressionPluginState) {
         const { internalLogLevel = 'none' } = state.opts || {};
         if (internalLogLevel === 'none') return;
 

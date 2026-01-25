@@ -4,7 +4,7 @@
  * IPC handlers for shell operations related to capture functionality.
  */
 
-import { ipcMain, shell, app, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, shell, app } from 'electron';
 import fs from 'fs/promises';
 import path from 'path';
 import { createMainLogger } from '../logger.js';
@@ -22,7 +22,7 @@ export function registerCaptureHandlers(): void {
   ipcMain.handle(
     'capture:save-image',
     async (
-      _event: IpcMainInvokeEvent,
+      _event: Electron.IpcMainInvokeEvent,
       buffer: ArrayBuffer,
       filename: string
     ) => {
@@ -53,7 +53,7 @@ export function registerCaptureHandlers(): void {
    */
   ipcMain.handle(
     'shell:show-item-in-folder',
-    async (_event: IpcMainInvokeEvent, filePath: string) => {
+    async (_event: Electron.IpcMainInvokeEvent, filePath: string) => {
       try {
         shell.showItemInFolder(filePath);
       } catch (error) {

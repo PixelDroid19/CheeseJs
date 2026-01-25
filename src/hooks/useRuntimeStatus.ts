@@ -141,8 +141,9 @@ export function useRuntimeStatus(language?: Language) {
     };
 
     // Subscribe to code runner results (includes status messages)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const unsubscribe = window.codeRunner?.onResult(handleStatus as any);
+    const unsubscribe = window.codeRunner?.onResult(
+      handleStatus as unknown as (result: unknown) => void
+    );
 
     return () => {
       unsubscribe?.();

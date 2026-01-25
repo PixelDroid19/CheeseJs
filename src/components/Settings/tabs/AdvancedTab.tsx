@@ -131,8 +131,9 @@ export function AdvancedTab() {
           >
             <Select
               value={internalLogLevel}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onChange={(e) => setInternalLogLevel(e.target.value as any)}
+              onChange={(e) =>
+                setInternalLogLevel(e.target.value as 'none' | 'info' | 'debug')
+              }
               className="w-32"
             >
               <option value="none">None</option>

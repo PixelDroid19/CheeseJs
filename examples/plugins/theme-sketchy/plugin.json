@@ -1,0 +1,18 @@
+{
+  "id": "theme-sketchy",
+  "name": "Sketchy Theme",
+  "version": "1.0.0",
+  "description": "A hand-drawn style theme inspired by wireframes",
+  "author": "CheeseJS",
+  "main": "index.js",
+  "contributes": {
+    "themes": [
+      {
+        "id": "sketchy-light",
+        "label": "Sketchy Light",
+        "uiTheme": "vs",
+        "path": "./themes/sketchy-light.json"
+      }
+    ]
+  }
+}

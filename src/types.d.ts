@@ -111,6 +111,48 @@ interface PythonPackageManager {
 }
 
 // ============================================================================
+// PLUGIN API TYPES
+// ============================================================================
+
+interface PluginInfoBase {
+  manifest: {
+    id: string;
+    name: string;
+    version: string;
+    description?: string;
+    author?: string | { name: string; email?: string; url?: string };
+    main: string;
+    renderer?: string;
+    sandboxed?: boolean;
+    permissions?: string[];
+  };
+  status: 'installed' | 'active' | 'disabled' | 'error';
+  error?: string;
+}
+
+// ============================================================================
+// WASM LANGUAGES TYPES
+// ============================================================================
+
+interface WasmLanguageInfo {
+  id: string;
+  name: string;
+  version: string;
+  extensions: string[];
+  status: 'loading' | 'ready' | 'error';
+  error?: string;
+}
+
+interface WasmLanguagesAPI {
+  getAll: () => Promise<{ success: boolean; languages: WasmLanguageInfo[] }>;
+  isReady: (languageId: string) => Promise<boolean>;
+  getMonacoConfig: (
+    languageId: string
+  ) => Promise<{ success: boolean; config?: Record<string, unknown> }>;
+  onChanged: (callback: (languages: WasmLanguageInfo[]) => void) => () => void;
+}
+
+// ============================================================================
 // WINDOW INTERFACE
 // ============================================================================
 
@@ -131,9 +173,28 @@ interface Window {
       filename: string
     ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   };
+  pluginAPI: {
+    list: () => Promise<PluginInfoBase[]>;
+    activate: (id: string) => Promise<{ success: boolean }>;
+    deactivate: (id: string) => Promise<{ success: boolean }>;
+    install: (
+      sourcePath: string
+    ) => Promise<{ success: boolean; plugin: PluginInfoBase }>;
+    installFromUrl: (
+      url: string,
+      pluginId?: string
+    ) => Promise<{ success: boolean; path?: string; error?: string }>;
+    uninstall: (id: string) => Promise<{ success: boolean }>;
+    getPath: () => Promise<string>;
+    readFile: (path: string) => Promise<string>;
+    onStateChanged: (
+      callback: (plugins: PluginInfoBase[]) => void
+    ) => () => void;
+  };
   codeRunner: CodeRunner;
   packageManager: PackageManager;
   pythonPackageManager: PythonPackageManager;
+  wasmLanguages: WasmLanguagesAPI;
   // E2E testing properties
   monaco?: unknown;
   editor?: unknown;

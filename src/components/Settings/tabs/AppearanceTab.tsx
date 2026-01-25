@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/useSettingsStore';
-import { themeOptions } from '../../../themes';
+import { themeOptions as defaultThemeOptions } from '../../../themes';
 import { Select } from '../ui/Select';
 import { Slider } from '../ui/Slider';
 import { Toggle } from '../ui/Toggle';
 import { SectionHeader } from '../ui/SectionHeader';
 import clsx from 'clsx';
+import { useEffect, useState } from 'react';
+import { themeManager } from '../../../lib/themes/theme-manager';
 
 export function AppearanceTab() {
   const { t } = useTranslation();
@@ -22,6 +24,30 @@ export function AppearanceTab() {
     captureIncludeOutput,
     setCaptureIncludeOutput,
   } = useSettingsStore();
+
+  const [themeOptions, setThemeOptions] = useState(defaultThemeOptions);
+
+  useEffect(() => {
+    const updateThemes = () => {
+      // Get plugin themes from ThemeManager (filter out built-in themes to avoid duplicates)
+      const registeredThemes = themeManager
+        .getAllThemes()
+        .filter((t) => t.pluginId !== 'builtin')
+        .map((t) => ({
+          value: t.id,
+          label: t.label,
+        }));
+      setThemeOptions([...defaultThemeOptions, ...registeredThemes]);
+    };
+
+    updateThemes();
+    // Subscribe to theme changes (returns ThemeSubscription with unsubscribe method)
+    const subscription = themeManager.subscribe(() => {
+      // Re-fetch themes when any theme change happens
+      updateThemes();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const CAPTURE_THEMES = [
     {
@@ -73,6 +99,21 @@ export function AppearanceTab() {
                 </option>
               ))}
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className={clsx('text-sm font-medium', 'text-foreground')}>
+              {t('settings.resetLayout', 'Restablecer Diseño')}
+            </label>
+            <button
+              onClick={() => {
+                window.localStorage.removeItem('split-sizes');
+                window.location.reload();
+              }}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-destructive rounded-md hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-2 transition-colors"
+            >
+              {t('settings.reset', 'Restablecer')}
+            </button>
           </div>
 
           <div className="space-y-3">

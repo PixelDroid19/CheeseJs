@@ -17,6 +17,8 @@
       "npm": "Integración NPM",
       "pypi": "PyPI (Python)",
       "snippets": "Fragmentos (Snippets)",
+      "plugins": "Plugins",
+      "marketplace": "Marketplace",
       "advanced": "Opciones Avanzadas",
       "capture": "Personalización de Captura"
     },
@@ -29,6 +31,8 @@
       "npm": "Gestiona los paquetes y la configuración de NPM",
       "pypi": "Administra paquetes Python desde PyPI",
       "snippets": "Administra tus fragmentos de código reutilizables",
+      "plugins": "Gestiona los plugins instalados y extensiones",
+      "marketplace": "Descubre e instala nuevos plugins de la comunidad",
       "advanced": "Configuraciones avanzadas y opciones de desarrollador"
     },
     "snippets": {
@@ -118,6 +122,31 @@
         "wheels": "Solo funcionan paquetes Python puros o con wheels WebAssembly",
         "learnMore": "Más información →"
       }
+    },
+    "plugins": {
+      "title": "Plugins",
+      "description": "Extiende CheeseJS con lenguajes personalizados, formateadores y paneles UI.",
+      "openFolder": "Abrir carpeta de plugins",
+      "noPlugins": "No hay plugins instalados",
+      "reload": "Recargar plugins",
+      "openFolderTooltip": "Abre la carpeta local donde se instalan los plugins."
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "description": "Explora e instala plugins comunitarios.",
+      "search": "Buscar plugins...",
+      "allCategories": "Todas las categorías",
+      "sortBy": "Ordenar por",
+      "sort": {
+        "downloads": "Más descargados",
+        "rating": "Mejor valorados",
+        "updated": "Recientes",
+        "name": "Nombre"
+      },
+      "install": "Instalar",
+      "installing": "Instalando...",
+      "installed": "Instalado",
+      "noResults": "No se encontraron plugins"
     }
   },
   "editor": {
@@ -125,9 +154,18 @@
     "clear": "Limpiar"
   },
   "toolbar": {
-    "run": "Ejecutar Código",
-    "format": "Formatear Código",
-    "settings": "Abrir Configuración"
+    "run": "Ejecutar Codigo",
+    "format": "Formatear Codigo",
+    "settings": "Abrir Configuracion",
+    "toggleLayout": "Alternar Disposicion",
+    "tests": "Tests",
+    "console": "Alternar Consola"
+  },
+  "console": {
+    "title": "Consola Detallada",
+    "clear": "Limpiar Consola",
+    "close": "Cerrar Consola",
+    "empty": "Sin salida aún..."
   },
   "errors": {
     "title": "Algo salió mal",
@@ -142,7 +180,15 @@
     "notFound": "Paquete no encontrado",
     "install": "Instalar Paquete",
     "installPython": "Instalar via micropip",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "dismiss": "Descartar",
+    "copyCommand": "Copiar comando de instalacion",
+    "managerUnavailable": "Gestor de paquetes no disponible. Copia el comando para instalar manualmente."
+  },
+  "result": {
+    "filters": "Filtros",
+    "clear": "Limpiar",
+    "noOutput": "Sin salida aun"
   },
   "common": {
     "comingSoon": "Próximamente..."

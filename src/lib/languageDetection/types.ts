@@ -5,7 +5,7 @@
  */
 
 export interface DetectionResult {
-    monacoId: string;
-    confidence: number;
-    isExecutable: boolean;
+  monacoId: string;
+  confidence: number;
+  isExecutable: boolean;
 }

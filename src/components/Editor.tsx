@@ -28,6 +28,8 @@ import {
 import { EditorErrorBoundary } from './editor-error-boundary';
 import { VariableInspector } from './VariableInspector';
 
+import { themeManager } from '../lib/themes/theme-manager';
+
 // Setup Monaco workers before initialization
 setupMonacoEnvironment();
 
@@ -38,6 +40,25 @@ function CodeEditor() {
   const setCode = useCodeStore((state: CodeState) => state.setCode);
   const { themeName, fontSize } = useSettingsStore();
   const [_isEditorReady, setIsEditorReady] = useState(false);
+
+  // Apply plugin themes appropriately
+  useEffect(() => {
+    if (_isEditorReady && monacoInstanceRef.current) {
+      // Check if theme is registered in ThemeManager (plugin or built-in)
+      const theme = themeManager.getTheme(themeName);
+      if (theme?.definition) {
+        // Use ThemeManager to apply theme (handles both Monaco + CSS variables)
+        themeManager.applyTheme(themeName).catch((err) => {
+          console.warn('[Editor] Failed to apply theme via ThemeManager:', err);
+          // Fallback to direct Monaco theme setting
+          monacoInstanceRef.current?.editor.setTheme(themeName);
+        });
+      } else {
+        // Fallback to direct Monaco theme setting for built-in themes
+        monacoInstanceRef.current.editor.setTheme(themeName);
+      }
+    }
+  }, [themeName, _isEditorReady]);
 
   // Use centralized language store
   const language = useLanguageStore((state) => state.currentLanguage);
@@ -64,6 +85,7 @@ function CodeEditor() {
   const ataDisposeRef = useRef<(() => void) | null>(null);
   const lastCursorPositionRef = useRef<monaco.IPosition | null>(null);
   const lastLocalCodeRef = useRef<string | null>(null);
+  const isInternalUpdateRef = useRef(false);
 
   const { runCode } = useCodeRunner();
 
@@ -185,6 +207,40 @@ function CodeEditor() {
     };
   }, [cleanupModels]);
 
+  // Expose editor code getter for test panel integration
+  useEffect(() => {
+    const getEditorCode = () => {
+      return monacoRef.current?.getValue() ?? '';
+    };
+
+    // Add to window for test panel access
+    (window as unknown as { __getEditorCode: () => string }).__getEditorCode =
+      getEditorCode;
+
+    // Handle insert-code event from test panel
+    const handleInsertCode = (event: CustomEvent<{ code: string }>) => {
+      if (monacoRef.current) {
+        // Replace entire content with the template
+        isInternalUpdateRef.current = true;
+        monacoRef.current.setValue(event.detail.code);
+        isInternalUpdateRef.current = false;
+        // Focus the editor
+        monacoRef.current.focus();
+      }
+    };
+
+    window.addEventListener('insert-code', handleInsertCode as EventListener);
+
+    return () => {
+      delete (window as unknown as { __getEditorCode?: () => string })
+        .__getEditorCode;
+      window.removeEventListener(
+        'insert-code',
+        handleInsertCode as EventListener
+      );
+    };
+  }, []);
+
   useEffect(() => {
     if (monacoRef.current) {
       // Sync content if needed
@@ -205,26 +261,57 @@ function CodeEditor() {
           return;
         }
 
+        // IMPROVEMENT: Save cursor position and scroll state BEFORE setValue
+        const savedPosition = monacoRef.current.getPosition();
+        const savedScrollTop = monacoRef.current.getScrollTop();
+        const savedScrollLeft = monacoRef.current.getScrollLeft();
+
         // If the code is different, update it
-        // Use executeEdits to preserve undo stack and potential cursor logic if possible
-        // But setValue is safer for full replacements
+        isInternalUpdateRef.current = true;
         model.setValue(code);
+        isInternalUpdateRef.current = false;
 
-        // For external updates (like loading a snippet), move cursor to end of file
-        // instead of trying to restore previous position which might be invalid
-        const lineCount = model.getLineCount();
-        const maxCol = model.getLineMaxColumn(lineCount);
-        const pos = { lineNumber: lineCount, column: maxCol };
+        // IMPROVEMENT: Try to restore cursor position if it's still valid
+        // Otherwise, position at a safe location
+        if (savedPosition) {
+          const newLineCount = model.getLineCount();
+          // Clamp the line number to valid range
+          const safeLineNumber = Math.min(
+            savedPosition.lineNumber,
+            newLineCount
+          );
+          const maxColumn = model.getLineMaxColumn(safeLineNumber);
+          // Clamp column to valid range for the line
+          const safeColumn = Math.min(savedPosition.column, maxColumn);
 
-        monacoRef.current.setPosition(pos);
-        monacoRef.current.revealPosition(pos);
+          const safePosition = {
+            lineNumber: safeLineNumber,
+            column: safeColumn,
+          };
 
-        // Delay focus to ensure UI is ready and prevent focus stealing
-        setTimeout(() => {
-          if (monacoRef.current) {
-            monacoRef.current.focus();
-          }
-        }, 250);
+          monacoRef.current.setPosition(safePosition);
+          monacoRef.current.setScrollTop(savedScrollTop);
+          monacoRef.current.setScrollLeft(savedScrollLeft);
+        } else {
+          // Fallback: move cursor to end of file for new content
+          const lineCount = model.getLineCount();
+          const maxCol = model.getLineMaxColumn(lineCount);
+          const pos = { lineNumber: lineCount, column: maxCol };
+          monacoRef.current.setPosition(pos);
+          monacoRef.current.revealPosition(pos);
+        }
+
+        // Only focus if no other element is currently focused (avoid stealing focus)
+        if (
+          document.activeElement === document.body ||
+          document.activeElement?.tagName === 'BODY'
+        ) {
+          setTimeout(() => {
+            if (monacoRef.current) {
+              monacoRef.current.focus();
+            }
+          }, 100);
+        }
       }
 
       // ONLY cleanup models if language changed, not on every code change
@@ -396,6 +483,8 @@ function CodeEditor() {
 
   const handler = useCallback(
     (value: string | undefined) => {
+      if (isInternalUpdateRef.current) return;
+
       if (value !== undefined) {
         if (monacoRef.current) {
           lastCursorPositionRef.current = monacoRef.current.getPosition();
@@ -434,7 +523,7 @@ function CodeEditor() {
   );
 
   return (
-    <div className="h-full w-full relative">
+    <div className="h-full w-full relative editor-container">
       <Editor
         // Use a generic path - we control language via setModelLanguage
         // Using .ts extension ensures TypeScript features work correctly when in TS mode
@@ -459,8 +548,11 @@ function CodeEditor() {
             horizontal: 'auto',
           },
           fontSize,
-          fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
-          fontLigatures: true,
+          fontFamily:
+            themeName === 'sketchy'
+              ? "'Courier Prime', 'Courier New', monospace"
+              : "'Fira Code', 'Cascadia Code', Consolas, monospace",
+          fontLigatures: themeName !== 'sketchy', // Disable ligatures for sketchy mode
           wordWrap: 'on',
           quickSuggestions: {
             other: true,

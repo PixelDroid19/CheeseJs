@@ -1,0 +1,99 @@
+{
+  "name": "cheesejs-wasm-rust",
+  "version": "0.1.0",
+  "description": "Rust language support for CheeseJS using WebAssembly",
+  "displayName": "Rust (WASM)",
+  "main": "index.js",
+  "keywords": [
+    "cheesejs",
+    "plugin",
+    "rust",
+    "wasm",
+    "language"
+  ],
+  "contributes": {
+    "wasmLanguages": [
+      {
+        "id": "rust",
+        "name": "Rust",
+        "extensions": [
+          ".rs"
+        ],
+        "version": "1.75.0",
+        "wasmPath": "runtime/runtime.wasm",
+        "bindingsPath": "bindings/index.js",
+        "monacoConfig": {
+          "comments": {
+            "lineComment": "//",
+            "blockComment": [
+              "/*",
+              "*/"
+            ]
+          },
+          "brackets": [
+            [
+              "{",
+              "}"
+            ],
+            [
+              "[",
+              "]"
+            ],
+            [
+              "(",
+              ")"
+            ]
+          ],
+          "autoClosingPairs": [
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "\"",
+              "close": "\""
+            },
+            {
+              "open": "'",
+              "close": "'"
+            }
+          ],
+          "surroundingPairs": [
+            {
+              "open": "{",
+              "close": "}"
+            },
+            {
+              "open": "[",
+              "close": "]"
+            },
+            {
+              "open": "(",
+              "close": ")"
+            },
+            {
+              "open": "\"",
+              "close": "\""
+            },
+            {
+              "open": "'",
+              "close": "'"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "permissions": [
+    "storage"
+  ],
+  "sandboxed": true
+}

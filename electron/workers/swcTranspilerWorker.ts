@@ -13,29 +13,21 @@
 
 import { parentPort } from 'worker_threads';
 import { transformSync, type Options, type JscTarget } from '@swc/core';
+import {
+  applyCodeTransforms,
+  applyMagicComments,
+  type TransformOptions,
+} from '../transpiler/codeTransforms.js';
+
+// Re-export for type consumers
+export type { TransformOptions };
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface TranspileOptions {
-  /** Wrap top-level expressions with debug() for inline results */
-  showTopLevelResults?: boolean;
-  /** Add loop protection to prevent infinite loops */
-  loopProtection?: boolean;
-  /** Process //? magic comments for debug output */
-  magicComments?: boolean;
-  /** Show undefined values in output */
-  showUndefined?: boolean;
-  /** Target ECMAScript version */
-  targetVersion?: 'ES2022' | 'ES2024' | 'ESNext';
-  /** Enable experimental decorators */
-  experimentalDecorators?: boolean;
-  /** Parse JSX syntax */
-  jsx?: boolean;
-  /** Debug function name (default: 'debug', can be '__jsDebug' for JS-specific) */
-  debugFunctionName?: string;
-}
+// Extend TransformOptions for worker-specific options
+export type TranspileOptions = TransformOptions;
 
 interface TranspileRequest {
   type: 'transpile';
@@ -163,192 +155,6 @@ function transpileWithSWC(code: string, options: TranspileOptions): string {
 }
 
 // ============================================================================
-// CODE TRANSFORMATIONS
-// ============================================================================
-
-function findMatchingParen(code: string, startIndex: number): number {
-  let depth = 1;
-  let i = startIndex;
-
-  while (i < code.length && depth > 0) {
-    const char = code[i];
-    if (char === '(') depth++;
-    else if (char === ')') depth--;
-
-    if (char === '"' || char === "'" || char === '`') {
-      const quote = char;
-      i++;
-      while (i < code.length && code[i] !== quote) {
-        if (code[i] === '\\') i++;
-        i++;
-      }
-    }
-    i++;
-  }
-
-  return depth === 0 ? i - 1 : -1;
-}
-
-function transformConsoleToDebug(code: string, debugFn: string): string {
-  const lines = code.split('\n');
-  const result: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
-    const lineNumber = i + 1;
-
-    const consoleStartRegex = /\bconsole\.(log|warn|error|info|debug)\s*\(/g;
-    let match;
-    let offset = 0;
-
-    while ((match = consoleStartRegex.exec(lines[i])) !== null) {
-      const fullMatchStart = match.index + offset;
-      const openParenPos = fullMatchStart + match[0].length - 1;
-      const closeParenPos = findMatchingParen(line, openParenPos + 1);
-
-      if (closeParenPos !== -1) {
-        const args = line.slice(openParenPos + 1, closeParenPos).trim();
-        const before = line.slice(0, fullMatchStart);
-        const after = line.slice(closeParenPos + 1);
-
-        const replacement =
-          args === ''
-            ? `${debugFn}(${lineNumber})`
-            : `${debugFn}(${lineNumber}, ${args})`;
-
-        line = before + replacement + after;
-        offset += replacement.length - (closeParenPos + 1 - fullMatchStart);
-      }
-    }
-
-    result.push(line);
-  }
-
-  return result.join('\n');
-}
-
-function addLoopProtection(code: string): string {
-  const MAX_ITERATIONS = 10000;
-  let loopCounter = 0;
-
-  const loopPattern = /(while\s*\([^)]*\)\s*\{|for\s*\([^)]*\)\s*\{|do\s*\{)/g;
-
-  return code.replace(loopPattern, (match) => {
-    const counterVar = `__loopCounter${loopCounter++}`;
-    const checkCode = `let ${counterVar} = 0; if (++${counterVar} > ${MAX_ITERATIONS}) throw new Error("Loop limit exceeded (${MAX_ITERATIONS} iterations)"); `;
-
-    const braceIndex = match.lastIndexOf('{');
-    return match.slice(0, braceIndex + 1) + '\n' + checkCode + '\n';
-  });
-}
-
-function wrapTopLevelExpressions(code: string, debugFn: string): string {
-  const lines = code.split('\n');
-  const result: string[] = [];
-
-  const skipPatterns = [
-    /^$/,
-    /^\/\//,
-    /^\/\*/,
-    /^\*/,
-    /^import\s/,
-    /^export\s/,
-    /^(const|let|var)\s/,
-    /^(function|async\s+function)\s/,
-    /^class\s/,
-    /^(interface|type|enum)\s/,
-    /^(if|else|for|while|switch|try|catch|finally|do)\s*[({]/,
-    /^(return|throw|break|continue|yield)[\s;]/,
-    /^[{}()[\]]/,
-    /^[,\]})]+ ?;?$/,
-    new RegExp(`^${debugFn}\\(`),
-    new RegExp(`^await\\s+${debugFn}\\(`),
-    /^\./,
-    /^using\s/,
-    /^await\s+using\s/,
-  ];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-    const lineNumber = i + 1;
-
-    // Check skip patterns
-    if (skipPatterns.some((p) => p.test(trimmed))) {
-      result.push(line);
-      continue;
-    }
-
-    // Skip assignments
-    if (
-      /^[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*/.test(trimmed) &&
-      !trimmed.startsWith('==')
-    ) {
-      result.push(line);
-      continue;
-    }
-
-    // Skip if next line is method chaining
-    const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
-    if (nextLine.startsWith('.')) {
-      result.push(line);
-      continue;
-    }
-
-    // Wrap expressions ending with semicolon
-    if (
-      trimmed.endsWith(';') &&
-      !trimmed.includes('.then(') &&
-      !trimmed.includes('.catch(')
-    ) {
-      const expr = trimmed.slice(0, -1);
-      const indent = line.match(/^\s*/)?.[0] || '';
-      result.push(`${indent}${debugFn}(${lineNumber}, ${expr});`);
-    } else {
-      result.push(line);
-    }
-  }
-
-  return result.join('\n');
-}
-
-function applyMagicComments(code: string, debugFn: string): string {
-  const lines = code.split('\n');
-  const result: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineNumber = i + 1;
-
-    const magicMatch = line.match(/(.+?)\/\/\?\s*(.*)$/);
-
-    if (magicMatch) {
-      const codePart = magicMatch[1].trim();
-      const varMatch = codePart.match(
-        /^(const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(.+?);?\s*$/
-      );
-
-      if (varMatch) {
-        const [, keyword, varName, value] = varMatch;
-        result.push(`${keyword} ${varName} = ${value};`);
-        result.push(`${debugFn}(${lineNumber}, ${varName});`);
-      } else {
-        const exprMatch = codePart.match(/^(.+?);?\s*$/);
-        if (exprMatch) {
-          result.push(`${debugFn}(${lineNumber}, ${exprMatch[1]});`);
-        } else {
-          result.push(line);
-        }
-      }
-    } else {
-      result.push(line);
-    }
-  }
-
-  return result.join('\n');
-}
-
-// ============================================================================
 // FULL TRANSFORM PIPELINE
 // ============================================================================
 
@@ -366,16 +172,8 @@ function transformCode(code: string, options: TranspileOptions): string {
   // Step 2: Transpile TS/JSX with SWC
   const transpiled = transpileWithSWC(processedCode, options);
 
-  // Step 3: Apply code transformations
-  let transformed = transformConsoleToDebug(transpiled, debugFn);
-
-  if (options.loopProtection) {
-    transformed = addLoopProtection(transformed);
-  }
-
-  if (options.showTopLevelResults !== false) {
-    transformed = wrapTopLevelExpressions(transformed, debugFn);
-  }
+  // Step 3: Apply code transformations (using shared module)
+  const transformed = applyCodeTransforms(transpiled, options);
 
   return transformed;
 }
