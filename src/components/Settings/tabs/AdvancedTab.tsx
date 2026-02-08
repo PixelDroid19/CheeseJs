@@ -71,7 +71,7 @@ export function AdvancedTab() {
       animate={{ opacity: 1, x: 0 }}
       className="space-y-8"
     >
-      {/* Sección: Entorno de ejecución */}
+      {/* Section: Execution environment */}
       <div>
         <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
           {t('settings.advanced.environment')}
@@ -94,7 +94,7 @@ export function AdvancedTab() {
         </div>
       </div>
 
-      {/* Sección: Resultados */}
+      {/* Section: Results */}
       <div>
         <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
           {t('settings.advanced.results')}
@@ -143,7 +143,7 @@ export function AdvancedTab() {
         </div>
       </div>
 
-      {/* Sección: Paquetes NPM */}
+      {/* Section: NPM Packages */}
       <div>
         <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
           {t('settings.categories.npm')}

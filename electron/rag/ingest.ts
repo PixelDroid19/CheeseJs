@@ -1,13 +1,29 @@
 import { embeddingsService } from './embeddings';
 import { vectorStore } from './store';
 import { RagChunk, RagDocument } from './types';
+import { smartChunk } from './chunker';
 import fs from 'fs/promises';
 import path from 'path';
 import { createRequire } from 'node:module';
+
+// Lazy-loaded to avoid loading parsers at startup
 const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
-const mammoth = require('mammoth');
-import * as cheerio from 'cheerio';
+let pdfParse: any;
+let mammothLib: any;
+let cheerioLib: typeof import('cheerio') | null = null;
+
+async function getPdfParse() {
+  if (!pdfParse) pdfParse = require('pdf-parse');
+  return pdfParse;
+}
+async function getMammoth() {
+  if (!mammothLib) mammothLib = require('mammoth');
+  return mammothLib;
+}
+async function getCheerio() {
+  if (!cheerioLib) cheerioLib = await import('cheerio');
+  return cheerioLib;
+}
 
 export class IngestService {
   // Extract text from various file formats
@@ -16,10 +32,12 @@ export class IngestService {
 
     try {
       if (ext === '.pdf') {
+        const pdf = await getPdfParse();
         const dataBuffer = await fs.readFile(filePath);
         const data = await pdf(dataBuffer);
         return data.text;
       } else if (ext === '.docx') {
+        const mammoth = await getMammoth();
         const dataBuffer = await fs.readFile(filePath);
         const result = await mammoth.extractRawText({ buffer: dataBuffer });
         return result.value;
@@ -40,6 +58,7 @@ export class IngestService {
       if (!response.ok)
         throw new Error(`Failed to fetch URL: ${response.statusText}`);
       const html = await response.text();
+      const cheerio = await getCheerio();
       const $ = cheerio.load(html);
 
       // Remove script and style elements
@@ -55,106 +74,140 @@ export class IngestService {
     }
   }
 
-  // Simple Recursive Character Text Splitter implementation
-  // Default chunk size 800 tokens approx (3200 chars). User asked for 200-800 tokens.
-  // 1 token ~ 4 chars. 800 tokens ~ 3200 chars.
-  // Let's stick to 1000 chars to be safe and granular.
-  private splitText(
-    text: string,
-    chunkSize = 1000,
-    chunkOverlap = 100
-  ): string[] {
-    const chunks: string[] = [];
-    let startIndex = 0;
-
-    if (!text || text.trim().length === 0) return [];
-
-    while (startIndex < text.length) {
-      let endIndex = startIndex + chunkSize;
-
-      // If we are not at the end, try to find a natural break
-      if (endIndex < text.length) {
-        // Priority: Double newline (paragraph), Newline, Period, Space
-
-        let splitIndex = -1;
-
-        // 1. Paragraphs
-        const lastDoubleNewline = text.lastIndexOf('\n\n', endIndex);
-        if (lastDoubleNewline > startIndex) splitIndex = lastDoubleNewline + 2;
-
-        // 2. Newlines
-        if (splitIndex === -1) {
-          const lastNewline = text.lastIndexOf('\n', endIndex);
-          if (lastNewline > startIndex) splitIndex = lastNewline + 1;
-        }
-
-        // 3. Sentences (Period followed by space)
-        if (splitIndex === -1) {
-          const lastPeriod = text.lastIndexOf('. ', endIndex);
-          if (lastPeriod > startIndex) splitIndex = lastPeriod + 2;
-        }
-
-        // 4. Spaces
-        if (splitIndex === -1) {
-          const lastSpace = text.lastIndexOf(' ', endIndex);
-          if (lastSpace > startIndex) splitIndex = lastSpace + 1;
-        }
-
-        // If found a split point
-        if (splitIndex !== -1) {
-          endIndex = splitIndex;
-        }
-      } else {
-        endIndex = text.length;
-      }
-
-      const chunk = text.slice(startIndex, endIndex).trim();
-      if (chunk.length > 0) {
-        chunks.push(chunk);
-      }
-
-      // If we reached the end of the text, we are done
-      if (endIndex === text.length) break;
-
-      // Calculate next start index with overlap
-      // Ensure we advance at least 1 char to avoid loops
-      const nextStart = Math.max(startIndex + 1, endIndex - chunkOverlap);
-      startIndex = nextStart;
-
-      // Break if we reached the end
-      if (startIndex >= text.length) break;
+  /**
+   * Detect file extension from document metadata for smart chunking.
+   */
+  private getExtension(doc: RagDocument): string | undefined {
+    // Try metadata fields that may contain the path or extension
+    const meta = doc.metadata;
+    if (typeof meta.extension === 'string') return meta.extension;
+    if (typeof meta.path === 'string') return path.extname(meta.path);
+    if (typeof meta.filePath === 'string') return path.extname(meta.filePath);
+    if (typeof meta.source === 'string' && meta.source.includes('.')) {
+      return path.extname(meta.source);
     }
+    return undefined;
+  }
 
-    return chunks;
+  /**
+   * Derive the document type category for metadata filtering.
+   */
+  private getDocumentType(ext: string | undefined, doc: RagDocument): string {
+    if (typeof doc.metadata.source === 'string') {
+      if (doc.metadata.source === 'user-url') return 'url';
+    }
+    if (!ext) return 'unknown';
+    const codeExts = new Set([
+      '.ts',
+      '.tsx',
+      '.js',
+      '.jsx',
+      '.mjs',
+      '.cjs',
+      '.py',
+      '.java',
+      '.go',
+      '.rs',
+      '.c',
+      '.cpp',
+      '.h',
+      '.hpp',
+      '.cs',
+      '.rb',
+      '.php',
+      '.swift',
+      '.kt',
+      '.css',
+      '.html',
+    ]);
+    const proseExts = new Set(['.md', '.mdx', '.txt', '.rst']);
+    if (codeExts.has(ext)) return 'code';
+    if (proseExts.has(ext)) return 'prose';
+    if (ext === '.json') return 'data';
+    if (ext === '.pdf') return 'pdf';
+    if (ext === '.docx') return 'document';
+    return 'unknown';
+  }
+
+  /**
+   * Derive programming language from file extension.
+   */
+  private getLanguage(ext: string | undefined): string | undefined {
+    if (!ext) return undefined;
+    const langMap: Record<string, string> = {
+      '.ts': 'typescript',
+      '.tsx': 'typescript',
+      '.js': 'javascript',
+      '.jsx': 'javascript',
+      '.mjs': 'javascript',
+      '.cjs': 'javascript',
+      '.py': 'python',
+      '.java': 'java',
+      '.go': 'go',
+      '.rs': 'rust',
+      '.c': 'c',
+      '.cpp': 'cpp',
+      '.h': 'c',
+      '.hpp': 'cpp',
+      '.cs': 'csharp',
+      '.rb': 'ruby',
+      '.php': 'php',
+      '.swift': 'swift',
+      '.kt': 'kotlin',
+      '.css': 'css',
+      '.html': 'html',
+      '.md': 'markdown',
+      '.mdx': 'markdown',
+      '.json': 'json',
+    };
+    return langMap[ext];
   }
 
   async ingestDocument(doc: RagDocument) {
     console.log(`Ingesting document: ${doc.id}`);
 
-    // 1. Chunking
-    const textChunks = this.splitText(doc.content);
-    console.log(`Split into ${textChunks.length} chunks`);
+    // 1. Smart chunking based on file type
+    const extension = this.getExtension(doc);
+    const chunks = smartChunk(doc.content, extension);
+    console.log(
+      `Split into ${chunks.length} chunks (extension: ${extension ?? 'unknown'})`
+    );
 
-    if (textChunks.length === 0) return 0;
+    if (chunks.length === 0) return 0;
 
-    // 2. Embeddings
-    // Process in batches to avoid OOM or timeout
+    // Derive enriched metadata fields
+    const language = this.getLanguage(extension);
+    const documentType = this.getDocumentType(extension, doc);
+    const dateIndexed = Date.now();
+
+    // 2. Embeddings - process in batches to avoid OOM or timeout
     const batchSize = 10;
     let processedChunks = 0;
 
-    for (let i = 0; i < textChunks.length; i += batchSize) {
-      const batch = textChunks.slice(i, i + batchSize);
-      const embeddings = await embeddingsService.generateEmbeddings(batch);
+    for (let i = 0; i < chunks.length; i += batchSize) {
+      const batch = chunks.slice(i, i + batchSize);
+      const texts = batch.map((c) => c.content);
+      const embeddings = await embeddingsService.generateEmbeddings(texts);
 
-      // 3. Prepare RagChunks
-      const ragChunks: RagChunk[] = batch.map((content, idx) => ({
+      // 3. Prepare RagChunks with enriched metadata from smart chunker
+      const ragChunks: RagChunk[] = batch.map((chunk, idx) => ({
         id: `${doc.id}_${i + idx}`,
         documentId: doc.id,
-        content,
+        content: chunk.content,
         metadata: {
           ...doc.metadata,
           chunkIndex: i + idx,
-          totalChunks: textChunks.length,
+          totalChunks: chunks.length,
+          startLine: chunk.meta.startLine,
+          endLine: chunk.meta.endLine,
+          chunkType: chunk.meta.chunkType,
+          ...(chunk.meta.symbolName && { symbolName: chunk.meta.symbolName }),
+          ...(chunk.meta.heading && { heading: chunk.meta.heading }),
+          // Enriched metadata for filtering
+          ...(extension && { fileExtension: extension }),
+          ...(language && { language }),
+          documentType,
+          dateIndexed,
         },
         embedding: embeddings[idx],
       }));

@@ -10,6 +10,7 @@ import type { DetectionResult } from './types';
 import { patternBasedDetection } from './patternDetection';
 import { DETECTION_TO_MONACO, LANGUAGES } from './languages';
 import { getCacheKey, getCached, updateCache } from './cache';
+import { ML_MODEL_LOAD_TIMEOUT_MS } from '../../constants';
 import {
   DEFINITIVE_PYTHON_PATTERNS,
   DEFINITIVE_TS_PATTERNS,
@@ -43,7 +44,10 @@ export async function initializeMLModel(): Promise<void> {
     try {
       // Add timeout to prevent infinite loading state
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Model load timeout')), 5000)
+        setTimeout(
+          () => reject(new Error('Model load timeout')),
+          ML_MODEL_LOAD_TIMEOUT_MS
+        )
       );
 
       const loadPromise = async () => {

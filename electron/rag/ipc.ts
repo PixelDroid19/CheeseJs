@@ -9,9 +9,16 @@ import {
   RegisteredDocument,
   SearchOptions,
   RagConfig,
+  PipelineOptions,
+  PipelineResult,
 } from './types';
 import { documentRegistry } from './registry';
 import { ragConfigManager } from './ragConfig';
+import { tokenCounter } from './tokenCounter';
+import { rewriteQuery } from './queryRewriter';
+import { rerank } from './reranker';
+import { distillContext } from './contextDistiller';
+import { autoTrim } from './autoTrimmer';
 import { v4 as uuidv4 } from 'uuid';
 
 export function setupRagHandlers() {
@@ -87,18 +94,18 @@ export function setupRagHandlers() {
         chunkCount: 0,
         metadata: { isCodebase: true },
       };
-      await documentRegistry.addDocument(doc); // addDocument handles overwrite if we implement it, or we should check existence.
-      // Actually documentRegistry.addDocument pushes to array. We should probably use upsert logic or check if exists.
-      // Let's check if documentRegistry has upsert or we can just remove and add.
-      // For now, let's assume addDocument might duplicate if we don't check.
-      // But looking at registry.ts (from memory), it probably just pushes.
-      // Let's implement a safe add/update in registry.ts or just handle it here.
-      // Ideally registry.ts should have `upsertDocument`.
-      // Let's just use `addDocument` but first remove if exists.
+
+      // Remove existing document from registry and delete existing chunks
+      // to prevent duplicates on re-indexing
       try {
         await documentRegistry.removeDocument(docId);
       } catch (_error) {
         // Document doesn't exist yet, which is fine
+      }
+      try {
+        await vectorStore.deleteDocument(docId);
+      } catch (_error) {
+        // No existing chunks to delete, which is fine
       }
       await documentRegistry.addDocument(doc);
 
@@ -381,13 +388,23 @@ export function setupRagHandlers() {
         // Get query embedding
         const queryEmbedding = await embeddingsService.generateEmbedding(query);
 
-        // Search with threshold
-        const results = await vectorStore.searchWithThreshold(
-          queryEmbedding,
-          limit,
-          threshold,
-          documentIds
-        );
+        // Use metadata-aware search if filters or boosts are provided
+        const results = options.metadataFilter
+          ? await vectorStore.searchWithMetadata(
+              queryEmbedding,
+              limit,
+              threshold,
+              {
+                documentIds,
+                metadataFilter: options.metadataFilter,
+              }
+            )
+          : await vectorStore.searchWithThreshold(
+              queryEmbedding,
+              limit,
+              threshold,
+              documentIds
+            );
 
         // Serialize results - remove non-serializable embedding arrays
         const serializedResults = results.map((r) => ({
@@ -405,6 +422,7 @@ export function setupRagHandlers() {
             limit,
             threshold,
             totalResults: results.length,
+            hasMetadataFilter: !!options.metadataFilter,
           },
         };
       } catch (error) {
@@ -420,6 +438,32 @@ export function setupRagHandlers() {
   // --- Strategy Decision Handler ---
 
   ipcMain.handle(
+    'rag:get-chunks-by-documents',
+    async (_, documentIds: string[], limit?: number) => {
+      try {
+        const results = await vectorStore.getChunksByDocumentIds(
+          documentIds,
+          limit
+        );
+        const serializedResults = results.map((r) => ({
+          id: r.id,
+          documentId: r.documentId,
+          content: r.content,
+          score: r.score,
+          metadata: r.metadata,
+        }));
+        return { success: true, results: serializedResults };
+      } catch (error) {
+        console.error('RAG Get Chunks Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
     'rag:decide-strategy',
     async (_, documentIds: string[], _query: string) => {
       try {
@@ -427,16 +471,17 @@ export function setupRagHandlers() {
         const docs = await documentRegistry.getDocuments();
         const selectedDocs = docs.filter((d) => documentIds.includes(d.id));
 
-        // For strategy decision, we need content. But RegisteredDocument doesn't have content.
-        // We return a simplified decision based on chunk counts.
         const totalChunks = selectedDocs.reduce(
           (sum, d) => sum + d.chunkCount,
           0
         );
         const config = await ragConfigManager.getConfig();
 
-        // Estimate: ~200 tokens per chunk on average
-        const estimatedTokens = totalChunks * 200;
+        // For strategy decision, we need content. But RegisteredDocument doesn't have content.
+        // We estimate tokens using the average chunk size from tokenCounter.
+        // Average chunk is ~1000 chars → ~250 tokens at 4 chars/token.
+        const avgTokensPerChunk = tokenCounter.estimateTokens('x'.repeat(1000));
+        const estimatedTokens = totalChunks * avgTokensPerChunk;
 
         const decision = {
           strategy:
@@ -453,6 +498,120 @@ export function setupRagHandlers() {
         return { success: true, decision };
       } catch (error) {
         return { success: false, error: String(error) };
+      }
+    }
+  );
+
+  // --- Full RAG Pipeline Handler ---
+
+  ipcMain.handle(
+    'rag:search-pipeline',
+    async (_, query: string, options: PipelineOptions = {}) => {
+      try {
+        console.log('Received pipeline search request:', query, options);
+        const config = await ragConfigManager.getConfig();
+
+        const retrievalLimit = options.retrievalLimit ?? 15;
+        const threshold = options.threshold ?? config.retrievalThreshold;
+        const maxContextTokens =
+          options.maxContextTokens ?? config.maxContextTokens;
+        const documentIds = options.documentIds;
+        const metadataFilter = options.metadataFilter;
+        const vectorWeight = options.vectorWeight ?? 0.7;
+        const bm25Weight = options.bm25Weight ?? 0.3;
+        const includeAttribution = options.includeAttribution ?? true;
+        const enableRewrite = options.enableRewrite ?? true;
+        const enableHybrid = options.enableHybrid ?? true;
+        const enableRerank = options.enableRerank ?? true;
+        const enableDistill = options.enableDistill ?? true;
+
+        // Step 1: Query rewriting
+        let searchQuery = query;
+        let expandedQuery = query;
+        let wasRewritten = false;
+        let rewrittenQuery: string | undefined;
+
+        if (enableRewrite) {
+          const rewritten = rewriteQuery(query);
+          searchQuery = rewritten.primary;
+          expandedQuery = rewritten.expanded;
+          wasRewritten = rewritten.wasRewritten;
+          if (wasRewritten) {
+            rewrittenQuery = rewritten.primary;
+          }
+        }
+
+        // Step 2: Generate embedding for the (rewritten) query
+        const queryEmbedding =
+          await embeddingsService.generateEmbedding(searchQuery);
+
+        // Step 3: Search — hybrid or vector-only
+        let results: import('./types').SearchResult[];
+
+        if (enableHybrid) {
+          results = await vectorStore.hybridSearch(
+            queryEmbedding,
+            expandedQuery,
+            retrievalLimit,
+            threshold,
+            {
+              documentIds,
+              metadataFilter,
+              vectorWeight,
+              bm25Weight,
+            }
+          );
+        } else {
+          results = metadataFilter
+            ? await vectorStore.searchWithMetadata(
+                queryEmbedding,
+                retrievalLimit,
+                threshold,
+                { documentIds, metadataFilter }
+              )
+            : await vectorStore.searchWithThreshold(
+                queryEmbedding,
+                retrievalLimit,
+                threshold,
+                documentIds
+              );
+        }
+
+        const chunksRetrieved = results.length;
+
+        // Step 4: Re-rank
+        if (enableRerank && results.length > 0) {
+          results = rerank(results, searchQuery, retrievalLimit);
+        }
+
+        // Step 5: Context distillation
+        if (enableDistill && results.length > 0) {
+          results = distillContext(results);
+        }
+
+        // Step 6: Auto-trim to fit token budget
+        const trimResult = autoTrim(results, {
+          maxTokens: maxContextTokens,
+          includeAttribution,
+        });
+
+        const pipelineResult: PipelineResult = {
+          context: trimResult.context,
+          tokenCount: trimResult.tokenCount,
+          chunksIncluded: trimResult.includedChunks,
+          chunksRetrieved,
+          rewrittenQuery,
+          wasRewritten,
+          sourceIds: trimResult.includedIds,
+        };
+
+        return { success: true, result: pipelineResult };
+      } catch (error) {
+        console.error('RAG Pipeline Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     }
   );

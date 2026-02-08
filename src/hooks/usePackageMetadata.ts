@@ -1,57 +1,21 @@
-import { useState, useEffect } from 'react';
 import { fetchPackageInfo } from '../lib/npm';
+import {
+  createPackageMetadataHook,
+  type BasePackageMetadata,
+} from './createPackageMetadataHook';
 
-export interface PackageMetadata {
-  name?: string;
-  description?: string;
-  version?: string;
-  loading?: boolean;
-  error?: string;
-  // Add other fields as returned by fetchPackageInfo
-}
+// Backwards-compatible type alias
+export type PackageMetadata = BasePackageMetadata;
 
-export function usePackageMetadata(detectedMissingPackages: string[]) {
-  const [packageMetadata, setPackageMetadata] = useState<
-    Record<string, PackageMetadata>
-  >({});
-  const [dismissedPackages, setDismissedPackages] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      for (const pkgName of detectedMissingPackages) {
-        if (!packageMetadata[pkgName]) {
-          // Set a loading state or placeholder first
-          setPackageMetadata((prev) => ({
-            ...prev,
-            [pkgName]: { loading: true },
-          }));
-
-          try {
-            const info = await fetchPackageInfo(pkgName);
-            setPackageMetadata((prev) => ({
-              ...prev,
-              [pkgName]: (info as PackageMetadata) || {
-                error: 'Failed to fetch info',
-              },
-            }));
-          } catch (_error) {
-            setPackageMetadata((prev) => ({
-              ...prev,
-              [pkgName]: { error: 'Failed to fetch info' },
-            }));
-          }
-        }
-      }
-    };
-
-    if (detectedMissingPackages.length > 0) {
-      fetchMetadata();
+/**
+ * Hook to fetch and cache npm package metadata.
+ */
+export const usePackageMetadata = createPackageMetadataHook<PackageMetadata>(
+  async (name) => {
+    const info = await fetchPackageInfo(name);
+    if (!info || info.error) {
+      return { error: info?.error || 'Failed to fetch info' };
     }
-  }, [detectedMissingPackages, packageMetadata]);
-
-  return {
-    packageMetadata,
-    dismissedPackages,
-    setDismissedPackages,
-  };
-}
+    return info as PackageMetadata;
+  }
+);

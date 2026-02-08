@@ -1,22 +1,30 @@
-// Monaco Inline Completion Provider using AI SDK 6
-// https://ai-sdk.dev/docs/ai-sdk-core
+// Monaco Inline Completion Provider - Copilot-style ghost text
+// Uses Monaco 0.55+ InlineCompletionsProvider API correctly
 import type * as Monaco from 'monaco-editor';
 import { aiService } from './aiService';
 import { useAISettingsStore } from '../../store/useAISettingsStore';
 import type { PromptContext } from './prompts';
+import {
+  AI_COMPLETION_DEBOUNCE_MS,
+  AI_COMPLETION_MAX_CACHE_SIZE,
+  AI_COMPLETION_CACHE_TTL_MS,
+} from '../../constants';
 
-// Simple in-memory cache for completions - OPTIMIZED for low memory
+// ---------------------------------------------------------------------------
+// Cache - LRU by timestamp with size cap
+// ---------------------------------------------------------------------------
 interface CacheEntry {
   completion: string;
   timestamp: number;
 }
 
 const completionCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 15000; // 15 seconds (reduced from 30)
-const MAX_CACHE_SIZE = 20; // Reduced from 50
+const CACHE_TTL = AI_COMPLETION_CACHE_TTL_MS;
+const MAX_CACHE_SIZE = AI_COMPLETION_MAX_CACHE_SIZE;
 
 function getCacheKey(prefix: string, suffix: string): string {
-  return `${prefix.slice(-100)}|${suffix.slice(0, 50)}`;
+  // Use last 150 chars of prefix + first 80 of suffix as fingerprint
+  return `${prefix.slice(-150)}|||${suffix.slice(0, 80)}`;
 }
 
 function getFromCache(key: string): string | null {
@@ -24,196 +32,194 @@ function getFromCache(key: string): string | null {
   if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
     return entry.completion;
   }
-  completionCache.delete(key);
+  if (entry) completionCache.delete(key);
   return null;
 }
 
 function setToCache(key: string, completion: string): void {
+  // Evict oldest entries if at capacity
   if (completionCache.size >= MAX_CACHE_SIZE) {
-    const oldestKey = completionCache.keys().next().value;
-    if (oldestKey) {
-      completionCache.delete(oldestKey);
+    let oldestKey: string | undefined;
+    let oldestTime = Infinity;
+    for (const [k, v] of completionCache) {
+      if (v.timestamp < oldestTime) {
+        oldestTime = v.timestamp;
+        oldestKey = k;
+      }
     }
+    if (oldestKey) completionCache.delete(oldestKey);
   }
   completionCache.set(key, { completion, timestamp: Date.now() });
 }
 
-// Request management - prevent multiple simultaneous requests
+// ---------------------------------------------------------------------------
+// Request lifecycle - one in-flight request at a time
+// ---------------------------------------------------------------------------
 let currentAbortController: AbortController | null = null;
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-let lastRequestId = 0;
-let isRequestInProgress = false;
 
-// Clean up AI completion response - more aggressive cleaning
+function cancelInflight(): void {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Response cleaning - minimal & safe
+// ---------------------------------------------------------------------------
 export function cleanCompletionResponse(
-  completion: string,
+  raw: string,
   textBeforeCursor: string
 ): string {
-  let cleaned = completion;
+  let cleaned = raw;
 
-  // Remove markdown code blocks
+  // 1. Strip markdown fences that some models wrap around output
   cleaned = cleaned.replace(/^```[\w]*\n?/gm, '');
   cleaned = cleaned.replace(/\n?```$/gm, '');
   cleaned = cleaned.replace(/```/g, '');
 
-  // Remove leading/trailing quotes
-  cleaned = cleaned.replace(/^["'`]+|["'`]+$/g, '');
-
-  // Remove common AI prefixes
+  // 2. Strip common chatty prefixes the model may add
   cleaned = cleaned.replace(
-    /^(Output|Completion|Result|Answer|Code|Here|The|Response):\s*/i,
-    ''
-  );
-  cleaned = cleaned.replace(
-    /^(Here's|Here is|The completion is|Completing).*?:\s*/i,
+    /^(Here('s| is).*?:|Output:|Completion:|Result:|Answer:|Code:|Response:)\s*/i,
     ''
   );
 
-  // Trim whitespace but preserve leading space if it's part of the completion
-  const _hadLeadingSpace = cleaned.startsWith(' ') || cleaned.startsWith('\t');
-  cleaned = cleaned.trim();
+  // 3. Trim but preserve intentional leading whitespace on first line
+  // (e.g. completing after `if (x) ` should keep the space)
+  cleaned = cleaned.replace(/^\n+/, ''); // remove leading blank lines
+  cleaned = cleaned.replace(/\s+$/, ''); // trim trailing whitespace
 
   if (!cleaned) return '';
 
-  // Get current line being typed
+  // 4. Remove duplication of what the user already typed on the current line
   const lines = textBeforeCursor.split('\n');
   const currentLine = lines[lines.length - 1] || '';
-  const currentLineTrimmed = currentLine.trim();
 
-  // If the model repeated the current line, remove it
-  if (cleaned.startsWith(currentLine) && currentLine.length > 0) {
-    cleaned = cleaned.slice(currentLine.length);
-  }
-
-  // If the model repeated the trimmed current line, find and remove it
-  if (currentLineTrimmed.length > 3 && cleaned.startsWith(currentLineTrimmed)) {
-    cleaned = cleaned.slice(currentLineTrimmed.length);
-  }
-
-  // Check for partial line repetition
-  for (let i = Math.min(currentLine.length, 50); i > 3; i--) {
-    const endOfLine = currentLine.slice(-i);
-    if (cleaned.startsWith(endOfLine)) {
-      cleaned = cleaned.slice(endOfLine.length);
-      break;
+  // Find the longest suffix of currentLine that is a prefix of the completion
+  // and strip it to avoid duplication (e.g. user typed "cons" and model returns "const x = 1")
+  if (currentLine.length > 0) {
+    const maxOverlap = Math.min(currentLine.length, cleaned.length);
+    let overlap = 0;
+    for (let len = maxOverlap; len > 0; len--) {
+      const suffix = currentLine.slice(-len);
+      if (cleaned.startsWith(suffix)) {
+        overlap = len;
+        break;
+      }
+    }
+    if (overlap > 0) {
+      cleaned = cleaned.slice(overlap);
     }
   }
-
-  // Specific check: if typing "const x = " and model returns "function x(...",
-  // just return the function without the name if it matches
-  const varDeclMatch = currentLine.match(/^(const|let|var)\s+(\w+)\s*=\s*$/);
-  if (varDeclMatch) {
-    const varName = varDeclMatch[2];
-    // Remove "function varName" if model added it
-    const funcPattern = new RegExp(`^function\\s+${varName}\\s*`);
-    cleaned = cleaned.replace(funcPattern, '');
-    // Also check for arrow function repetition
-    const arrowPattern = new RegExp(`^${varName}\\s*=\\s*`);
-    cleaned = cleaned.replace(arrowPattern, '');
-  }
-
-  // Remove any leading newlines (completion should continue on same line first)
-  cleaned = cleaned.replace(/^\n+/, '');
 
   return cleaned;
 }
 
+// ---------------------------------------------------------------------------
+// Ensure AI service is configured before making requests
+// ---------------------------------------------------------------------------
+function ensureServiceReady(): boolean {
+  if (aiService.isReady()) return true;
+
+  const settings = useAISettingsStore.getState();
+  const apiKey = settings.getCurrentApiKey();
+  if (!apiKey) return false;
+
+  try {
+    if (settings.provider === 'local') {
+      const localCfg = settings.getLocalConfig();
+      aiService.configure(settings.provider, '', '', {
+        baseURL: localCfg.baseURL,
+        modelId: localCfg.modelId,
+      });
+    } else {
+      const customCfg = settings.getCustomConfig();
+      aiService.configure(
+        settings.provider,
+        apiKey,
+        settings.getCurrentModel(),
+        undefined,
+        customCfg
+      );
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider factory
+// ---------------------------------------------------------------------------
 export function createInlineCompletionProvider(
   monaco: typeof Monaco
 ): Monaco.languages.InlineCompletionsProvider {
   return {
+    // Monaco 0.55 debounces calls for us - no manual setTimeout needed
+    debounceDelayMs: AI_COMPLETION_DEBOUNCE_MS,
+
     provideInlineCompletions: async (
       model: Monaco.editor.ITextModel,
       position: Monaco.Position,
       _context: Monaco.languages.InlineCompletionContext,
       token: Monaco.CancellationToken
     ): Promise<Monaco.languages.InlineCompletions | null> => {
-      // Check if inline completion is enabled
+      // ---- Guard: feature enabled? ----
       const settings = useAISettingsStore.getState();
-      if (!settings.enableInlineCompletion) {
-        return { items: [] };
-      }
+      if (!settings.enableInlineCompletion) return null;
+      if (!settings.getCurrentApiKey()) return null;
 
-      // Check if AI service is configured
-      const apiKey = settings.getCurrentApiKey();
-      if (!apiKey) {
-        return { items: [] };
-      }
+      // ---- Cancel previous in-flight request ----
+      cancelInflight();
 
-      // Cancel any previous request immediately
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
+      if (token.isCancellationRequested) return null;
 
-      // Clear pending debounce
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
+      // ---- Gather context around cursor ----
+      const lineCount = model.getLineCount();
+      const contextLinesBefore = 50;
+      const contextLinesAfter = 10;
 
-      // If a request is in progress, skip this one
-      if (isRequestInProgress) {
-        return { items: [] };
-      }
+      const prefixStartLine = Math.max(
+        1,
+        position.lineNumber - contextLinesBefore
+      );
+      const suffixEndLine = Math.min(
+        lineCount,
+        position.lineNumber + contextLinesAfter
+      );
 
-      // Configure service if needed
-      if (!aiService.isReady()) {
-        try {
-          if (settings.provider === 'local') {
-            const localCfg = settings.getLocalConfig();
-            aiService.configure(settings.provider, '', '', {
-              baseURL: localCfg.baseURL,
-              modelId: localCfg.modelId,
-            });
-          } else {
-            const customCfg = settings.getCustomConfig();
-            aiService.configure(
-              settings.provider,
-              apiKey,
-              settings.getCurrentModel(),
-              undefined,
-              customCfg
-            );
-          }
-        } catch {
-          return { items: [] };
-        }
-      }
-
-      // Get context around cursor
       const textBeforeCursor = model.getValueInRange({
-        startLineNumber: Math.max(1, position.lineNumber - 20),
+        startLineNumber: prefixStartLine,
         startColumn: 1,
         endLineNumber: position.lineNumber,
         endColumn: position.column,
       });
+
       const textAfterCursor = model.getValueInRange({
         startLineNumber: position.lineNumber,
         startColumn: position.column,
-        endLineNumber: Math.min(model.getLineCount(), position.lineNumber + 3),
-        endColumn: model.getLineMaxColumn(
-          Math.min(model.getLineCount(), position.lineNumber + 3)
-        ),
+        endLineNumber: suffixEndLine,
+        endColumn: model.getLineMaxColumn(suffixEndLine),
       });
 
-      // Skip if not enough context
-      const trimmedBefore = textBeforeCursor.trim();
-      if (trimmedBefore.length < 8) {
-        return { items: [] };
-      }
+      // ---- Skip if not enough context to be useful ----
+      if (textBeforeCursor.trim().length < 5) return null;
 
-      // Skip if we're in a comment
-      const currentLine = model.getLineContent(position.lineNumber);
-      const beforeCursorOnLine = currentLine.substring(0, position.column - 1);
+      // ---- Skip if cursor is at start of empty line with no prior code ----
+      const currentLineText = model.getLineContent(position.lineNumber);
+      const textBeforeOnLine = currentLineText.substring(
+        0,
+        position.column - 1
+      );
+      // If the line is empty and there is nothing meaningful before, skip
       if (
-        beforeCursorOnLine.includes('//') ||
-        beforeCursorOnLine.includes('/*')
+        textBeforeOnLine.trim() === '' &&
+        textBeforeCursor.trim().length < 10
       ) {
-        return { items: [] };
+        return null;
       }
 
-      // Check cache first
+      // ---- Cache lookup ----
       const cacheKey = getCacheKey(textBeforeCursor, textAfterCursor);
       const cached = getFromCache(cacheKey);
       if (cached) {
@@ -227,150 +233,113 @@ export function createInlineCompletionProvider(
                 position.lineNumber,
                 position.column
               ),
+              completeBracketPairs: true,
             },
           ],
+          enableForwardStability: true,
         };
       }
 
-      const currentRequestId = ++lastRequestId;
+      // ---- Ensure AI service is ready ----
+      if (!ensureServiceReady()) return null;
 
-      return new Promise((resolve) => {
-        // Debounce with longer delay to wait for user pause
-        debounceTimer = setTimeout(async () => {
-          // Double-check cancellation
-          if (
-            token.isCancellationRequested ||
-            currentRequestId !== lastRequestId
-          ) {
-            resolve({ items: [] });
-            return;
-          }
+      // ---- Abort controller for this request ----
+      const abortController = new AbortController();
+      currentAbortController = abortController;
 
-          // Prevent concurrent requests
-          if (isRequestInProgress) {
-            resolve({ items: [] });
-            return;
-          }
-
-          isRequestInProgress = true;
-          currentAbortController = new AbortController();
-
-          try {
-            const language = model.getLanguageId();
-            const context: PromptContext = {
-              language,
-              codeBefore: textBeforeCursor,
-              codeAfter: textAfterCursor,
-            };
-
-            const completion = await aiService.generateInlineCompletion(
-              context,
-              100
-            );
-
-            // Check if cancelled or superseded
-            if (
-              token.isCancellationRequested ||
-              currentRequestId !== lastRequestId
-            ) {
-              resolve({ items: [] });
-              return;
-            }
-
-            if (!completion || completion.trim().length === 0) {
-              resolve({ items: [] });
-              return;
-            }
-
-            // Clean up the completion
-            const cleanCompletion = cleanCompletionResponse(
-              completion,
-              textBeforeCursor
-            );
-
-            // Don't suggest if empty after cleaning
-            if (!cleanCompletion || cleanCompletion.length === 0) {
-              resolve({ items: [] });
-              return;
-            }
-
-            // Don't suggest if it's just repeating what's already there
-            if (textAfterCursor.trim().startsWith(cleanCompletion.trim())) {
-              resolve({ items: [] });
-              return;
-            }
-
-            // Cache the result
-            setToCache(cacheKey, cleanCompletion);
-
-            resolve({
-              items: [
-                {
-                  insertText: cleanCompletion,
-                  range: new monaco.Range(
-                    position.lineNumber,
-                    position.column,
-                    position.lineNumber,
-                    position.column
-                  ),
-                },
-              ],
-            });
-          } catch (error) {
-            // Don't log aborted requests
-            if (error instanceof Error && error.name !== 'AbortError') {
-              console.error('[InlineCompletion] Error:', error);
-            }
-            resolve({ items: [] });
-          } finally {
-            isRequestInProgress = false;
-            currentAbortController = null;
-          }
-        }, 800); // 800ms debounce - wait for user to stop typing
+      // Wire up Monaco cancellation token to our abort controller
+      const onCancel = token.onCancellationRequested(() => {
+        abortController.abort();
       });
+
+      try {
+        if (token.isCancellationRequested) return null;
+
+        const language = model.getLanguageId();
+        const context: PromptContext = {
+          language,
+          codeBefore: textBeforeCursor,
+          codeAfter: textAfterCursor,
+        };
+
+        const rawCompletion = await aiService.generateInlineCompletion(
+          context,
+          150 // enough for multi-line but not excessive
+        );
+
+        // Check cancellation after await
+        if (token.isCancellationRequested || abortController.signal.aborted) {
+          return null;
+        }
+
+        if (!rawCompletion || rawCompletion.trim().length === 0) {
+          return null;
+        }
+
+        // Clean the response
+        const completion = cleanCompletionResponse(
+          rawCompletion,
+          textBeforeCursor
+        );
+
+        if (!completion || completion.length === 0) return null;
+
+        // Don't suggest if the text after cursor already matches
+        const afterTrimmed = textAfterCursor.trim();
+        if (
+          afterTrimmed.length > 0 &&
+          afterTrimmed.startsWith(completion.trim())
+        ) {
+          return null;
+        }
+
+        // Cache for reuse
+        setToCache(cacheKey, completion);
+
+        return {
+          items: [
+            {
+              insertText: completion,
+              range: new monaco.Range(
+                position.lineNumber,
+                position.column,
+                position.lineNumber,
+                position.column
+              ),
+              completeBracketPairs: true,
+            },
+          ],
+          enableForwardStability: true,
+        };
+      } catch (error: unknown) {
+        // Silently ignore aborted requests
+        if (error instanceof Error && error.name === 'AbortError') return null;
+        // Don't spam console for routine network issues
+        console.warn('[InlineCompletion] Request failed:', error);
+        return null;
+      } finally {
+        // Only clear if this controller is still the current one
+        if (currentAbortController === abortController) {
+          currentAbortController = null;
+        }
+        onCancel.dispose();
+      }
     },
 
-    // Monaco requires this method to clean up completions
-    freeInlineCompletions: (
-      _completions: Monaco.languages.InlineCompletions
-    ) => {
-      // Cancel any pending request when completions are freed
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
-    },
-
-    // Some Monaco versions call this instead of freeInlineCompletions
-    disposeInlineCompletions: (
-      _completions: Monaco.languages.InlineCompletions
-    ) => {
-      if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
-      }
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
+    // Required by Monaco 0.55 - called when completions are no longer needed
+    disposeInlineCompletions(
+      _completions: Monaco.languages.InlineCompletions,
+      _reason: Monaco.languages.InlineCompletionsDisposeReason
+    ): void {
+      // Nothing to dispose per-completions; abort is handled per-request
     },
   };
 }
 
-// Clear cache utility
+// ---------------------------------------------------------------------------
+// Public utilities
+// ---------------------------------------------------------------------------
 export function clearInlineCompletionCache(): void {
   completionCache.clear();
-  if (currentAbortController) {
-    currentAbortController.abort();
-    currentAbortController = null;
-  }
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-    debounceTimer = null;
-  }
-  isRequestInProgress = false;
+  cancelInflight();
 }

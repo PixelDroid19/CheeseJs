@@ -1,4 +1,4 @@
-import { transpileWithTypeScript } from '../electron/transpiler/tsTranspiler';
+import { transpileWithTypeScript } from '../electron/transpiler/swcTranspiler';
 
 const code = `
 while(true) {

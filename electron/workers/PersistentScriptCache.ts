@@ -80,6 +80,9 @@ export class PersistentScriptCache {
   // Access tracking for persist decisions
   private accessCounts = new Map<string, number>();
 
+  // Reverse mapping: hash -> code (for disk persistence)
+  private hashToCode = new Map<string, string>();
+
   // Metrics
   private metrics: PersistentCacheMetrics = {
     memoryHits: 0,
@@ -275,10 +278,12 @@ export class PersistentScriptCache {
   /**
    * Schedule code to be persisted to disk
    */
-  private schedulePersist(hash: string, _code: string): void {
+  private schedulePersist(hash: string, code: string): void {
     if (this.pendingWrites.has(hash)) return;
     if (this.diskManifest.entries.has(hash)) return;
 
+    // Store the hash -> code mapping so flush() can retrieve it
+    this.hashToCode.set(hash, code);
     this.pendingWrites.add(hash);
   }
 
@@ -324,12 +329,15 @@ export class PersistentScriptCache {
   }
 
   /**
-   * Get code string from a hash (check memory cache entries)
+   * Get code string from a hash using the reverse mapping
    */
-  private getCodeFromMemory(_hash: string): string | null {
-    // We need to track code -> hash mapping
-    // For now, we'll iterate memory cache (not ideal but works)
-    // In a production system, we'd maintain a reverse mapping
+  private getCodeFromMemory(hash: string): string | null {
+    const code = this.hashToCode.get(hash);
+    if (code) {
+      // Remove from mapping after retrieval to free memory
+      this.hashToCode.delete(hash);
+      return code;
+    }
     return null;
   }
 
@@ -414,6 +422,7 @@ export class PersistentScriptCache {
     this.memoryCache.clear();
     this.accessCounts.clear();
     this.pendingWrites.clear();
+    this.hashToCode.clear();
 
     // Clear disk cache
     for (const [hash] of this.diskManifest.entries) {

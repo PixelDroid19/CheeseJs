@@ -245,11 +245,12 @@ export const useRagStore = create<RagState>()(
         if (pinnedDocIds.length === 0 || !window.rag) return '';
 
         try {
-          // Search using pinned doc IDs
-          const results = await window.rag.searchAdvanced('', {
-            documentIds: pinnedDocIds,
-            limit: 10, // Get more results from pinned docs
-          });
+          // Retrieve all chunks from pinned documents directly by ID,
+          // without generating an embedding for an empty query
+          const results = await window.rag.getChunksByDocuments(
+            pinnedDocIds,
+            20 // Reasonable limit for pinned docs context
+          );
 
           if (
             results.success &&
@@ -292,9 +293,14 @@ export const useRagStore = create<RagState>()(
   )
 );
 
-// Initialize progress listener
-if (typeof window !== 'undefined' && window.rag) {
-  window.rag.onProgress((progress) => {
-    useRagStore.getState().handleProgress(progress);
-  });
+// Initialize progress listener lazily to avoid side-effects at import time
+let ragProgressInitialized = false;
+export function initRagProgressListener(): void {
+  if (ragProgressInitialized) return;
+  if (typeof window !== 'undefined' && window.rag) {
+    window.rag.onProgress((progress) => {
+      useRagStore.getState().handleProgress(progress);
+    });
+    ragProgressInitialized = true;
+  }
 }

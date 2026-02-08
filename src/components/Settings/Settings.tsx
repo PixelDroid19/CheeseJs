@@ -37,7 +37,7 @@ type Tab =
 export default function Settings() {
   const { t } = useTranslation();
   const { isSettingsOpen, setIsSettingsOpen } = useSettingsStore();
-  const [activeTab, setActiveTab] = useState<Tab>('advanced');
+  const [activeTab, setActiveTab] = useState<Tab>('general');
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'general', label: t('settings.categories.general'), icon: Sliders },

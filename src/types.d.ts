@@ -3,6 +3,8 @@ declare module 'stringify-object';
 
 // ============================================================================
 // CODE RUNNER TYPES
+// (Canonical types live in src/types/workerTypes.ts — these ambient globals
+//  use compatible but narrower types for the renderer's CodeRunner API.)
 // ============================================================================
 
 interface ExecutionOptions {
@@ -163,6 +165,40 @@ interface StrategyDecision {
   tokenCount?: number;
 }
 
+interface MetadataFilter {
+  language?: string | string[];
+  fileExtension?: string | string[];
+  documentType?: string | string[];
+  chunkType?: string | string[];
+  dateAfter?: number;
+  dateBefore?: number;
+}
+
+interface PipelineOptions {
+  retrievalLimit?: number;
+  threshold?: number;
+  maxContextTokens?: number;
+  documentIds?: string[];
+  metadataFilter?: MetadataFilter;
+  vectorWeight?: number;
+  bm25Weight?: number;
+  includeAttribution?: boolean;
+  enableRewrite?: boolean;
+  enableHybrid?: boolean;
+  enableRerank?: boolean;
+  enableDistill?: boolean;
+}
+
+interface PipelineResult {
+  context: string;
+  tokenCount: number;
+  chunksIncluded: number;
+  chunksRetrieved: number;
+  rewrittenQuery?: string;
+  wasRewritten: boolean;
+  sourceIds: string[];
+}
+
 interface SearchResult {
   id: string;
   content: string;
@@ -182,6 +218,40 @@ interface Window {
     minimizeApp: () => void;
     showContextMenu: () => void;
     onToggleMagicComments: (callback: () => void) => void;
+    // Filesystem operations
+    readFile?: (
+      path: string,
+      options?: { startLine?: number; endLine?: number }
+    ) => Promise<{ success: boolean; content?: string; error?: string }>;
+    writeFile?: (
+      path: string,
+      content: string
+    ) => Promise<{ success: boolean; error?: string }>;
+    listFiles?: (
+      path: string,
+      recursive?: boolean
+    ) => Promise<{ success: boolean; files?: string[]; error?: string }>;
+    searchInFiles?: (
+      pattern: string,
+      directory: string
+    ) => Promise<{
+      success: boolean;
+      results?: Array<{ file: string; line: number; content: string }>;
+      error?: string;
+    }>;
+    executeCommand?: (
+      command: string,
+      cwd?: string
+    ) => Promise<{
+      success: boolean;
+      stdout?: string;
+      stderr?: string;
+      error?: string;
+    }>;
+    deleteFile?: (
+      path: string
+    ) => Promise<{ success: boolean; error?: string }>;
+    getWorkspacePath?: () => Promise<string>;
   };
   codeRunner: CodeRunner;
   packageManager: PackageManager;
@@ -214,16 +284,12 @@ interface Window {
       documents?: RegisteredDocument[];
       error?: string;
     }>;
-    addFile: (
-      filePath: string
-    ) => Promise<{
+    addFile: (filePath: string) => Promise<{
       success: boolean;
       document?: RegisteredDocument;
       error?: string;
     }>;
-    addUrl: (
-      url: string
-    ) => Promise<{
+    addUrl: (url: string) => Promise<{
       success: boolean;
       document?: RegisteredDocument;
       error?: string;
@@ -253,6 +319,16 @@ interface Window {
       error?: string;
     }>;
 
+    // Get chunks by document IDs (for pinned docs - no embedding needed)
+    getChunksByDocuments: (
+      documentIds: string[],
+      limit?: number
+    ) => Promise<{
+      success: boolean;
+      results?: SearchResult[];
+      error?: string;
+    }>;
+
     // Strategy Decision
     decideStrategy: (
       documentIds: string[],
@@ -260,6 +336,16 @@ interface Window {
     ) => Promise<{
       success: boolean;
       decision?: StrategyDecision;
+      error?: string;
+    }>;
+
+    // Pipeline Search (full chain: rewrite → hybrid → rerank → distill → trim)
+    searchPipeline: (
+      query: string,
+      options?: PipelineOptions
+    ) => Promise<{
+      success: boolean;
+      result?: PipelineResult;
       error?: string;
     }>;
 

@@ -1,0 +1,110 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mC:/Users/monas/Documents/jsrunner[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+[90mstdout[2m | electron/rag/__tests__/rag.test.ts[2m > [22m[2mRAG System[2m > [22m[2mshould generate embeddings (mocked)
+[22m[39mInitializing embeddings model: Xenova/all-MiniLM-L6-v2
+
+[90mstdout[2m | electron/rag/__tests__/rag.test.ts[2m > [22m[2mRAG System[2m > [22m[2mshould generate embeddings (mocked)
+[22m[39mEmbeddings model initialized
+
+[90mstdout[2m | electron/rag/__tests__/rag.test.ts[2m > [22m[2mRAG System[2m > [22m[2mshould generate embeddings (mocked)
+[22m[39mInitializing Vector Store at: C:\Users\monas\AppData\Local\Temp\rag-test-28jrk8\rag-store
+
+[90mstdout[2m | electron/rag/__tests__/rag.test.ts[2m > [22m[2mRAG System[2m > [22m[2mshould ingest and search documents
+[22m[39mIngesting document: doc1
+Split into 1 chunks
+
+[90mstdout[2m | electron/rag/__tests__/rag.test.ts[2m > [22m[2mRAG System[2m > [22m[2mshould ingest and search documents
+[22m[39mStored 1 chunks
+
+ [32m✓[39m electron/rag/__tests__/rag.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 395[2mms[22m[39m
+     [33m[2m✓[22m[39m should generate embeddings (mocked) [33m 318[2mms[22m[39m
+ [32m✓[39m electron/transpiler/__test__/codeTransforms.regression.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 83[2mms[22m[39m
+ [32m✓[39m electron/transpiler/__test__/edgeCases.test.ts [2m([22m[2m54 tests[22m[2m)[22m[32m 280[2mms[22m[39m
+[90mstdout[2m | src/components/Result.test.tsx
+[22m[39m🌐 i18next is maintained with support from locize.com — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+[90mstdout[2m | src/components/Layout.test.tsx
+[22m[39m🌐 i18next is maintained with support from locize.com — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+[90mstdout[2m | src/components/InputTooltip.test.tsx
+[22m[39m🌐 i18next is maintained with support from locize.com — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+[90mstdout[2m | src/components/FloatingToolbar.test.tsx
+[22m[39m🌐 i18next is maintained with support from locize.com — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+[90mstdout[2m | src/features/ai-agent/ai-agent.test.ts[2m > [22m[2mAI Agent Feature[2m > [22m[2mprocessEditorActions[2m > [22m[2mshould extract and execute EDITOR_ACTION
+[22m[39m[CodeAgent] Found editor action block
+[CodeAgent] Executing action: replaceAll
+
+[90mstdout[2m | src/features/ai-agent/ai-agent.test.ts[2m > [22m[2mAI Agent Feature[2m > [22m[2mprocessEditorActions[2m > [22m[2mshould handle invalid JSON gracefully
+[22m[39m[CodeAgent] Found editor action block
+
+ [31m❯[39m src/features/ai-agent/ai-agent.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[32m 37[2mms[22m[39m
+       [32m✓[39m should remove markdown code blocks[32m 1[2mms[22m[39m
+[31m       [31m×[31m should remove leading/trailing quotes[39m[32m 11[2mms[22m[39m
+       [32m✓[39m should remove common AI prefixes[32m 0[2mms[22m[39m
+       [32m✓[39m should not repeat the current line[32m 0[2mms[22m[39m
+[31m       [31m×[31m should have strict rules for inline completion[39m[32m 15[2mms[22m[39m
+[31m       [31m×[31m should build inline completion prompt correctly[39m[32m 1[2mms[22m[39m
+       [32m✓[39m should extract and execute EDITOR_ACTION[32m 3[2mms[22m[39m
+       [32m✓[39m should handle invalid JSON gracefully[32m 3[2mms[22m[39m
+ [32m✓[39m src/components/Layout.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 66[2mms[22m[39m
+[90mstdout[2m | src/__test__/ErrorBoundary.test.tsx
+[22m[39m🌐 i18next is maintained with support from locize.com — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+ [32m✓[39m src/hooks/__tests__/useCodeRunner.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 108[2mms[22m[39m
+ [32m✓[39m src/__test__/ErrorBoundary.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 107[2mms[22m[39m
+ [32m✓[39m src/components/InputTooltip.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 212[2mms[22m[39m
+ [32m✓[39m src/store/__tests__/createPackageStore.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/__test__/elementParser.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/components/FloatingToolbar.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 362[2mms[22m[39m
+ [32m✓[39m src/store/__tests__/useCodeStore.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m src/components/Result.test.tsx [2m([22m[2m24 tests[22m[2m)[22m[33m 721[2mms[22m[39m
+ [32m✓[39m electron/transpiler/__test__/transpiler.test.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould handle Javascript execution
+[22m[39m[Main] execute-code handler called: test-id javascript
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould handle Python execution
+[22m[39m[Main] execute-code handler called: test-id python
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould default language to javascript when not specified
+[22m[39m[Main] execute-code handler called: no-lang [90mundefined[39m
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould apply default transform options when not provided
+[22m[39m[Main] execute-code handler called: defaults-test javascript
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould respect explicitly provided transform options
+[22m[39m[Main] execute-code handler called: explicit-opts javascript
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould return error when transpilation fails
+[22m[39m[Main] execute-code handler called: bad-ts typescript
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould return error when transpilation throws a non-Error
+[22m[39m[Main] execute-code handler called: non-error-throw javascript
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould return error when worker execution rejects
+[22m[39m[Main] execute-code handler called: crash-test javascript
+
+[90mstdout[2m | tests/unit/ExecutionHandlers.spec.ts[2m > [22m[2mExecutionHandlers[2m > [22m[2mshould return error when Python execution rejects
+[22m[39m[Main] execute-code handler called: py-crash python
+
+ [32m✓[39m tests/unit/ExecutionHandlers.spec.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/unit/useHistoryStore.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/store/__tests__/useRagStore.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/store/__tests__/useSettingsStore.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/store/__tests__/useChatStore.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/ai-agent/providers.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/store/__tests__/useSnippetsStore.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m electron/workers/__test__/workers.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 6582[2mms[22m[39m
+     [33m[2m✓[22m[39m should handle timeouts (infinite loop) [33m 1072[2mms[22m[39m
+     [33m[2m✓[22m[39m should execute simple Python [33m 1815[2mms[22m[39m
+     [33m[2m✓[22m[39m should handle Python syntax errors [33m 1907[2mms[22m[39m
+     [33m[2m✓[22m[39m should support standard library imports [33m 1567[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m21 passed[39m[22m[90m (22)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m295 passed[39m[22m[90m (298)[39m
+[2m   Start at [22m 21:43:49
+[2m   Duration [22m 7.88s[2m (transform 2.02s, setup 5.55s, import 8.83s, tests 9.07s, environment 33.75s)[22m
+

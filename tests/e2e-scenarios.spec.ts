@@ -130,7 +130,10 @@ test.describe('End-to-End System Validation', () => {
     await window.keyboard.type(code);
 
     // Wait for editor content to update
-    await window.waitForTimeout(500);
+    await window.waitForFunction(
+      () => document.querySelector('[data-testid="run-button"]') !== null,
+      { timeout: 5000 }
+    );
 
     // Wait for run button and click
     const runButton = window.locator('[data-testid="run-button"]');
@@ -181,7 +184,10 @@ test.describe('End-to-End System Validation', () => {
 
     await clearEditor(window, 0);
     await window.keyboard.type(code);
-    await window.waitForTimeout(500);
+    // Wait for run button to be available
+    await window.waitForSelector('[data-testid="run-button"]', {
+      timeout: 5000,
+    });
 
     await window.click('[data-testid="run-button"]');
 
@@ -212,7 +218,10 @@ test.describe('End-to-End System Validation', () => {
 
     // Type error code
     await window.keyboard.insertText('throw new Error("Test Error 123");');
-    await window.waitForTimeout(500);
+    // Wait for run button to be available
+    await window.waitForSelector('[data-testid="run-button"]', {
+      timeout: 5000,
+    });
 
     // Run
     await window.click('[data-testid="run-button"]');
@@ -231,7 +240,10 @@ test.describe('End-to-End System Validation', () => {
     const code = `console.log("PERF_CHECK");`;
     await window.keyboard.type(code);
 
-    await window.waitForTimeout(500);
+    // Wait for run button to be available
+    await window.waitForSelector('[data-testid="run-button"]', {
+      timeout: 5000,
+    });
 
     await window.click('[data-testid="run-button"]');
 

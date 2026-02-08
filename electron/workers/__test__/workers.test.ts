@@ -27,7 +27,7 @@ function runInWorker(workerPath: string, code: string, options: any = {}) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results: any[] = [];
-    const id = 'test-id-' + Math.random().toString(36).substr(2, 9);
+    const id = 'test-id-' + Math.random().toString(36).substring(2, 11);
 
     worker.on('message', (msg) => {
       if (msg.id === id) {

@@ -4,10 +4,10 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { AIProvider, CustomProviderConfig } from './types';
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 
 export interface ProviderInstance {
-  model: LanguageModelV1;
+  model: LanguageModel;
   provider: AIProvider;
   modelId: string;
 }
@@ -26,7 +26,7 @@ export function createProviderInstance(
   localConfig?: LocalProviderConfig,
   customConfig?: CustomProviderConfig
 ): ProviderInstance {
-  let model: LanguageModelV1;
+  let model: LanguageModel;
   const effectiveModelId = customConfig?.modelId || modelId;
 
   switch (provider) {
@@ -38,7 +38,6 @@ export function createProviderInstance(
       const localProvider = createOpenAI({
         baseURL: localConfig.baseURL,
         apiKey: localConfig.apiKey || 'not-needed',
-        compatibility: 'compatible',
       });
       model = localProvider.chat(localConfig.modelId || modelId);
       break;
@@ -51,7 +50,6 @@ export function createProviderInstance(
       const openaiConfig: Parameters<typeof createOpenAI>[0] = { apiKey };
       if (customConfig?.baseURL) {
         openaiConfig.baseURL = customConfig.baseURL;
-        openaiConfig.compatibility = 'compatible';
       }
       const openai = createOpenAI(openaiConfig);
       // Use .chat() for custom models to ensure compatibility

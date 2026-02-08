@@ -15,7 +15,20 @@ export function Layout({ children, className }: LayoutProps) {
 
   const [sizes, setSizes] = useState(() => {
     const storedSizes = window.localStorage.getItem('split-sizes');
-    if (storedSizes) return JSON.parse(storedSizes);
+    if (storedSizes) {
+      try {
+        const parsed = JSON.parse(storedSizes);
+        if (
+          Array.isArray(parsed) &&
+          parsed.length === 2 &&
+          parsed.every((v: unknown) => typeof v === 'number')
+        ) {
+          return parsed as [number, number];
+        }
+      } catch {
+        // Corrupted localStorage value — use default
+      }
+    }
     return [50, 50];
   });
 

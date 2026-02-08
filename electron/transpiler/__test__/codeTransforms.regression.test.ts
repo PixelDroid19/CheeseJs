@@ -4,7 +4,7 @@
  * @vitest-environment node
  */
 import { describe, it, expect } from 'vitest';
-import { transformCode } from '../tsTranspiler.js';
+import { transformCode } from '../swcTranspiler.js';
 import {
   wrapTopLevelExpressions,
   transformConsoleTodebug,

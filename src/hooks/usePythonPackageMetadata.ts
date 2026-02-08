@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import {
+  createPackageMetadataHook,
+  type BasePackageMetadata,
+} from './createPackageMetadataHook';
 
-export interface PyPIPackageMetadata {
-  name?: string;
-  description?: string;
-  version?: string;
-  loading?: boolean;
-  error?: string;
+// Extended metadata type for PyPI packages
+export interface PyPIPackageMetadata extends BasePackageMetadata {
   author?: string;
   homepage?: string;
 }
@@ -53,65 +52,7 @@ async function fetchPyPIPackageInfo(
 }
 
 /**
- * Hook to fetch and cache Python package metadata from PyPI
+ * Hook to fetch and cache Python package metadata from PyPI.
  */
-export function usePythonPackageMetadata(detectedMissingPackages: string[]) {
-  const [packageMetadata, setPackageMetadata] = useState<
-    Record<string, PyPIPackageMetadata>
-  >({});
-  const [dismissedPackages, setDismissedPackages] = useState<string[]>([]);
-
-  // Fetch metadata for new packages
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      for (const pkgName of detectedMissingPackages) {
-        // Skip if already fetched or currently loading
-        if (packageMetadata[pkgName] && !packageMetadata[pkgName].loading) {
-          continue;
-        }
-
-        // Skip if already dismissed
-        if (dismissedPackages.includes(pkgName)) {
-          continue;
-        }
-
-        // Set loading state
-        setPackageMetadata((prev) => ({
-          ...prev,
-          [pkgName]: { loading: true },
-        }));
-
-        // Fetch from PyPI
-        const info = await fetchPyPIPackageInfo(pkgName);
-
-        setPackageMetadata((prev) => ({
-          ...prev,
-          [pkgName]: info,
-        }));
-      }
-    };
-
-    if (detectedMissingPackages.length > 0) {
-      fetchMetadata();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detectedMissingPackages, dismissedPackages]);
-
-  // Memoized dismiss handler
-  const dismissPackage = useCallback((pkgName: string) => {
-    setDismissedPackages((prev) => [...prev, pkgName]);
-  }, []);
-
-  // Clear dismissed when package list changes significantly
-  const clearDismissed = useCallback(() => {
-    setDismissedPackages([]);
-  }, []);
-
-  return {
-    packageMetadata,
-    dismissedPackages,
-    setDismissedPackages,
-    dismissPackage,
-    clearDismissed,
-  };
-}
+export const usePythonPackageMetadata =
+  createPackageMetadataHook<PyPIPackageMetadata>(fetchPyPIPackageInfo);

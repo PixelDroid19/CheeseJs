@@ -31,22 +31,39 @@ async function setCode(p: Page, code: string) {
     const model = window.monaco.editor.getModels()[0];
     model.setValue(c);
   }, code);
-  // Let language detection settle
-  await p.waitForTimeout(1200);
+  // Wait for language detection to settle by checking that the model value is set
+  await p.waitForFunction(
+    (c) => {
+      // @ts-expect-error - Monaco is injected globally
+      const model = window.monaco.editor.getModels()[0];
+      return model && model.getValue() === c;
+    },
+    code,
+    { timeout: 5000 }
+  );
 }
 
 async function runAndGetOutput(p: Page, waitMs = 4000) {
   await p.getByRole('button', { name: /Run|Ejecutar/i }).click();
-  await p.waitForTimeout(waitMs);
-  const output = await p.evaluate(() => {
-    // @ts-expect-error - Monaco is injected globally
-    const models = window.monaco.editor.getModels();
-    if (models.length > 1) {
-      return models[1].getValue();
+
+  // Poll for output instead of using a fixed timeout
+  const deadline = Date.now() + waitMs;
+  let output = '';
+  while (Date.now() < deadline) {
+    output = (await p.evaluate(() => {
+      // @ts-expect-error - Monaco is injected globally
+      const models = window.monaco.editor.getModels();
+      if (models.length > 1) {
+        return models[1].getValue();
+      }
+      return '';
+    })) as string;
+    if (output && output.trim() !== '') {
+      return output;
     }
-    return '';
-  });
-  return output as string;
+    await p.waitForTimeout(200);
+  }
+  return output;
 }
 
 test.beforeAll(async () => {

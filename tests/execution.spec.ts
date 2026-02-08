@@ -51,8 +51,15 @@ test.describe('Code Execution', () => {
     // Click Run
     await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
 
-    // Give it a moment to run
-    await page.waitForTimeout(2000);
+    // Wait for execution output to appear in the output model
+    await page.waitForFunction(
+      () => {
+        // @ts-expect-error - Monaco is injected globally
+        const models = window.monaco.editor.getModels();
+        return models.some((m: any) => m.getValue().includes('Hello from E2E'));
+      },
+      { timeout: 10000 }
+    );
 
     const output = await page.evaluate(() => {
       // @ts-expect-error - Monaco is injected globally
@@ -75,7 +82,17 @@ test.describe('Code Execution', () => {
     });
 
     await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await page.waitForTimeout(2000);
+
+    // Wait for execution output to contain both lines
+    await page.waitForFunction(
+      () => {
+        // @ts-expect-error - Monaco is injected globally
+        const models = window.monaco.editor.getModels();
+        const combined = models.map((m: any) => m.getValue()).join('\n');
+        return combined.includes('Line 1') && combined.includes('Line 2');
+      },
+      { timeout: 10000 }
+    );
 
     const output = await page.evaluate(() => {
       // @ts-expect-error - Monaco is injected globally

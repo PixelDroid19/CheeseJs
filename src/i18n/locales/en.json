@@ -4,6 +4,7 @@
     "theme": "Theme",
     "language": "Language",
     "fontSize": "Font Size",
+    "uiFontSize": "Font Size (UI)",
     "close": "Close",
     "categories": {
       "general": "General",

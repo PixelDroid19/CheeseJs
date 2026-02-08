@@ -45,8 +45,16 @@ async function setCode(page: Page, code: string) {
     model.setValue(c);
   }, code);
 
-  // Wait for language detection (debounced)
-  await page.waitForTimeout(1500);
+  // Wait for language detection to settle (instead of fixed timeout)
+  await page.waitForFunction(
+    (c) => {
+      // @ts-expect-error - Monaco is injected globally
+      const model = window.monaco.editor.getModels()[0];
+      return model && model.getValue() === c;
+    },
+    code,
+    { timeout: 10000 }
+  );
 }
 
 // Helper to get current detected language
@@ -130,7 +138,6 @@ test.beforeAll(async () => {
   await expect(window.locator('.monaco-editor').first()).toBeVisible({
     timeout: 30000,
   });
-  await window.waitForTimeout(3000);
 
   // Ensure Monaco is loaded
   await window.waitForFunction(
@@ -635,7 +642,15 @@ test.describe('Language Switching', () => {
       'hello()';
 
     await setCode(window, pythonCode);
-    await window.waitForTimeout(2500); // Extra wait for ML detection
+    // Wait for ML detection to identify Python
+    await window.waitForFunction(
+      () => {
+        // @ts-expect-error - Monaco is injected globally
+        const model = window.monaco.editor.getModels()[0];
+        return model && model.getLanguageId() === 'python';
+      },
+      { timeout: 15000 }
+    );
 
     const lang = await getLanguage(window);
     expect(lang).toBe('python'); // Should definitely detect as Python now

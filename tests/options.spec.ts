@@ -82,7 +82,19 @@ test.describe('Application Options & Behavior', () => {
     });
 
     await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await page.waitForTimeout(1000);
+
+    // Wait for execution output to appear in any model
+    await page.waitForFunction(
+      () => {
+        // @ts-expect-error - Monaco is injected globally
+        const models = window.monaco.editor.getModels();
+        return (
+          models.length > 1 &&
+          models.some((m: any) => m.getValue().includes('undefined'))
+        );
+      },
+      { timeout: 10000 }
+    );
 
     const output = await page.evaluate(() => {
       // @ts-expect-error - Monaco is injected globally
@@ -105,7 +117,16 @@ test.describe('Application Options & Behavior', () => {
     });
 
     await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await page.waitForTimeout(1000);
+
+    // Wait for execution output containing the error
+    await page.waitForFunction(
+      () => {
+        // @ts-expect-error - Monaco is injected globally
+        const models = window.monaco.editor.getModels();
+        return models.some((m: any) => m.getValue().includes('Test Error'));
+      },
+      { timeout: 10000 }
+    );
 
     const output = await page.evaluate(() => {
       // @ts-expect-error - Monaco is injected globally
@@ -148,7 +169,16 @@ test.describe('Application Options & Behavior', () => {
     });
 
     await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await page.waitForTimeout(1000);
+
+    // Wait for execution output
+    await page.waitForFunction(
+      () => {
+        // @ts-expect-error - Monaco is injected globally
+        const models = window.monaco.editor.getModels();
+        return models.some((m: any) => m.getValue().includes('10'));
+      },
+      { timeout: 10000 }
+    );
 
     const output = await page.evaluate(() => {
       // @ts-expect-error - Monaco is injected globally

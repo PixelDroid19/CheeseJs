@@ -89,9 +89,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showContextMenu: () => ipcRenderer.send('show-context-menu'),
   onToggleMagicComments: (callback: () => void) =>
     ipcRenderer.on('toggle-magic-comments', () => callback()),
+
+  // Filesystem operations for AI agent
+  readFile: (
+    path: string,
+    options?: { startLine?: number; endLine?: number }
+  ) => ipcRenderer.invoke('fs:readFile', path, options),
+  writeFile: (path: string, content: string) =>
+    ipcRenderer.invoke('fs:writeFile', path, content),
+  listFiles: (path: string, recursive?: boolean) =>
+    ipcRenderer.invoke('fs:listFiles', path, recursive),
+  searchInFiles: (pattern: string, directory: string) =>
+    ipcRenderer.invoke('fs:searchInFiles', pattern, directory),
+  executeCommand: (command: string, cwd?: string) =>
+    ipcRenderer.invoke('fs:executeCommand', command, cwd),
+  deleteFile: (path: string) => ipcRenderer.invoke('fs:deleteFile', path),
+  getWorkspacePath: () => ipcRenderer.invoke('fs:getWorkspacePath'),
 });
 
-import { RagDocument, RagConfig, SearchOptions, SubStep } from './rag/types';
+import {
+  RagDocument,
+  RagConfig,
+  SearchOptions,
+  SubStep,
+  PipelineOptions,
+} from './rag/types';
 
 contextBridge.exposeInMainWorld('rag', {
   ingest: (doc: RagDocument) => ipcRenderer.invoke('rag:ingest', doc),
@@ -115,9 +137,17 @@ contextBridge.exposeInMainWorld('rag', {
   searchAdvanced: (query: string, options?: SearchOptions) =>
     ipcRenderer.invoke('rag:search-advanced', query, options),
 
+  // Get chunks by document IDs (for pinned docs - no embedding needed)
+  getChunksByDocuments: (documentIds: string[], limit?: number) =>
+    ipcRenderer.invoke('rag:get-chunks-by-documents', documentIds, limit),
+
   // Strategy Decision
   decideStrategy: (documentIds: string[], query: string) =>
     ipcRenderer.invoke('rag:decide-strategy', documentIds, query),
+
+  // Pipeline Search (full chain: rewrite → hybrid → rerank → distill → trim)
+  searchPipeline: (query: string, options?: PipelineOptions) =>
+    ipcRenderer.invoke('rag:search-pipeline', query, options),
 
   // Progress Events
   onProgress: (
@@ -455,7 +485,11 @@ contextBridge.exposeInMainWorld('aiProxy', {
 
     return {
       streamId,
-      abort: cleanup,
+      abort: () => {
+        // Signal the main process to abort the underlying fetch request
+        ipcRenderer.send('ai:proxy:stream:abort', streamId);
+        cleanup();
+      },
     };
   },
 });

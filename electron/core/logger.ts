@@ -2,7 +2,7 @@
  * Electron Main Process Logger
  *
  * Centralized logging for the Electron main process using electron-log.
- * Provides structured logging with file persistence and IPC bridge.
+ * Extends BaseLogger from shared/logger-base.ts to avoid code duplication.
  *
  * Features:
  * - Log levels: DEBUG, INFO, WARN, ERROR
@@ -13,6 +13,13 @@
  */
 
 import log from 'electron-log/main';
+import {
+  BaseLogger,
+  BaseNamespacedLogger,
+  type LogLevel,
+  type LogEntry,
+  type BaseLoggerConfig,
+} from '../../shared/logger-base.js';
 
 // Minimal interface to avoid direct Electron dependency in type checking
 interface BrowserWindowLike {
@@ -26,41 +33,17 @@ interface BrowserWindowLike {
 // TYPES
 // ============================================================================
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-export interface LogEntry {
-  id: string;
-  timestamp: number;
-  level: LogLevel;
-  namespace: string;
-  message: string;
-  data?: unknown;
-  stack?: string;
-}
-
-export interface MainLoggerConfig {
-  /** Minimum level to log (default: 'debug' in dev, 'info' in prod) */
-  minLevel: LogLevel;
-  /** Maximum entries to keep in memory (default: 1000) */
-  maxEntries: number;
-  /** Whether to output to console (default: true) */
-  consoleOutput: boolean;
+export interface MainLoggerConfig extends BaseLoggerConfig {
   /** Whether to write to file (default: true) */
   fileOutput: boolean;
-  /** Whether to send logs to renderer via IPC */
-  ipcEnabled: boolean;
 }
+
+// Re-export shared types for consumers
+export type { LogLevel, LogEntry };
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
 
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
@@ -79,7 +62,8 @@ const DEFAULT_CONFIG: MainLoggerConfig = {
 // Configure file transport
 log.transports.file.level = IS_DEV ? 'debug' : 'info';
 log.transports.file.maxSize = 5 * 1024 * 1024; // 5MB
-log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
+log.transports.file.format =
+  '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
 
 // Configure console transport
 log.transports.console.level = IS_DEV ? 'debug' : 'info';
@@ -89,19 +73,17 @@ log.transports.console.format = '[{h}:{i}:{s}] [{level}] {text}';
 // MAIN LOGGER CLASS
 // ============================================================================
 
-class MainLogger {
-  private entries: LogEntry[] = [];
-  private config: MainLoggerConfig = { ...DEFAULT_CONFIG };
+class MainLogger extends BaseLogger<MainLoggerConfig> {
   private mainWindow: BrowserWindowLike | null = null;
-  private listeners: Set<(entry: LogEntry) => void> = new Set();
+
+  constructor() {
+    super(DEFAULT_CONFIG);
+  }
 
   /**
-   * Configure the logger
+   * React to config changes by updating electron-log transports
    */
-  configure(config: Partial<MainLoggerConfig>): void {
-    this.config = { ...this.config, ...config };
-
-    // Update electron-log config
+  protected onConfigChange(): void {
     log.transports.file.level = this.config.fileOutput
       ? this.config.minLevel
       : false;
@@ -118,13 +100,6 @@ class MainLogger {
   }
 
   /**
-   * Get current configuration
-   */
-  getConfig(): MainLoggerConfig {
-    return { ...this.config };
-  }
-
-  /**
    * Create a namespaced logger
    */
   createNamespace(namespace: string): NamespacedMainLogger {
@@ -132,65 +107,16 @@ class MainLogger {
   }
 
   /**
-   * Log a debug message
+   * Output entry via electron-log (file + console transports)
    */
-  debug(namespace: string, message: string, data?: unknown): void {
-    this.log('debug', namespace, message, data);
-  }
-
-  /**
-   * Log an info message
-   */
-  info(namespace: string, message: string, data?: unknown): void {
-    this.log('info', namespace, message, data);
-  }
-
-  /**
-   * Log a warning message
-   */
-  warn(namespace: string, message: string, data?: unknown): void {
-    this.log('warn', namespace, message, data);
-  }
-
-  /**
-   * Log an error message
-   */
-  error(namespace: string, message: string, data?: unknown): void {
-    this.log('error', namespace, message, data);
-  }
-
-  /**
-   * Core log method
-   */
-  private log(
-    level: LogLevel,
-    namespace: string,
-    message: string,
-    data?: unknown
-  ): void {
-    if (!this.shouldLog(level)) return;
-
-    const entry: LogEntry = {
-      id: this.generateId(),
-      timestamp: Date.now(),
-      level,
-      namespace,
-      message,
-      data,
-      stack: level === 'error' ? new Error().stack : undefined,
-    };
-
-    // Store in memory
-    this.entries.push(entry);
-    this.trimEntries();
-
-    // Format message for electron-log
-    const formattedMessage = `[${namespace}] ${message}`;
+  protected outputEntry(entry: LogEntry): void {
+    const formattedMessage = `[${entry.namespace}] ${entry.message}`;
     const logData =
-      data !== undefined ? [formattedMessage, data] : [formattedMessage];
+      entry.data !== undefined
+        ? [formattedMessage, entry.data]
+        : [formattedMessage];
 
-    // Output via electron-log
-    switch (level) {
+    switch (entry.level) {
       case 'debug':
         log.debug(...logData);
         break;
@@ -204,120 +130,19 @@ class MainLogger {
         log.error(...logData);
         break;
     }
+  }
 
-    // Send to renderer via IPC if enabled
-    if (
-      this.config.ipcEnabled &&
-      this.mainWindow &&
-      !this.mainWindow.isDestroyed()
-    ) {
+  /**
+   * Send log entry to renderer via IPC
+   */
+  protected sendToIpc(entry: LogEntry): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send('main-log-entry', entry);
     }
-
-    // Notify listeners
-    this.notifyListeners(entry);
-  }
-
-  /**
-   * Check if a level should be logged
-   */
-  private shouldLog(level: LogLevel): boolean {
-    return (
-      LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.config.minLevel]
-    );
-  }
-
-  /**
-   * Generate unique ID
-   */
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * Trim entries to max limit
-   */
-  private trimEntries(): void {
-    if (this.entries.length > this.config.maxEntries) {
-      this.entries = this.entries.slice(-this.config.maxEntries);
-    }
-  }
-
-  /**
-   * Notify all listeners
-   */
-  private notifyListeners(entry: LogEntry): void {
-    this.listeners.forEach((listener) => listener(entry));
   }
 
   // ===========================================================================
-  // QUERY METHODS
-  // ===========================================================================
-
-  /**
-   * Get all entries, optionally filtered
-   */
-  getEntries(filter?: {
-    level?: LogLevel;
-    namespace?: string;
-    since?: number;
-  }): LogEntry[] {
-    let result = [...this.entries];
-
-    if (filter?.level) {
-      const minPriority = LOG_LEVEL_PRIORITY[filter.level];
-      result = result.filter((e) => LOG_LEVEL_PRIORITY[e.level] >= minPriority);
-    }
-
-    if (filter?.namespace) {
-      result = result.filter((e) => e.namespace === filter.namespace);
-    }
-
-    if (filter?.since !== undefined) {
-      const since = filter.since;
-      result = result.filter((e) => e.timestamp >= since);
-    }
-
-    return result;
-  }
-
-  /**
-   * Get recent entries
-   */
-  getRecent(count: number = 50): LogEntry[] {
-    return this.entries.slice(-count);
-  }
-
-  /**
-   * Get errors only
-   */
-  getErrors(): LogEntry[] {
-    return this.entries.filter((e) => e.level === 'error');
-  }
-
-  /**
-   * Get warnings and errors
-   */
-  getWarningsAndErrors(): LogEntry[] {
-    return this.entries.filter(
-      (e) => e.level === 'warn' || e.level === 'error'
-    );
-  }
-
-  // ===========================================================================
-  // SUBSCRIPTION
-  // ===========================================================================
-
-  /**
-   * Subscribe to new log entries
-   */
-  subscribe(listener: (entry: LogEntry) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  // ===========================================================================
-  // EXPORT & CLEAR
+  // MAIN-PROCESS SPECIFIC METHODS
   // ===========================================================================
 
   /**
@@ -328,7 +153,7 @@ class MainLogger {
   }
 
   /**
-   * Export all logs as JSON
+   * Export all logs as JSON (overrides base to include logFilePath)
    */
   export(): string {
     return JSON.stringify(
@@ -342,33 +167,6 @@ class MainLogger {
       2
     );
   }
-
-  /**
-   * Export logs as formatted text
-   */
-  exportAsText(): string {
-    return this.entries
-      .map((e) => {
-        const time = new Date(e.timestamp).toISOString();
-        const data = e.data ? ` ${JSON.stringify(e.data)}` : '';
-        return `[${time}] ${e.level.toUpperCase()} [${e.namespace}] ${e.message}${data}`;
-      })
-      .join('\n');
-  }
-
-  /**
-   * Clear all entries
-   */
-  clear(): void {
-    this.entries = [];
-  }
-
-  /**
-   * Get entry count
-   */
-  get count(): number {
-    return this.entries.length;
-  }
 }
 
 // ============================================================================
@@ -378,26 +176,9 @@ class MainLogger {
 /**
  * A logger instance bound to a specific namespace
  */
-class NamespacedMainLogger {
-  constructor(
-    private logger: MainLogger,
-    private namespace: string
-  ) {}
-
-  debug(message: string, data?: unknown): void {
-    this.logger.debug(this.namespace, message, data);
-  }
-
-  info(message: string, data?: unknown): void {
-    this.logger.info(this.namespace, message, data);
-  }
-
-  warn(message: string, data?: unknown): void {
-    this.logger.warn(this.namespace, message, data);
-  }
-
-  error(message: string, data?: unknown): void {
-    this.logger.error(this.namespace, message, data);
+class NamespacedMainLogger extends BaseNamespacedLogger<MainLoggerConfig> {
+  constructor(logger: MainLogger, namespace: string) {
+    super(logger, namespace);
   }
 }
 

@@ -4,6 +4,7 @@
     "theme": "Tema",
     "language": "Idioma",
     "fontSize": "Tamaño de fuente",
+    "uiFontSize": "Tamaño de fuente (UI)",
     "close": "Cerrar",
     "categories": {
       "general": "Configuración General",

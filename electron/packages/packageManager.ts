@@ -159,10 +159,10 @@ export async function installPackage(
     const args = ['install', packageSpec, '--save', '--legacy-peer-deps'];
 
     // SECURITY: Command injection is prevented by isValidPackageName() validation above
-    // shell: true is required on Windows for .cmd files
+    // shell: true is required on Windows for .cmd files, but avoided on other platforms
     const child = spawn(npm, args, {
       cwd: packagesDir,
-      shell: true,
+      shell: process.platform === 'win32',
       env: { ...process.env },
     });
 
@@ -246,10 +246,10 @@ export async function uninstallPackage(
     const args = ['uninstall', packageName, '--save'];
 
     // SECURITY: Command injection is prevented by isValidPackageName() validation above
-    // shell: true is required on Windows for .cmd files
+    // shell: true is required on Windows for .cmd files, but avoided on other platforms
     const child = spawn(npm, args, {
       cwd: packagesDir,
-      shell: true,
+      shell: process.platform === 'win32',
       env: { ...process.env },
     });
 

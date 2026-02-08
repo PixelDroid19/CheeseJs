@@ -16,16 +16,17 @@ Guidelines:
 - Include brief explanations when helpful.
 - If the user is working with a specific library, follow its conventions.`,
 
-  inlineCompletion: `You are an autocomplete engine. Complete the code at the cursor.
+  inlineCompletion: `You are a code completion engine (like GitHub Copilot). You fill in code at the cursor position using the surrounding context.
 
-STRICT RULES:
-1. Output ONLY the characters to INSERT at cursor position
-2. NEVER repeat existing code - the cursor is at the END of what's shown
-3. NO markdown, NO code blocks, NO backticks, NO explanations
-4. Just raw code characters that continue from the cursor
-5. If line has "const x = " - complete with the value, NOT "const x = value"
-6. Keep it short: 1 line or a small function body
-7. Match existing code style exactly`,
+RULES — follow ALL of them exactly:
+1. Output ONLY the raw code that goes at the <CURSOR> position. Nothing else.
+2. NEVER repeat code that already exists before or after the cursor.
+3. NO markdown, NO code fences, NO backticks, NO natural language, NO explanations.
+4. Match the existing indentation, naming conventions, and code style exactly.
+5. Prefer completing the current statement/expression first, then optionally add 1-3 more lines if they are a natural continuation.
+6. If the cursor is mid-expression (e.g. after "const x = "), complete the expression — do NOT re-state the left-hand side.
+7. If there is code after the cursor, make sure your completion flows into it naturally. Do not duplicate it.
+8. If you cannot produce a confident completion, output nothing (empty string).`,
 
   codeExplanation: `Explain this code clearly and concisely:
 - What it does
@@ -57,33 +58,27 @@ export interface PromptContext {
   userPrompt?: string;
 }
 
-// Build inline completion prompt
+// Build inline completion prompt — FIM (Fill-in-the-Middle) style
 export function buildInlineCompletionPrompt(context: PromptContext): string {
   const { language, codeBefore, codeAfter } = context;
 
-  // Get just the last few lines for context - cursor is at the end of this
-  const lines = codeBefore.split('\n');
-  const lastLines = lines.slice(-8).join('\n');
-  const currentLine = lines[lines.length - 1] || '';
-  const nextLines = codeAfter.split('\n').slice(0, 2).join('\n');
+  // Use generous context: last ~40 lines before, ~10 lines after
+  const prefixLines = codeBefore.split('\n');
+  const prefix = prefixLines.slice(-40).join('\n');
+  const suffix = codeAfter.split('\n').slice(0, 10).join('\n');
 
-  return `Language: ${language}
+  // Current line helps the model understand what the user is typing right now
+  const currentLine = prefixLines[prefixLines.length - 1] || '';
 
-Code ending at cursor position (█ = cursor):
-\`\`\`
-${lastLines}█
-\`\`\`
+  // FIM-style prompt: clear separation of prefix / cursor / suffix
+  return `[LANG] ${language}
+[PREFIX]
+${prefix}<CURSOR>[SUFFIX]
+${suffix}
+[END]
 
-After cursor:
-\`\`\`
-${nextLines}
-\`\`\`
-
-Current incomplete line: "${currentLine}"
-
-OUTPUT ONLY the characters that should appear RIGHT AFTER the cursor.
-Do NOT repeat "${currentLine}" - just add what's missing.
-No markdown. No explanation. Just the raw completion:`;
+The cursor is at <CURSOR>, right after: "${currentLine}"
+Fill in the code at the cursor position. Output ONLY the inserted code:`;
 }
 
 // Build chat prompt with code context

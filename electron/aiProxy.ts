@@ -17,111 +17,152 @@ interface AIProxyResponse {
   body: string;
 }
 
+// Track active stream abort controllers for cleanup
+const activeStreams = new Map<string, AbortController>();
+
 // Register IPC handler for AI API calls
 export function registerAIProxy(): void {
-  ipcMain.handle('ai:proxy', async (_event, request: AIProxyRequest): Promise<AIProxyResponse> => {
-    try {
-      const response = await fetch(request.url, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-      });
+  ipcMain.handle(
+    'ai:proxy',
+    async (_event, request: AIProxyRequest): Promise<AIProxyResponse> => {
+      try {
+        const response = await fetch(request.url, {
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
+        });
 
-      // Get response headers
-      const responseHeaders: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value;
-      });
+        // Get response headers
+        const responseHeaders: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+          responseHeaders[key] = value;
+        });
 
-      // Get response body as text
-      const body = await response.text();
+        // Get response body as text
+        const body = await response.text();
 
-      return {
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-        headers: responseHeaders,
-        body,
-      };
-    } catch (error) {
-      console.error('[AIProxy] Error:', error);
-      return {
-        ok: false,
-        status: 500,
-        statusText: 'Internal Error',
-        headers: {},
-        body: JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      };
-    }
-  });
-
-  // Handle streaming requests
-  ipcMain.handle('ai:proxy:stream', async (event, request: AIProxyRequest): Promise<{ streamId: string }> => {
-    const streamId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    try {
-      const response = await fetch(request.url, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        event.sender.send(`ai:stream:error:${streamId}`, {
+        return {
+          ok: response.ok,
           status: response.status,
           statusText: response.statusText,
-          body: errorBody,
+          headers: responseHeaders,
+          body,
+        };
+      } catch (error) {
+        console.error('[AIProxy] Error:', error);
+        return {
+          ok: false,
+          status: 500,
+          statusText: 'Internal Error',
+          headers: {},
+          body: JSON.stringify({
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }),
+        };
+      }
+    }
+  );
+
+  // Handle streaming requests
+  ipcMain.handle(
+    'ai:proxy:stream',
+    async (event, request: AIProxyRequest): Promise<{ streamId: string }> => {
+      const streamId = `stream_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const abortController = new AbortController();
+      activeStreams.set(streamId, abortController);
+
+      try {
+        const response = await fetch(request.url, {
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
+          signal: abortController.signal,
         });
-        return { streamId };
-      }
 
-      if (!response.body) {
-        event.sender.send(`ai:stream:end:${streamId}`);
-        return { streamId };
-      }
+        if (!response.ok) {
+          const errorBody = await response.text();
+          event.sender.send(`ai:stream:error:${streamId}`, {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody,
+          });
+          activeStreams.delete(streamId);
+          return { streamId };
+        }
 
-      // Stream the response
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+        if (!response.body) {
+          event.sender.send(`ai:stream:end:${streamId}`);
+          activeStreams.delete(streamId);
+          return { streamId };
+        }
 
-      const readChunk = async () => {
-        try {
-          const { done, value } = await reader.read();
+        // Stream the response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
-          if (done) {
-            event.sender.send(`ai:stream:end:${streamId}`);
-            return;
+        const readChunk = async () => {
+          try {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              event.sender.send(`ai:stream:end:${streamId}`);
+              activeStreams.delete(streamId);
+              return;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            event.sender.send(`ai:stream:chunk:${streamId}`, chunk);
+
+            // Continue reading
+            await readChunk();
+          } catch (error) {
+            // Don't send error if it was an intentional abort
+            if (error instanceof Error && error.name === 'AbortError') {
+              event.sender.send(`ai:stream:end:${streamId}`);
+            } else {
+              event.sender.send(`ai:stream:error:${streamId}`, {
+                status: 500,
+                statusText: 'Stream Error',
+                body: JSON.stringify({
+                  error:
+                    error instanceof Error ? error.message : 'Unknown error',
+                }),
+              });
+            }
+            activeStreams.delete(streamId);
           }
+        };
 
-          const chunk = decoder.decode(value, { stream: true });
-          event.sender.send(`ai:stream:chunk:${streamId}`, chunk);
-
-          // Continue reading
-          await readChunk();
-        } catch (error) {
+        // Start reading in background
+        readChunk();
+      } catch (error) {
+        // Don't send error if it was an intentional abort
+        if (error instanceof Error && error.name === 'AbortError') {
+          event.sender.send(`ai:stream:end:${streamId}`);
+        } else {
           event.sender.send(`ai:stream:error:${streamId}`, {
             status: 500,
-            statusText: 'Stream Error',
-            body: JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+            statusText: 'Fetch Error',
+            body: JSON.stringify({
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }),
           });
         }
-      };
+        activeStreams.delete(streamId);
+      }
 
-      // Start reading in background
-      readChunk();
-    } catch (error) {
-      event.sender.send(`ai:stream:error:${streamId}`, {
-        status: 500,
-        statusText: 'Fetch Error',
-        body: JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      });
+      return { streamId };
     }
+  );
 
-    return { streamId };
+  // Handle stream abort requests from renderer
+  ipcMain.on('ai:proxy:stream:abort', (_event, streamId: string) => {
+    const controller = activeStreams.get(streamId);
+    if (controller) {
+      controller.abort();
+      activeStreams.delete(streamId);
+    }
   });
 
   console.log('[AIProxy] Registered');
 }
-
-

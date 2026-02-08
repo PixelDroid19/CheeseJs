@@ -51,8 +51,16 @@ test.describe('Editor Stability & Language Switching', () => {
         editor.setValue(c);
       }
     }, code);
-    // Give time for onChange -> detectLanguage -> setLanguage -> React Render -> Model Switch
-    await page.waitForTimeout(1000);
+    // Wait for language detection to process the new code
+    await page.waitForFunction(
+      (c) => {
+        // @ts-expect-error - Monaco is injected globally
+        const editor = window.editor;
+        return editor && editor.getValue() === c;
+      },
+      code,
+      { timeout: 10000 }
+    );
   };
 
   const getMarkers = async () => {

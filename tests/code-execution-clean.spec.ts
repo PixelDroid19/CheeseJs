@@ -72,8 +72,16 @@ test.describe('Clean Code Execution', () => {
     const editorValue = await window.evaluate(() => window.editor.getValue());
     console.log(`[TEST] Editor value: ${editorValue}`);
 
-    // Wait a bit for state to update (if debounced)
-    await window.waitForTimeout(500);
+    // Wait for editor state to settle (debounced update)
+    await window.waitForFunction(
+      () => {
+        return (
+          window.editor &&
+          window.editor.getValue().includes('Clean execution check')
+        );
+      },
+      { timeout: 5000 }
+    );
 
     // Run code
     const runButton = window.getByTestId('run-button');

@@ -13,6 +13,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { COPY_FEEDBACK_DURATION_MS } from '../../constants';
 import type { PendingCodeChange } from '../../store/useChatStore';
 
 interface DiffViewProps {
@@ -163,7 +164,7 @@ export function DiffView({ change, onAccept, onReject }: DiffViewProps) {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(change.newCode);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   const actionLabel = {

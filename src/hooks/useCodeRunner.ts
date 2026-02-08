@@ -9,6 +9,7 @@ import {
 import { createExecutionError, shouldDisplayError } from '../lib/errors';
 import { getMetrics } from '../lib/metrics';
 import { useHistoryStore } from '../store/useHistoryStore';
+import { DEFAULT_TIMEOUT } from '../constants';
 
 // Type for execution results from the worker
 interface ExecutionResultData {
@@ -40,9 +41,6 @@ class WorkerUnavailableError extends CodeRunnerError {
     this.name = 'WorkerUnavailableError';
   }
 }
-
-// Unused error class - can be removed
-// class ExecutionTimeoutError extends CodeRunnerError {}
 
 /**
  * Format execution error for display using unified error system
@@ -285,7 +283,7 @@ export function useCodeRunner() {
             executionId,
             sourceCode,
             {
-              timeout: 30000,
+              timeout: DEFAULT_TIMEOUT,
               showUndefined,
               showTopLevelResults,
               loopProtection,

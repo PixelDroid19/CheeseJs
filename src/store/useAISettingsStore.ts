@@ -9,6 +9,7 @@ import { AI_PROVIDERS } from '../features/ai-agent/types';
 export interface LocalServerConfig {
   baseURL: string;
   modelId: string;
+  apiKey?: string; // Optional API token for LM Studio auth
 }
 
 interface AISettingsState {

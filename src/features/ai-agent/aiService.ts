@@ -1,7 +1,7 @@
 // Central AI Service for CheeseJS
 // Using AI SDK 6 - https://ai-sdk.dev/docs
 // OPTIMIZED: Reduced memory usage, cleanup methods
-import { generateText, streamText, type CoreMessage } from 'ai';
+import { generateText, streamText, type ModelMessage } from 'ai';
 import {
   createProviderInstance,
   type ProviderInstance,
@@ -86,7 +86,7 @@ class AIService {
   // Generate inline completion - optimized for code completion
   async generateInlineCompletion(
     context: PromptContext,
-    maxTokens: number = 100 // Reduced from 150
+    maxTokens: number = 150
   ): Promise<string> {
     if (!this.providerInstance) {
       throw new Error('AI service not configured');
@@ -99,7 +99,7 @@ class AIService {
         model: this.providerInstance.model,
         system: SYSTEM_PROMPTS.inlineCompletion,
         prompt,
-        maxTokens,
+        maxOutputTokens: maxTokens,
       });
 
       return result.text.trim();
@@ -121,26 +121,27 @@ class AIService {
       throw new Error('AI service not configured');
     }
 
-    const {
-      systemPrompt = SYSTEM_PROMPTS.codeAssistant,
-      maxTokens = 1024, // Reduced from 2048
-    } = options || {};
+    const { systemPrompt = SYSTEM_PROMPTS.codeAssistant, maxTokens = 1024 } =
+      options || {};
 
     try {
       const result = await generateText({
         model: this.providerInstance.model,
         system: systemPrompt,
         prompt,
-        maxTokens,
+        maxOutputTokens: maxTokens,
       });
+
+      const inputTokens = result.usage?.inputTokens ?? 0;
+      const outputTokens = result.usage?.outputTokens ?? 0;
 
       return {
         text: result.text,
         usage: result.usage
           ? {
-              promptTokens: result.usage.promptTokens,
-              completionTokens: result.usage.completionTokens,
-              totalTokens: result.usage.totalTokens,
+              promptTokens: inputTokens,
+              completionTokens: outputTokens,
+              totalTokens: inputTokens + outputTokens,
             }
           : undefined,
       };
@@ -150,17 +151,17 @@ class AIService {
     }
   }
 
-  // Convert ChatMessage[] to CoreMessage[] - limit history to save memory
-  private convertToCoreMessages(
+  // Convert ChatMessage[] to ModelMessage[] - limit history to save memory
+  private convertToModelMessages(
     messages: ChatMessage[],
     language?: string
-  ): CoreMessage[] {
+  ): ModelMessage[] {
     // Only keep last 10 messages to reduce memory
     const recentMessages = messages.slice(-10);
 
     return recentMessages
       .filter((msg) => msg.role !== 'system')
-      .map((msg): CoreMessage => {
+      .map((msg): ModelMessage => {
         const content = msg.codeContext
           ? buildChatPrompt(msg.content, msg.codeContext, language)
           : msg.content;
@@ -175,7 +176,7 @@ class AIService {
   // Stream chat response using AI SDK 6 streamText
   async streamChat(
     messages: ChatMessage[],
-    codeContext: string | undefined,
+    _codeContext: string | undefined,
     language: string | undefined,
     callbacks: AIStreamCallbacks,
     options?: {
@@ -186,8 +187,8 @@ class AIService {
       throw new Error('AI service not configured');
     }
 
-    const { maxTokens = 1500 } = options || {}; // Reduced from 2048
-    const coreMessages = this.convertToCoreMessages(messages, language);
+    const { maxTokens = 1500 } = options || {};
+    const modelMessages = this.convertToModelMessages(messages, language);
 
     try {
       callbacks.onStart?.();
@@ -195,8 +196,8 @@ class AIService {
       const result = streamText({
         model: this.providerInstance.model,
         system: SYSTEM_PROMPTS.codeAssistant,
-        messages: coreMessages,
-        maxTokens,
+        messages: modelMessages,
+        maxOutputTokens: maxTokens,
       });
 
       let fullText = '';
@@ -237,7 +238,7 @@ class AIService {
           model: this.providerInstance.model,
           system: SYSTEM_PROMPTS.codeAssistant,
           prompt,
-          maxTokens: 2048, // Reduced from 4096
+          maxOutputTokens: 2048,
         });
 
         let fullText = '';
@@ -254,7 +255,7 @@ class AIService {
           model: this.providerInstance.model,
           system: SYSTEM_PROMPTS.codeAssistant,
           prompt,
-          maxTokens: 2048,
+          maxOutputTokens: 2048,
         });
 
         return result.text;
@@ -278,7 +279,7 @@ class AIService {
       const result = await generateText({
         model: this.providerInstance.model,
         prompt: 'Say OK',
-        maxTokens: 5,
+        maxOutputTokens: 5,
       });
 
       if (result.text && result.text.length > 0) {

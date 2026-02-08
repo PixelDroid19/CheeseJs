@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
@@ -25,13 +24,6 @@ export default function FloatingToolbar() {
   const { isLoading, message } = useRuntimeStatus(
     currentLanguage === 'python' ? 'python' : 'javascript'
   );
-
-  React.useEffect(() => {
-    // Check if we can run
-    if (!isLoading) {
-      // Logic if needed
-    }
-  }, [isLoading]);
 
   const handleLint = () => {
     window.dispatchEvent(new CustomEvent('trigger-format'));

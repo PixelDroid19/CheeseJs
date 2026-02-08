@@ -59,7 +59,7 @@ export function AppearanceTab() {
 
           <div className="space-y-3">
             <Slider
-              label={t('settings.uiFontSize') || 'Tamaño de fuente (UI)'}
+              label={t('settings.uiFontSize', 'Font Size (UI)')}
               min={10}
               max={24}
               value={uiFontSize}

@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import LoadingIndicator from './LoadingIndicator';
 import Editor, { Monaco, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -24,11 +24,13 @@ import {
   configureMonaco,
   setupMonacoEnvironment,
 } from '../utils/monaco-config';
-import { EditorErrorBoundary } from './editor-error-boundary';
+import { RecoverableErrorBoundary } from './RecoverableErrorBoundary';
+import { EditorFallback } from './ErrorFallbacks';
 import {
   createInlineCompletionProvider,
   registerAICodeActions,
 } from '../features/ai-agent';
+import { CODE_RUNNER_DEBOUNCE_MS } from '../constants';
 
 // Setup Monaco workers before initialization
 setupMonacoEnvironment();
@@ -39,10 +41,17 @@ function CodeEditor() {
   const code = useCodeStore((state: CodeState) => state.code);
   const setCode = useCodeStore((state: CodeState) => state.setCode);
   const { themeName, fontSize } = useSettingsStore();
-  const [_isEditorReady, setIsEditorReady] = useState(false);
 
   // Use centralized language store
   const language = useLanguageStore((state) => state.currentLanguage);
+
+  // Dynamic Monaco model path based on detected language
+  const monacoPath =
+    language === 'python'
+      ? 'code.py'
+      : language === 'javascript'
+        ? 'code.js'
+        : 'code.ts';
   const setLanguage = useLanguageStore((state) => state.setLanguage);
   const detectLanguageAsync = useLanguageStore(
     (state) => state.detectLanguageAsync
@@ -283,7 +292,6 @@ function CodeEditor() {
   const handleEditorDidMount = useCallback(
     (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
       monacoRef.current = editorInstance;
-      setIsEditorReady(true);
 
       // Initial language application
       const model = editorInstance.getModel();
@@ -345,7 +353,6 @@ function CodeEditor() {
             { pattern: '**' },
             inlineProvider
           );
-        console.log('[Editor] AI inline completion provider registered');
       } catch (err) {
         console.warn(
           '[Editor] Failed to register AI inline completion provider:',
@@ -359,7 +366,6 @@ function CodeEditor() {
           monaco,
           editorInstance
         );
-        console.log('[Editor] AI code actions registered');
       } catch (err) {
         console.warn('[Editor] Failed to register AI code actions:', err);
       }
@@ -373,7 +379,10 @@ function CodeEditor() {
     ]
   );
 
-  const debouncedRunner = useDebouncedFunction(runCode, 150);
+  const debouncedRunner = useDebouncedFunction(
+    runCode,
+    CODE_RUNNER_DEBOUNCE_MS
+  );
 
   // Language detection - use refs to avoid stale closures in callbacks
   const lastDetectedRef = useRef<string>('typescript');
@@ -478,9 +487,8 @@ function CodeEditor() {
   return (
     <div className="h-full w-full">
       <Editor
-        // Use a generic path - we control language via setModelLanguage
-        // Using .ts extension ensures TypeScript features work correctly when in TS mode
-        path="code.ts"
+        // Dynamic path based on detected language for correct Monaco features
+        path={monacoPath}
         defaultLanguage="typescript"
         // Pass language prop to help Monaco - but we also set it manually
         language={language}
@@ -545,8 +553,11 @@ function CodeEditor() {
 
 export default function WrappedCodeEditor() {
   return (
-    <EditorErrorBoundary>
+    <RecoverableErrorBoundary
+      fallback={<EditorFallback />}
+      componentName="CodeEditor"
+    >
       <CodeEditor />
-    </EditorErrorBoundary>
+    </RecoverableErrorBoundary>
   );
 }

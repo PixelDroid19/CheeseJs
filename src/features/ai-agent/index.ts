@@ -11,7 +11,6 @@ export type {
   AICompletionRequest,
   AICompletionResponse,
   AIStreamCallbacks,
-  AICodeAction,
   CustomProviderConfig,
 } from './types';
 

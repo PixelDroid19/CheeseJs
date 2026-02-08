@@ -28,10 +28,10 @@ describe('AI Agent Feature', () => {
       expect(output).toBe('const x = 1;');
     });
 
-    it('should remove leading/trailing quotes', () => {
+    it('should preserve quoted strings (could be valid code)', () => {
       const input = '"const x = 1;"';
       const output = cleanCompletionResponse(input, '');
-      expect(output).toBe('const x = 1;');
+      expect(output).toBe('"const x = 1;"');
     });
 
     it('should remove common AI prefixes', () => {
@@ -50,7 +50,7 @@ describe('AI Agent Feature', () => {
 
   describe('Prompts', () => {
     it('should have strict rules for inline completion', () => {
-      expect(SYSTEM_PROMPTS.inlineCompletion).toContain('STRICT RULES');
+      expect(SYSTEM_PROMPTS.inlineCompletion).toContain('RULES');
       expect(SYSTEM_PROMPTS.inlineCompletion).toContain('NO markdown');
       expect(SYSTEM_PROMPTS.inlineCompletion).toContain('Output ONLY');
     });
@@ -62,8 +62,8 @@ describe('AI Agent Feature', () => {
         codeAfter: '',
       };
       const prompt = buildInlineCompletionPrompt(context);
-      expect(prompt).toContain('Language: typescript');
-      expect(prompt).toContain('const x = █');
+      expect(prompt).toContain('[LANG] typescript');
+      expect(prompt).toContain('const x = <CURSOR>');
     });
   });
 

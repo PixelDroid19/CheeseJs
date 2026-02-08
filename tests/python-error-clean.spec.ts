@@ -43,14 +43,28 @@ test('Python error traceback should be clean', async () => {
     editor.setValue("print('ok')\nprint(undefined_variable)");
   });
 
-  // Wait for language detection (optional, but good practice)
-  await page.waitForTimeout(2000);
+  // Wait for language detection to identify Python
+  await page.waitForFunction(
+    () => {
+      // @ts-expect-error - Monaco is injected globally
+      const model = window.monaco.editor.getModels()[0];
+      return model && model.getLanguageId() === 'python';
+    },
+    { timeout: 15000 }
+  );
 
   // Click Run
   await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
 
-  // Wait for output
-  await page.waitForTimeout(5000);
+  // Wait for output containing the expected error
+  await page.waitForFunction(
+    () => {
+      // @ts-expect-error - Monaco is injected globally
+      const models = window.monaco.editor.getModels();
+      return models.length > 1 && models[1].getValue().includes('NameError');
+    },
+    { timeout: 30000 }
+  );
 
   const output = await page.evaluate(() => {
     // @ts-expect-error - Monaco is injected globally

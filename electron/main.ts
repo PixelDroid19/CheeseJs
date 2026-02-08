@@ -13,12 +13,12 @@ import {
   appLog,
   mainLogger,
 } from './core/index.js';
-import { transformCode } from './transpiler/tsTranspiler.js';
+import { transformCode } from './transpiler/swcTranspiler.js';
 import {
   getNodeModulesPath,
   initPackagesDirectory,
 } from './packages/packageManager.js';
-import { setupRagHandlers } from './rag/ipc.js';
+import { registerAIProxy } from './aiProxy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,7 +58,7 @@ async function initApp() {
     workerPool = new WorkerPoolManager(__dirname, nodeModulesPath);
 
     // Start workers early for performance (especially Python)
-    Promise.all([
+    await Promise.all([
       workerPool.initializeCodeWorker(),
       workerPool.initializePythonWorker().catch((err) => {
         appLog.warn(
@@ -95,7 +95,10 @@ async function initApp() {
       workerPool,
       transformCode,
     });
+    // RAG handlers loaded lazily to avoid loading heavy deps at startup
+    const { setupRagHandlers } = await import('./rag/ipc.js');
     setupRagHandlers();
+    registerAIProxy();
 
     // 4. Create Main Window
     windowManager.createWindow();
@@ -111,8 +114,9 @@ async function initApp() {
 app.on('window-all-closed', () => {
   // Terminate workers when app closes
   if (workerPool) {
-    // We can't easily wait for this, but we should trigger it
-    // The process exit will clean up threads anyway usually
+    workerPool.terminate().catch((err) => {
+      appLog.error('Error terminating worker pool:', err);
+    });
   }
 
   // Quit on all platforms (even macOS) for this type of utility app

@@ -7,10 +7,11 @@
 
 // NO IMPORTS NEEDED
 import type { WorkerPoolManager } from './WorkerPoolManager';
-import type { TransformOptions } from '../transpiler/tsTranspiler';
+import type { TransformOptions } from '../transpiler/codeTransforms';
 import { registerExecutionHandlers } from './handlers/ExecutionHandlers';
 import { registerPackageHandlers } from './handlers/PackageHandlers';
 import { registerPythonHandlers } from './handlers/PythonHandlers';
+import { registerFilesystemHandlers } from './handlers/FilesystemHandlers';
 
 // ============================================================================
 // TYPES
@@ -32,4 +33,5 @@ export function registerIPCHandlers(config: IPCHandlersConfig): void {
   registerExecutionHandlers({ workerPool, transformCode });
   registerPackageHandlers({ workerPool });
   registerPythonHandlers({ workerPool });
+  registerFilesystemHandlers();
 }

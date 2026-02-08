@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import type { WorkerPoolManager, ExecutionRequest } from '../WorkerPoolManager';
-import type { TransformOptions } from '../../transpiler/tsTranspiler';
+import type { TransformOptions } from '../../transpiler/codeTransforms';
 
 export interface ExecutionHandlersConfig {
   workerPool: WorkerPoolManager;
