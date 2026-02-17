@@ -52,7 +52,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.installPackage',
-    async (_accessor: unknown, packageName: string) => {
+    async (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       if (window.packageManager) {
         usePackagesStore.getState().addPackage(packageName);
         usePackagesStore.getState().setPackageInstalling(packageName, true);
@@ -75,7 +76,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.installAndRun',
-    async (_accessor: unknown, packageName: string) => {
+    async (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       if (window.packageManager) {
         usePackagesStore.getState().addPackage(packageName);
         usePackagesStore.getState().setPackageInstalling(packageName, true);
@@ -104,7 +106,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.retryInstall',
-    async (_accessor: unknown, packageName: string) => {
+    async (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       const store = usePackagesStore.getState();
       store.resetPackageAttempts(packageName);
       store.setPackageInstalling(packageName, true);
@@ -122,7 +125,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.uninstallPackage',
-    async (_accessor: unknown, packageName: string) => {
+    async (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       if (window.packageManager) {
         const result = await window.packageManager.uninstall(packageName);
         if (result.success) {
@@ -137,7 +141,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.viewOnNpm',
-    (_accessor: unknown, packageName: string) => {
+    (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       window.open(`https://www.npmjs.com/package/${packageName}`, '_blank');
     }
   );
@@ -146,7 +151,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.installPythonPackage',
-    async (_accessor: unknown, packageName: string) => {
+    async (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       if (window.pythonPackageManager) {
         usePythonPackagesStore.getState().addPackage(packageName);
         usePythonPackagesStore
@@ -171,7 +177,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.installPythonPackageAndRun',
-    async (_accessor: unknown, packageName: string) => {
+    async (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       if (window.pythonPackageManager) {
         usePythonPackagesStore.getState().addPackage(packageName);
         usePythonPackagesStore
@@ -202,7 +209,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.retryPythonInstall',
-    async (_accessor: unknown, packageName: string) => {
+    async (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       const store = usePythonPackagesStore.getState();
       store.resetPackageAttempts(packageName);
       store.setPackageInstalling(packageName, true);
@@ -220,7 +228,8 @@ export function registerPackageCommands(
   safeRegisterCommand(
     monaco,
     'cheeseJS.viewOnPyPI',
-    (_accessor: unknown, packageName: string) => {
+    (_accessor: unknown, ...args: unknown[]) => {
+      const packageName = args[0] as string;
       window.open(`https://pypi.org/project/${packageName}/`, '_blank');
     }
   );

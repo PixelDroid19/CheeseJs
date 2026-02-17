@@ -478,7 +478,8 @@ class MetricsCollector {
     }
 
     if (options?.since) {
-      filtered = filtered.filter((e) => e.timestamp >= options.since);
+      const sinceTime = options.since;
+      filtered = filtered.filter((e) => e.timestamp >= sinceTime);
     }
 
     if (options?.limit) {
@@ -508,7 +509,8 @@ class MetricsCollector {
     }
 
     if (options?.since) {
-      filtered = filtered.filter((e) => e.timestamp >= options.since);
+      const sinceTime = options.since;
+      filtered = filtered.filter((e) => e.timestamp >= sinceTime);
     }
 
     if (options?.limit) {

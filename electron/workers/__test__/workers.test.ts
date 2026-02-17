@@ -15,9 +15,7 @@ const PY_WORKER_PATH = path.resolve(
 );
 
 // Helper to run code in a worker and gather results
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function runInWorker(workerPath: string, code: string, options: any = {}) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new Promise<any[]>((resolve, reject) => {
     const worker = new Worker(workerPath, {
       workerData: {
@@ -25,7 +23,6 @@ function runInWorker(workerPath: string, code: string, options: any = {}) {
       },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results: any[] = [];
     const id = 'test-id-' + Math.random().toString(36).substring(2, 11);
 

@@ -66,7 +66,7 @@ function ResultDisplay() {
         window as Window & {
           triggerAIAutoCorrection?: (content: string) => void;
         }
-      ).triggerAIAutoCorrection!(executionError.element.content);
+      ).triggerAIAutoCorrection!(String(executionError.element.content));
     }
   };
 

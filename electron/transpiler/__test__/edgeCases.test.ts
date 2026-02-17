@@ -98,7 +98,7 @@ describe('Edge Case Tests - Unusual User Inputs', () => {
   // ============================================================================
   describe('Deeply nested structures', () => {
     it('should handle deeply nested parentheses', () => {
-      const code = `console.log(((((((((1))))))));`;
+      const code = `console.log((((((((1))))))));`;
       const result = transformCode(code, {
         showTopLevelResults: true,
         loopProtection: false,

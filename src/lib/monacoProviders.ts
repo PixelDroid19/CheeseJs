@@ -62,7 +62,7 @@ function getPackageAtPosition(
       // Check if cursor is within the package name (between quotes)
       if (position.column > packageStart && position.column <= packageEnd + 1) {
         // Extract base package name (handle scoped packages and subpaths)
-        let packageName = packagePath;
+        let packageName: string;
         if (packagePath.startsWith('@')) {
           const parts = packagePath.split('/');
           packageName =
@@ -277,7 +277,7 @@ export function registerMonacoProviders(
           });
 
           // Installation status with color coding
-          let statusText = '';
+          let statusText: string;
           if (installedPkg) {
             if (installedPkg.installing) {
               statusText = '**Status:** ⏳ Installing...';

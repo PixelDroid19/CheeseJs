@@ -22,8 +22,10 @@ type RegisteredDocument = {
 };
 
 type SubStep = {
-  title: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  id: string;
+  name: string;
+  status: 'waiting' | 'loading' | 'done' | 'error';
+  progress?: number;
   message?: string;
 };
 
@@ -100,11 +102,12 @@ export const useRagStore = create<RagState>()(
           if (!window.rag) throw new Error('RAG system not available');
           const result = await window.rag.getDocuments();
           if (result.success && result.documents) {
+            const docs = result.documents;
             set((state) => {
               // If we have no active selection (first run), select all.
               // Otherwise, keep existing selection but filter out removed docs.
               // Also could auto-select new docs? For now, let's just clean up.
-              const validIds = new Set(result.documents.map((d) => d.id));
+              const validIds = new Set(docs.map((d) => d.id));
 
               let newActiveIds = state.activeDocumentIds.filter((id) =>
                 validIds.has(id)
@@ -113,14 +116,14 @@ export const useRagStore = create<RagState>()(
               // If empty selection (and we have docs), select all by default
               if (
                 newActiveIds.length === 0 &&
-                result.documents.length > 0 &&
+                docs.length > 0 &&
                 state.activeDocumentIds.length === 0
               ) {
-                newActiveIds = result.documents.map((d) => d.id);
+                newActiveIds = docs.map((d) => d.id);
               }
 
               return {
-                documents: result.documents,
+                documents: docs,
                 activeDocumentIds: newActiveIds,
               };
             });

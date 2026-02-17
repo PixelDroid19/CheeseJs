@@ -164,4 +164,3 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
 // Indicate worker is ready
 self.postMessage({ type: 'ready' });
-

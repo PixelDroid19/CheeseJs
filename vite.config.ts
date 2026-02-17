@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => ({
             rollupOptions: {
               external: [
                 'typescript',
+                '@swc/core',
+                '@swc/core-win32-x64-msvc',
                 '@lancedb/lancedb',
                 'pdf-parse',
                 'mammoth',
@@ -93,20 +95,6 @@ export default defineConfig(({ mode }) => ({
           build: {
             rollupOptions: {
               external: ['@swc/core'],
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-      {
-        // TypeScript transpiler module (legacy)
-        entry: 'electron/transpiler/tsTranspiler.ts',
-        vite: {
-          build: {
-            rollupOptions: {
-              external: ['typescript'],
               output: {
                 format: 'es',
               },

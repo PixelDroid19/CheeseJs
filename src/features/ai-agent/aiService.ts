@@ -1,6 +1,6 @@
 // Central AI Service for CheeseJS
 // Using AI SDK 6 - https://ai-sdk.dev/docs
-// OPTIMIZED: Reduced memory usage, cleanup methods
+// OPTIMIZED: Reduced memory usage, cleanup methods, circuit breaker
 import { generateText, streamText, type ModelMessage } from 'ai';
 import {
   createProviderInstance,
@@ -22,9 +22,26 @@ import type {
   CustomProviderConfig,
 } from './types';
 
+// Circuit breaker configuration
+const CIRCUIT_BREAKER_THRESHOLD = 3; // Number of failures before opening circuit
+const CIRCUIT_BREAKER_RESET_MS = 30000; // Time before trying again after circuit opens
+
+interface CircuitBreakerState {
+  failures: number;
+  lastFailureTime: number;
+  isOpen: boolean;
+}
+
 class AIService {
   private providerInstance: ProviderInstance | null = null;
   private currentProvider: AIProvider | null = null;
+
+  // Circuit breaker for connection failures
+  private circuitBreaker: CircuitBreakerState = {
+    failures: 0,
+    lastFailureTime: 0,
+    isOpen: false,
+  };
 
   // Initialize or update provider
   configure(
@@ -57,6 +74,10 @@ class AIService {
         customConfig
       );
       this.currentProvider = provider;
+
+      // Reset circuit breaker on successful configuration
+      this.resetCircuitBreaker();
+
       const displayModel =
         localConfig?.modelId || customConfig?.modelId || modelId;
       console.log(`[AIService] Configured with ${provider}/${displayModel}`);
@@ -83,6 +104,72 @@ class AIService {
     return this.currentProvider;
   }
 
+  // Circuit breaker methods
+  private isCircuitOpen(): boolean {
+    if (!this.circuitBreaker.isOpen) return false;
+
+    // Check if we should try again
+    if (
+      Date.now() - this.circuitBreaker.lastFailureTime >
+      CIRCUIT_BREAKER_RESET_MS
+    ) {
+      console.log(
+        '[AIService] Circuit breaker: attempting to close circuit (half-open state)'
+      );
+      this.circuitBreaker.isOpen = false;
+      this.circuitBreaker.failures = 0;
+      return false;
+    }
+
+    return true;
+  }
+
+  private recordFailure(): void {
+    this.circuitBreaker.failures++;
+    this.circuitBreaker.lastFailureTime = Date.now();
+
+    if (this.circuitBreaker.failures >= CIRCUIT_BREAKER_THRESHOLD) {
+      this.circuitBreaker.isOpen = true;
+      console.warn(
+        `[AIService] Circuit breaker OPEN after ${this.circuitBreaker.failures} failures. ` +
+          `Will retry in ${CIRCUIT_BREAKER_RESET_MS / 1000}s`
+      );
+    }
+  }
+
+  private recordSuccess(): void {
+    if (this.circuitBreaker.failures > 0) {
+      this.circuitBreaker.failures = 0;
+      if (this.circuitBreaker.isOpen) {
+        console.log('[AIService] Circuit breaker: closed (recovered)');
+      }
+      this.circuitBreaker.isOpen = false;
+    }
+  }
+
+  private resetCircuitBreaker(): void {
+    this.circuitBreaker = {
+      failures: 0,
+      lastFailureTime: 0,
+      isOpen: false,
+    };
+  }
+
+  // Check if an error is a connection error
+  private isConnectionError(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('econnrefused') ||
+      message.includes('enotfound') ||
+      message.includes('etimedout') ||
+      message.includes('network error') ||
+      message.includes('failed to fetch') ||
+      message.includes('aborted') ||
+      message.includes('cancelled')
+    );
+  }
+
   // Generate inline completion - optimized for code completion
   async generateInlineCompletion(
     context: PromptContext,
@@ -90,6 +177,12 @@ class AIService {
   ): Promise<string> {
     if (!this.providerInstance) {
       throw new Error('AI service not configured');
+    }
+
+    // Check circuit breaker
+    if (this.isCircuitOpen()) {
+      // Silently fail - don't log, just return empty
+      throw new Error('Circuit breaker open');
     }
 
     const prompt = buildInlineCompletionPrompt(context);
@@ -102,9 +195,20 @@ class AIService {
         maxOutputTokens: maxTokens,
       });
 
+      this.recordSuccess();
       return result.text.trim();
     } catch (error) {
-      console.error('[AIService] Inline completion failed:', error);
+      // Record failure for circuit breaker
+      if (this.isConnectionError(error)) {
+        this.recordFailure();
+        // Don't spam console for connection errors
+        if (this.circuitBreaker.failures === 1) {
+          console.warn('[AIService] Connection failed, circuit breaker active');
+        }
+      } else {
+        // Log other errors
+        console.error('[AIService] Inline completion failed:', error);
+      }
       throw error;
     }
   }
@@ -121,6 +225,11 @@ class AIService {
       throw new Error('AI service not configured');
     }
 
+    // Check circuit breaker
+    if (this.isCircuitOpen()) {
+      throw new Error('Circuit breaker open');
+    }
+
     const { systemPrompt = SYSTEM_PROMPTS.codeAssistant, maxTokens = 1024 } =
       options || {};
 
@@ -131,6 +240,8 @@ class AIService {
         prompt,
         maxOutputTokens: maxTokens,
       });
+
+      this.recordSuccess();
 
       const inputTokens = result.usage?.inputTokens ?? 0;
       const outputTokens = result.usage?.outputTokens ?? 0;
@@ -146,6 +257,9 @@ class AIService {
           : undefined,
       };
     } catch (error) {
+      if (this.isConnectionError(error)) {
+        this.recordFailure();
+      }
       console.error('[AIService] Completion failed:', error);
       throw error;
     }
@@ -187,6 +301,12 @@ class AIService {
       throw new Error('AI service not configured');
     }
 
+    // Check circuit breaker
+    if (this.isCircuitOpen()) {
+      callbacks.onError?.(new Error('Service temporarily unavailable'));
+      return;
+    }
+
     const { maxTokens = 1500 } = options || {};
     const modelMessages = this.convertToModelMessages(messages, language);
 
@@ -207,8 +327,12 @@ class AIService {
         callbacks.onToken?.(chunk);
       }
 
+      this.recordSuccess();
       callbacks.onComplete?.(fullText);
     } catch (error) {
+      if (this.isConnectionError(error)) {
+        this.recordFailure();
+      }
       console.error('[AIService] Stream chat failed:', error);
       callbacks.onError?.(
         error instanceof Error ? error : new Error(String(error))
@@ -226,6 +350,11 @@ class AIService {
   ): Promise<string> {
     if (!this.providerInstance) {
       throw new Error('AI service not configured');
+    }
+
+    // Check circuit breaker
+    if (this.isCircuitOpen()) {
+      throw new Error('Service temporarily unavailable');
     }
 
     const prompt = buildRefactorPrompt(action, code, language);
@@ -248,6 +377,7 @@ class AIService {
           callbacks.onToken?.(chunk);
         }
 
+        this.recordSuccess();
         callbacks.onComplete?.(fullText);
         return fullText;
       } else {
@@ -258,9 +388,13 @@ class AIService {
           maxOutputTokens: 2048,
         });
 
+        this.recordSuccess();
         return result.text;
       }
     } catch (error) {
+      if (this.isConnectionError(error)) {
+        this.recordFailure();
+      }
       console.error('[AIService] Refactor failed:', error);
       callbacks?.onError?.(
         error instanceof Error ? error : new Error(String(error))
@@ -283,6 +417,7 @@ class AIService {
       });
 
       if (result.text && result.text.length > 0) {
+        this.recordSuccess();
         return {
           success: true,
           message: `Connected to ${this.providerInstance.provider}/${this.providerInstance.modelId}`,

@@ -218,13 +218,14 @@ export class WorkerPoolManager {
         }
       );
 
-      this.codeWorker.on('error', (error) => {
-        log.error('[WorkerPool] Code worker error:', error);
+      this.codeWorker.on('error', (error: unknown) => {
+        const err = error instanceof Error ? error : new Error(String(error));
+        log.error('[WorkerPool] Code worker error:', err);
         this.codeWorkerReady = false;
-        this.rejectAllPending(error);
+        this.rejectAllPending(err);
 
         if (this.codeWorkerInitReject) {
-          this.codeWorkerInitReject(error);
+          this.codeWorkerInitReject(err);
         }
         this.codeWorkerInitPromise = null;
         this.codeWorkerInitReject = null;
@@ -357,13 +358,14 @@ export class WorkerPoolManager {
         }
       });
 
-      this.pythonWorker.on('error', (error) => {
-        log.error('[WorkerPool] Python worker error:', error);
+      this.pythonWorker.on('error', (error: unknown) => {
+        const err = error instanceof Error ? error : new Error(String(error));
+        log.error('[WorkerPool] Python worker error:', err);
         this.pythonWorkerReady = false;
-        this.rejectAllPending(error);
+        this.rejectAllPending(err);
 
         if (this.pythonWorkerInitReject) {
-          this.pythonWorkerInitReject(error);
+          this.pythonWorkerInitReject(err);
         }
         this.pythonWorkerInitPromise = null;
         this.pythonWorkerInitReject = null;

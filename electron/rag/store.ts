@@ -85,10 +85,12 @@ export class VectorStore {
     // Filter by document IDs if provided
     if (documentIds && documentIds.length > 0) {
       const idSet = new Set(documentIds);
-      results = results.filter((r) => idSet.has(r.documentId as string));
+      results = results.filter((r: { documentId: unknown }) =>
+        idSet.has(r.documentId as string)
+      );
     }
 
-    return results.slice(0, limit).map((r) => ({
+    return results.slice(0, limit).map((r: Record<string, unknown>) => ({
       id: r.id as string,
       documentId: r.documentId as string,
       content: r.content as string,

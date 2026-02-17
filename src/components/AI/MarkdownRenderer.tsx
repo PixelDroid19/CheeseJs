@@ -266,7 +266,7 @@ function TextWithInline({ content }: { content: string }) {
 
   if (lastIndex < content.length) {
     parts.push(
-      <span key={idx++}>{formatInlineText(content.slice(lastIndex))}</span>
+      <span key={idx}>{formatInlineText(content.slice(lastIndex))}</span>
     );
   }
 

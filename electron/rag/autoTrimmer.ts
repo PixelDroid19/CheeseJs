@@ -111,7 +111,6 @@ export function autoTrim(
         includedParts.push(partial);
         includedIds.push(result.id);
         hasPartial = true;
-        remainingTokens = 0; // Budget exhausted
       }
       break; // No more room
     } else {

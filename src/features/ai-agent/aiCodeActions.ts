@@ -16,7 +16,7 @@ let pendingOperation: string | null = null;
 
 // Execute AI action
 export async function executeAIAction(
-  editor: Monaco.editor.IStandaloneCodeEditor,
+  editor: Monaco.editor.ICodeEditor,
   action: 'explain' | 'refactor' | 'document' | 'fix' | 'chat',
   selectedCode: string,
   language: string

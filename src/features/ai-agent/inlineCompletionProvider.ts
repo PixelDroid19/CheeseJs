@@ -219,6 +219,24 @@ export function createInlineCompletionProvider(
         return null;
       }
 
+      // ---- Skip right after opening brackets (Monaco auto-closes them) ----
+      // This prevents cursor jumping when typing () {} []
+      const lastChar = textBeforeOnLine.slice(-1);
+      const charAtCursor = currentLineText.charAt(position.column - 1);
+      const openingBrackets = ['(', '{', '[', '<'];
+      const closingBrackets = [')', '}', ']', '>'];
+      if (
+        openingBrackets.includes(lastChar) &&
+        closingBrackets.includes(charAtCursor)
+      ) {
+        return null;
+      }
+
+      // ---- Skip if only whitespace/brackets on line (nothing to complete) ----
+      if (/^[\s()[\]{}]*$/.test(textBeforeOnLine)) {
+        return null;
+      }
+
       // ---- Cache lookup ----
       const cacheKey = getCacheKey(textBeforeCursor, textAfterCursor);
       const cached = getFromCache(cacheKey);
@@ -233,10 +251,8 @@ export function createInlineCompletionProvider(
                 position.lineNumber,
                 position.column
               ),
-              completeBracketPairs: true,
             },
           ],
-          enableForwardStability: true,
         };
       }
 
@@ -306,16 +322,28 @@ export function createInlineCompletionProvider(
                 position.lineNumber,
                 position.column
               ),
-              completeBracketPairs: true,
             },
           ],
-          enableForwardStability: true,
         };
       } catch (error: unknown) {
         // Silently ignore aborted requests
         if (error instanceof Error && error.name === 'AbortError') return null;
-        // Don't spam console for routine network issues
-        console.warn('[InlineCompletion] Request failed:', error);
+        // Silently ignore circuit breaker (service unavailable)
+        if (error instanceof Error && error.message === 'Circuit breaker open')
+          return null;
+        // Silently ignore connection errors (handled by circuit breaker)
+        if (error instanceof Error) {
+          const msg = error.message.toLowerCase();
+          if (
+            msg.includes('econnrefused') ||
+            msg.includes('enotfound') ||
+            msg.includes('etimedout') ||
+            msg.includes('network error') ||
+            msg.includes('failed to fetch')
+          ) {
+            return null;
+          }
+        }
         return null;
       } finally {
         // Only clear if this controller is still the current one

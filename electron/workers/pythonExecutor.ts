@@ -254,11 +254,10 @@ del _name
  */
 async function forceGarbageCollection(py: PyodideInterface): Promise<void> {
   try {
-    const _collected = py.runPython(`
+    py.runPython(`
 import gc
 gc.collect()
 gc.collect()  # Run twice to collect circular references
-len(gc.garbage)  # Return number of uncollectable objects
 `);
     // Collected count captured for potential future use
   } catch (error) {
@@ -308,7 +307,7 @@ async function checkAndCleanMemory(py: PyodideInterface): Promise<void> {
   }
 
   // Check memory usage
-  const _usage = await getMemoryUsage(py);
+  await getMemoryUsage(py);
 
   // Update memory stats
   if (typeof process !== 'undefined' && process.memoryUsage) {

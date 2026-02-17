@@ -405,7 +405,7 @@ function getTools(callbacks?: AgentCallbacks) {
           input: { query },
         });
 
-        let result = '';
+        let result: string;
         try {
           if (typeof window !== 'undefined' && window.rag) {
             const pipelineResult = await window.rag.searchPipeline(query, {

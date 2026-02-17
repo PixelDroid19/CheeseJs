@@ -379,12 +379,20 @@ function alertImplementation(message?: unknown): void {
 
 /**
  * Create the sandboxed context with safe globals
+ *
+ * SECURITY: The following dangerous globals have been removed:
+ * - eval: Allows arbitrary code execution from strings
+ * - Function: Constructor can execute arbitrary code
+ * - Proxy: Can be used to intercept and modify behavior
+ * - Reflect: Low-level operations can bypass security
+ *
+ * These removalals prevent common VM escape vectors.
  */
 function createSandboxContext(
   executionId: string,
   options: ExecuteOptions
 ): vm.Context {
-  const console = createSandboxConsole(executionId);
+  const sandboxConsole = createSandboxConsole(executionId);
   const debugFunc = createDebugFunction(
     executionId,
     options.showUndefined ?? false
@@ -397,10 +405,10 @@ function createSandboxContext(
   const moduleObj = { exports: moduleExports };
 
   // Safe globals whitelist
+  // NOTE: eval, Function, Proxy, and Reflect are intentionally excluded for security
   const globals: Record<string, unknown> = {
     // Console and debug functions
-    // We provide both 'debug' (legacy) and '__jsDebug' (language-specific) for compatibility
-    console,
+    console: sandboxConsole,
     debug: debugFunc,
     __jsDebug: debugFunc,
 
@@ -425,7 +433,7 @@ function createSandboxContext(
     clearImmediate,
 
     // ========================================================================
-    // STANDARD CONSTRUCTORS (ES5-ES2021)
+    // STANDARD CONSTRUCTORS (ES5-ES2021) - Safe to expose
     // ========================================================================
     Array,
     ArrayBuffer,
@@ -439,7 +447,7 @@ function createSandboxContext(
     EvalError,
     Float32Array,
     Float64Array,
-    Function, // Needed for dynamic function creation
+    // Function constructor REMOVED - security risk (can execute arbitrary strings)
     Int8Array,
     Int16Array,
     Int32Array,
@@ -447,10 +455,10 @@ function createSandboxContext(
     Number,
     Object,
     Promise,
-    Proxy,
+    // Proxy REMOVED - can be used for VM escape
     RangeError,
     ReferenceError,
-    Reflect,
+    // Reflect REMOVED - low-level operations can bypass security
     RegExp,
     Set,
     SharedArrayBuffer,
@@ -480,26 +488,12 @@ function createSandboxContext(
         : undefined,
 
     // ========================================================================
-    // ES2024 FEATURES (Node.js 22+)
-    // ========================================================================
-
-    // Promise.withResolvers - convenient way to create promise with external resolve/reject
-    // Already available on Promise object, no extra global needed
-
-    // Object.groupBy and Map.groupBy - grouping arrays into objects/maps
-    // Already available on Object and Map, no extra global needed
-
-    // ========================================================================
     // ES2025 FEATURES (Node.js 22+)
     // ========================================================================
-
-    // Iterator global with helper methods (map, filter, take, drop, etc.)
     Iterator:
       'Iterator' in globalThis
         ? (globalThis as Record<string, unknown>).Iterator
         : undefined,
-
-    // Float16Array - 16-bit floating point array (ES2025)
     Float16Array:
       'Float16Array' in globalThis
         ? (globalThis as Record<string, unknown>).Float16Array
@@ -508,8 +502,6 @@ function createSandboxContext(
     // ========================================================================
     // RESOURCE MANAGEMENT (Explicit Resource Management - Stage 3+)
     // ========================================================================
-
-    // DisposableStack and AsyncDisposableStack for using/await using
     DisposableStack:
       'DisposableStack' in globalThis
         ? (globalThis as Record<string, unknown>).DisposableStack
@@ -518,9 +510,8 @@ function createSandboxContext(
       'AsyncDisposableStack' in globalThis
         ? (globalThis as Record<string, unknown>).AsyncDisposableStack
         : undefined,
-    // Symbol.dispose and Symbol.asyncDispose are already on Symbol
 
-    // WebAssembly
+    // WebAssembly - SAFE: sandboxed by design
     WebAssembly,
 
     // Built-in objects
@@ -529,8 +520,7 @@ function createSandboxContext(
     Intl,
     Atomics,
 
-    // Global functions
-    eval,
+    // Safe global functions (eval REMOVED)
     isNaN,
     isFinite,
     parseFloat,
@@ -539,8 +529,7 @@ function createSandboxContext(
     encodeURIComponent,
     decodeURI,
     decodeURIComponent,
-    escape,
-    unescape,
+    // escape/unescape REMOVED - deprecated and rarely needed
 
     // Fetch API (if available in Node.js)
     fetch: typeof fetch !== 'undefined' ? fetch : undefined,
@@ -556,7 +545,7 @@ function createSandboxContext(
     URL,
     URLSearchParams,
 
-    // Blob and File (if available)
+    // Blob (if available)
     Blob: typeof Blob !== 'undefined' ? Blob : undefined,
 
     // Structured clone
@@ -570,7 +559,7 @@ function createSandboxContext(
     queueMicrotask,
 
     // globalThis reference (safe, points to sandbox)
-    globalThis: null, // Will be set to context itself
+    globalThis: null,
 
     // Undefined and NaN
     undefined,

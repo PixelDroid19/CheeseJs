@@ -14,6 +14,15 @@ export interface Theme {
 }
 
 interface SettingsState {
+  consoleFilters: {
+    log: boolean;
+    info: boolean;
+    warn: boolean;
+    error: boolean;
+  };
+  showTestPanel: boolean;
+  showConsole: boolean;
+  splitDirection: 'horizontal' | 'vertical';
   language: string;
   themeName: string;
   fontSize: number;
@@ -47,11 +56,31 @@ interface SettingsState {
   setExecutionEnvironment: (env: 'node' | 'browser') => void;
   setAutoRunAfterInstall: (autoRun: boolean) => void;
   setAutoInstallPackages: (autoInstall: boolean) => void;
+  setConsoleFilters: (
+    filters: Partial<{
+      log: boolean;
+      info: boolean;
+      warn: boolean;
+      error: boolean;
+    }>
+  ) => void;
+  toggleTestPanel: () => void;
+  toggleConsole: () => void;
+  toggleSplitDirection: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
+      consoleFilters: {
+        log: true,
+        info: true,
+        warn: true,
+        error: true,
+      },
+      showTestPanel: false,
+      showConsole: false,
+      splitDirection: 'horizontal',
       language: 'en',
       themeName: 'onedark',
       fontSize: 19,
@@ -88,6 +117,19 @@ export const useSettingsStore = create<SettingsState>()(
         set({ autoRunAfterInstall }),
       setAutoInstallPackages: (autoInstallPackages) =>
         set({ autoInstallPackages }),
+      setConsoleFilters: (filters) =>
+        set((state) => ({
+          consoleFilters: { ...state.consoleFilters, ...filters },
+        })),
+      toggleTestPanel: () =>
+        set((state) => ({ showTestPanel: !state.showTestPanel })),
+      toggleConsole: () =>
+        set((state) => ({ showConsole: !state.showConsole })),
+      toggleSplitDirection: () =>
+        set((state) => ({
+          splitDirection:
+            state.splitDirection === 'horizontal' ? 'vertical' : 'horizontal',
+        })),
     }),
     {
       name: 'settings-storage',
@@ -106,6 +148,10 @@ export const useSettingsStore = create<SettingsState>()(
         executionEnvironment: state.executionEnvironment,
         autoRunAfterInstall: state.autoRunAfterInstall,
         autoInstallPackages: state.autoInstallPackages,
+        consoleFilters: state.consoleFilters,
+        showTestPanel: state.showTestPanel,
+        showConsole: state.showConsole,
+        splitDirection: state.splitDirection,
       }),
     }
   )

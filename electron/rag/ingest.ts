@@ -8,7 +8,9 @@ import { createRequire } from 'node:module';
 
 // Lazy-loaded to avoid loading parsers at startup
 const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let pdfParse: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mammothLib: any;
 let cheerioLib: typeof import('cheerio') | null = null;
 

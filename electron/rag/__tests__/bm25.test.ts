@@ -85,7 +85,8 @@ describe('BM25 Module', () => {
       expect(results.length).toBeGreaterThanOrEqual(2);
       // doc1 and doc3 mention both "quick" and "fox", doc2 doesn't
       const ids = results.map((r) => r.id);
-      expect(ids[0]).toBe('doc1'); // or doc3
+      // Either doc1 or doc3 can rank first (both have the query terms)
+      expect(ids[0]).toBeOneOf(['doc1', 'doc3']);
       expect(ids).not.toContain('doc2');
     });
 

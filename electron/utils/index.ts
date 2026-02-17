@@ -1,17 +1,17 @@
-export function domReady (condition = ['complete', 'interactive']) {
-  return new Promise(resolve => {
-    if (condition.includes(document.readyState)) resolve(true)
+export function domReady(condition = ['complete', 'interactive']) {
+  return new Promise((resolve) => {
+    if (condition.includes(document.readyState)) resolve(true);
     document.addEventListener('readystatechange', () => {
-      if (condition.includes(document.readyState)) resolve(true)
-    })
-  })
+      if (condition.includes(document.readyState)) resolve(true);
+    });
+  });
 }
 
-function safeAppend (parent: HTMLElement, child: HTMLElement) {
-  if (!parent.contains(child)) parent.appendChild(child)
+function safeAppend(parent: HTMLElement, child: HTMLElement) {
+  if (!parent.contains(child)) parent.appendChild(child);
 }
-function safeRemove (parent: HTMLElement, child: HTMLElement) {
-  if (parent.contains(child)) parent.removeChild(child)
+function safeRemove(parent: HTMLElement, child: HTMLElement) {
+  if (parent.contains(child)) parent.removeChild(child);
 }
 
 /**
@@ -20,8 +20,8 @@ function safeRemove (parent: HTMLElement, child: HTMLElement) {
  * https://projects.lukehaas.me/css-loaders
  * https://matejkustec.github.io/SpinThatShit
  */
-export function useLoading () {
-  const className = 'loaders-css__square-spin'
+export function useLoading() {
+  const className = 'loaders-css__square-spin';
   const styleContent = `
   @keyframes square-spin {
     25% { transform: perspective(100px) rotateX(180deg) rotateY(0); }
@@ -48,23 +48,23 @@ export function useLoading () {
     background: #282c34;
     z-index: 9;
   }
-      `
-  const oStyle = document.createElement('style')
-  const oDiv = document.createElement('div')
+      `;
+  const oStyle = document.createElement('style');
+  const oDiv = document.createElement('div');
 
-  oStyle.id = 'app-loading-style'
-  oStyle.innerHTML = styleContent
-  oDiv.className = 'app-loading-wrap'
-  oDiv.innerHTML = `<div class="${className}"><div></div></div>`
+  oStyle.id = 'app-loading-style';
+  oStyle.innerHTML = styleContent;
+  oDiv.className = 'app-loading-wrap';
+  oDiv.innerHTML = `<div class="${className}"><div></div></div>`;
 
   return {
-    appendLoading () {
-      safeAppend(document.head, oStyle)
-      safeAppend(document.body, oDiv)
+    appendLoading() {
+      safeAppend(document.head, oStyle);
+      safeAppend(document.body, oDiv);
     },
-    removeLoading () {
-      safeRemove(document.head, oStyle)
-      safeRemove(document.body, oDiv)
-    }
-  }
+    removeLoading() {
+      safeRemove(document.head, oStyle);
+      safeRemove(document.body, oDiv);
+    },
+  };
 }

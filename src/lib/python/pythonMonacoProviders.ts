@@ -329,7 +329,7 @@ export function registerPythonMonacoProviders(
       });
 
       // Installation status
-      let statusText = '';
+      let statusText: string;
       if (installedPkg) {
         if (installedPkg.installing) {
           statusText = '**Status:** ⏳ Installing via micropip...';

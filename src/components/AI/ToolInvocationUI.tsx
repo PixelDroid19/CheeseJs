@@ -161,7 +161,9 @@ export function ToolInvocationCard({
           >
             <div className="p-3 space-y-2">
               {/* Input */}
-              {invocation.input && Object.keys(invocation.input).length > 0 && (
+              {Boolean(
+                invocation.input && Object.keys(invocation.input).length > 0
+              ) && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Input:</p>
                   <pre className="text-xs bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
@@ -171,16 +173,19 @@ export function ToolInvocationCard({
               )}
 
               {/* Output */}
-              {invocation.output && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Output:</p>
-                  <pre className="text-xs bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
-                    {typeof invocation.output === 'string'
-                      ? invocation.output
-                      : JSON.stringify(invocation.output, null, 2)}
-                  </pre>
-                </div>
-              )}
+              {invocation.output !== undefined &&
+                invocation.output !== null && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Output:
+                    </p>
+                    <pre className="text-xs bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
+                      {typeof invocation.output === 'string'
+                        ? invocation.output
+                        : JSON.stringify(invocation.output, null, 2)}
+                    </pre>
+                  </div>
+                )}
 
               {/* Error */}
               {invocation.error && (

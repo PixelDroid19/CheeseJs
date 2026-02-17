@@ -13,6 +13,7 @@ export default [
       'node_modules',
       'coverage',
       'electron/**/*.js',
+      'release',
     ],
   },
   js.configs.recommended,
@@ -48,6 +49,43 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+      // Security-related rules via TypeScript
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      // Disable overly strict error handling rule
+      'preserve-caught-error': 'off',
+    },
+  },
+  // Test files - relax some rules
+  {
+    files: [
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      '**/__test__/**/*.ts',
+      '**/__test__/**/*.tsx',
+      '**/__tests__/**/*.ts',
+    ],
+    rules: {
+      'no-new-func': 'off', // Function constructor used for testing edge cases
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react-refresh/only-export-components': 'off',
+      'no-undef': 'off', // Vitest globals
+    },
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        vi: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
+      },
     },
   },
 ];

@@ -28,7 +28,7 @@ export function Tooltip({ content, children }: TooltipProps) {
       const spaceRight = window.innerWidth - rect.right;
       const spaceTop = rect.top;
 
-      let newPosition: 'left' | 'right' | 'top' | 'bottom' = 'left';
+      let newPosition: 'left' | 'right' | 'top' | 'bottom';
 
       if (spaceLeft > tooltipWidth + padding) {
         newPosition = 'left';

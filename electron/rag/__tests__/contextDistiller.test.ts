@@ -237,30 +237,36 @@ describe('Context Distiller', () => {
   // -----------------------------------------------------------------------
   describe('overlap removal', () => {
     it('should remove overlapping content when merging', () => {
-      const overlap = 'this is the overlapping region here';
+      // Use a longer overlap (>20 chars) to ensure detection
+      // Make unique parts very different to avoid deduplication before merge
+      const overlap =
+        'this is the overlapping region here that is long enough for detection';
       const results = [
         makeResult({
           id: 'a',
           score: 0.9,
           documentId: 'doc1',
-          content: `first part unique content ${overlap}`,
+          content: `alpha beta gamma delta epsilon ${overlap}`,
           metadata: { chunkIndex: 0 },
         }),
         makeResult({
           id: 'b',
           score: 0.8,
           documentId: 'doc1',
-          content: `${overlap} second part unique content`,
+          content: `${overlap} zeta eta theta iota kappa`,
           metadata: { chunkIndex: 1 },
         }),
       ];
 
-      const distilled = distillContext(results, { mergeAdjacent: true });
+      const distilled = distillContext(results, {
+        mergeAdjacent: true,
+        dedupThreshold: 0.99,
+      });
       expect(distilled.length).toBe(1);
-      // The overlap should appear only once (or close to once)
+      // The overlap should appear only once
       const content = distilled[0].content;
-      expect(content).toContain('first part unique content');
-      expect(content).toContain('second part unique content');
+      expect(content).toContain('alpha beta gamma delta epsilon');
+      expect(content).toContain('zeta eta theta iota kappa');
     });
   });
 

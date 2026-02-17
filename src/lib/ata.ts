@@ -61,7 +61,7 @@ function isNodeBuiltin(packageName: string): boolean {
   const normalizedName = packageName.startsWith('node:')
     ? packageName.slice(5)
     : packageName;
-  
+
   return NODE_BUILTIN_MODULES.has(normalizedName);
 }
 

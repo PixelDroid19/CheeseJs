@@ -90,7 +90,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onToggleMagicComments: (callback: () => void) =>
     ipcRenderer.on('toggle-magic-comments', () => callback()),
 
-  // Filesystem operations for AI agent
+  // Filesystem operations for AI agent (SECURITY: executeCommand removed)
   readFile: (
     path: string,
     options?: { startLine?: number; endLine?: number }
@@ -101,8 +101,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('fs:listFiles', path, recursive),
   searchInFiles: (pattern: string, directory: string) =>
     ipcRenderer.invoke('fs:searchInFiles', pattern, directory),
-  executeCommand: (command: string, cwd?: string) =>
-    ipcRenderer.invoke('fs:executeCommand', command, cwd),
   deleteFile: (path: string) => ipcRenderer.invoke('fs:deleteFile', path),
   getWorkspacePath: () => ipcRenderer.invoke('fs:getWorkspacePath'),
 });
