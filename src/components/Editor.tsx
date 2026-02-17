@@ -45,13 +45,9 @@ function CodeEditor() {
   // Use centralized language store
   const language = useLanguageStore((state) => state.currentLanguage);
 
-  // Dynamic Monaco model path based on detected language
-  const monacoPath =
-    language === 'python'
-      ? 'code.py'
-      : language === 'javascript'
-        ? 'code.js'
-        : 'code.ts';
+  // Keep Monaco model path stable to avoid model replacement/remount side effects
+  // when language changes (which can reset cursor/selection).
+  const monacoPath = 'inmemory://model/code.ts';
   const setLanguage = useLanguageStore((state) => state.setLanguage);
   const detectLanguageAsync = useLanguageStore(
     (state) => state.detectLanguageAsync
@@ -236,7 +232,7 @@ function CodeEditor() {
       // ONLY cleanup models if language changed, not on every code change
       // cleanupModels(monacoRef.current)
     }
-  }, [language, code]); // Removed cleanupModels from dependencies to avoid loop
+  }, [code]); // Only sync external content updates, not language switches
 
   // Effect to handle language changes and cleanup
   useEffect(() => {
@@ -301,7 +297,7 @@ function CodeEditor() {
 
       // Expose monaco to window for E2E testing
       // Always expose for Electron app (needed for Playwright E2E tests)
-      window.monaco = monaco;
+      window.monaco = monaco as typeof import('monaco-editor');
       window.editor = editorInstance;
       window.useCodeStore = useCodeStore;
 
@@ -346,7 +342,9 @@ function CodeEditor() {
 
       // Register AI inline completion provider
       try {
-        const inlineProvider = createInlineCompletionProvider(monaco);
+        const inlineProvider = createInlineCompletionProvider(
+          monaco as unknown as typeof import('monaco-editor')
+        );
         // Register for all languages
         inlineCompletionDisposableRef.current =
           monaco.languages.registerInlineCompletionsProvider(
@@ -363,7 +361,7 @@ function CodeEditor() {
       // Register AI code actions (refactor, explain, document, fix)
       try {
         aiCodeActionsDisposablesRef.current = registerAICodeActions(
-          monaco,
+          monaco as unknown as typeof import('monaco-editor'),
           editorInstance
         );
       } catch (err) {
@@ -457,16 +455,18 @@ function CodeEditor() {
         // Increment version to invalidate any in-flight async detection
         const newVersion = incrementDetectionVersionRef.current();
 
-        // Immediate heuristic detection for snappy feedback
-        // Only applies if confidence >= 0.9 (definitive patterns)
+        // Immediate heuristic detection for snappy feedback.
+        // Guard against language thrashing while actively typing in the editor.
         try {
           const quick = detectLanguageSyncRef.current(value);
           const currentLang = languageRef.current;
+          const hasEditorFocus = monacoRef.current?.hasTextFocus() ?? false;
 
           if (
             quick &&
             quick.monacoId !== currentLang &&
-            quick.confidence >= 0.9
+            quick.confidence >= 0.9 &&
+            !hasEditorFocus
           ) {
             lastDetectedRef.current = quick.monacoId;
             setLanguageRef.current(quick.monacoId);
