@@ -7,6 +7,12 @@ import {
 } from '@playwright/test';
 import path from 'path';
 import electronPath from 'electron';
+import {
+  ensureMonacoReady,
+  getInputLanguage,
+  runAndGetOutput,
+  setInputCode,
+} from './helpers/monaco';
 
 let app: ElectronApplication;
 let page: Page;
@@ -27,6 +33,7 @@ test.beforeAll(async () => {
   await expect(page.locator('.monaco-editor').first()).toBeVisible({
     timeout: 20000,
   });
+  await ensureMonacoReady(page);
 });
 
 test.afterAll(async () => {
@@ -37,41 +44,26 @@ test.afterAll(async () => {
 
 test('Python error traceback should be clean', async () => {
   // Set Python code with error
-  await page.evaluate(() => {
-    // @ts-expect-error - Monaco is injected globally
-    const editor = window.monaco.editor.getModels()[0];
-    editor.setValue("print('ok')\nprint(undefined_variable)");
-  });
+  await setInputCode(page, "print('ok')\nprint(undefined_variable)");
 
   // Wait for language detection to identify Python
   await page.waitForFunction(
     () => {
       // @ts-expect-error - Monaco is injected globally
-      const model = window.monaco.editor.getModels()[0];
+      const models = window.monaco.editor.getModels();
+      const outputModel = models.find((m: any) =>
+        m.uri.toString().includes('result-output')
+      );
+      const inputModel =
+        models.find((m: any) => m !== outputModel) || models[0];
+      const model = inputModel;
       return model && model.getLanguageId() === 'python';
     },
     { timeout: 15000 }
   );
 
-  // Click Run
-  await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-
-  // Wait for output containing the expected error
-  await page.waitForFunction(
-    () => {
-      // @ts-expect-error - Monaco is injected globally
-      const models = window.monaco.editor.getModels();
-      return models.length > 1 && models[1].getValue().includes('NameError');
-    },
-    { timeout: 30000 }
-  );
-
-  const output = await page.evaluate(() => {
-    // @ts-expect-error - Monaco is injected globally
-    const models = window.monaco.editor.getModels();
-    // Assuming the second model is the output
-    return models.length > 1 ? models[1].getValue() : '';
-  });
+  expect(await getInputLanguage(page)).toBe('python');
+  const output = await runAndGetOutput(page, 30000);
 
   console.log('Output:', output);
 

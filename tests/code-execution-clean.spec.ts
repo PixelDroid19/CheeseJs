@@ -1,5 +1,10 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import path from 'path'; // eslint-disable-line @typescript-eslint/no-unused-vars
+import {
+  ensureMonacoReady,
+  runAndGetOutput,
+  setInputCode,
+} from './helpers/monaco';
 
 test.describe('Clean Code Execution', () => {
   test('should execute code without console errors', async () => {
@@ -57,31 +62,10 @@ test.describe('Clean Code Execution', () => {
     }
 
     // Wait for editor
-    await window.waitForFunction(() => window.monaco && window.editor);
+    await ensureMonacoReady(window);
 
-    // Clear editor
-    await window.evaluate(() => {
-      window.editor.setValue('');
-      window.editor.focus();
-    });
-
-    // Type code
-    await window.keyboard.type("console.log('Clean execution check');");
-
-    // Verify editor content in store or editor
-    const editorValue = await window.evaluate(() => window.editor.getValue());
-    console.log(`[TEST] Editor value: ${editorValue}`);
-
-    // Wait for editor state to settle (debounced update)
-    await window.waitForFunction(
-      () => {
-        return (
-          window.editor &&
-          window.editor.getValue().includes('Clean execution check')
-        );
-      },
-      { timeout: 5000 }
-    );
+    // Set code reliably
+    await setInputCode(window, "console.log('Clean execution check');");
 
     // Run code
     const runButton = window.getByTestId('run-button');
@@ -92,11 +76,8 @@ test.describe('Clean Code Execution', () => {
     await runButton.click();
     console.log('[TEST] Run button clicked');
 
-    // Verify output
-    const resultPanel = window.getByTestId('result-panel');
-    await expect(resultPanel).toContainText('Clean execution check', {
-      timeout: 10000,
-    });
+    const output = await runAndGetOutput(window, 10000);
+    expect(output).toContain('Clean execution check');
 
     // Check for success indicator
     // const successIcon = window.locator('.lucide-check-circle'); // Assuming success icon exists or check execution status

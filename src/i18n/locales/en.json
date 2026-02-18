@@ -93,9 +93,21 @@
       "autoInstallPackages": "Auto-install packages",
       "autoInstallPackagesTooltip": "Automatically install missing packages when detected in imports. Disable to install packages manually."
     },
+    "compilation": {
+      "transforms": "Code transformations"
+    },
+    "formatting": {
+      "display": "Output display",
+      "filters": "Console filters",
+      "filterLog": "Show Log messages",
+      "filterInfo": "Show Info messages",
+      "filterWarn": "Show Warn messages",
+      "filterError": "Show Error messages"
+    },
     "npm": {
       "description": "Manage npm packages for your code. Packages are automatically installed when detected in imports.",
       "configuration": "Configuration (.npmrc)",
+      "automation": "Automation",
       "installedPackages": "Installed Packages",
       "registryPlaceholder": "registry=https://registry.npmjs.org/",
       "placeholder": "Package name (e.g., lodash)",

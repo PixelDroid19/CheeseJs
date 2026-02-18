@@ -205,7 +205,7 @@ contextBridge.exposeInMainWorld('codeRunner', {
    * Wait for worker to be ready (polls every 100ms, max 10s)
    */
   waitForReady: async (language: string = 'javascript'): Promise<boolean> => {
-    const maxWait = 10000;
+    const maxWait = 30000;
     const interval = 100;
     let waited = 0;
 

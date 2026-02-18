@@ -16,7 +16,6 @@ import {
   Wrench,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { usePackageMetadata } from '../hooks/usePackageMetadata';
@@ -26,7 +25,13 @@ import { ConsoleInput } from './ConsoleInput';
 function ResultDisplay() {
   const elements = useCodeStore((state) => state.result);
   const code = useCodeStore((state) => state.code);
-  const { themeName, fontSize, alignResults } = useSettingsStore();
+  const {
+    themeName,
+    fontSize,
+    alignResults,
+    consoleFilters,
+    setConsoleFilters,
+  } = useSettingsStore();
   const {
     packages,
     addPackage,
@@ -78,16 +83,11 @@ function ResultDisplay() {
     setDismissedPackages: setDismissedPythonPackages,
   } = usePythonPackageMetadata(detectedMissingPythonPackages);
 
-  const [filters, setFilters] = useState({
-    log: true,
-    warn: true,
-    error: true,
-    info: true,
-  });
-
-  const toggleFilter = (type: keyof typeof filters) => {
-    setFilters((prev) => ({ ...prev, [type]: !prev[type] }));
+  const toggleFilter = (type: keyof typeof consoleFilters) => {
+    setConsoleFilters({ [type]: !consoleFilters[type] });
   };
+
+  const filters = consoleFilters;
 
   // Handle package installation using native Electron API
   const handleInstallPackage = useCallback(

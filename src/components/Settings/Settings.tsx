@@ -22,6 +22,8 @@ import { AppearanceTab } from './tabs/AppearanceTab';
 import { AdvancedTab } from './tabs/AdvancedTab';
 import { SnippetsTab } from './tabs/SnippetsTab';
 import { AITab } from './tabs/AITab';
+import { CompilationTab } from './tabs/CompilationTab';
+import { FormattingTab } from './tabs/FormattingTab';
 
 type Tab =
   | 'general'
@@ -156,20 +158,14 @@ export default function Settings() {
               <div className="flex-1 overflow-y-auto p-8">
                 <div className="max-w-2xl space-y-8">
                   {activeTab === 'general' && <GeneralTab />}
+                  {activeTab === 'compilation' && <CompilationTab />}
+                  {activeTab === 'formatting' && <FormattingTab />}
                   {activeTab === 'appearance' && <AppearanceTab />}
                   {activeTab === 'npm' && <PackageManager />}
                   {activeTab === 'pypi' && <PythonPackageManager />}
                   {activeTab === 'advanced' && <AdvancedTab />}
                   {activeTab === 'snippets' && <SnippetsTab />}
                   {activeTab === 'ai' && <AITab />}
-
-                  {/* Placeholders for other tabs */}
-                  {['compilation', 'formatting'].includes(activeTab) && (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                      <Wrench className="w-12 h-12 mb-4 opacity-20" />
-                      <p>{t('common.comingSoon')}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

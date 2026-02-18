@@ -67,6 +67,7 @@ let cancellationRequested = false;
 // ============================================================================
 
 import { getScriptCache } from './SmartScriptCache.js';
+import { isBlockedSandboxModule } from './sandboxRequirePolicy.js';
 
 // Get singleton script cache instance
 const scriptCache = getScriptCache({
@@ -277,6 +278,12 @@ function createRequireFunction() {
   );
 
   return (moduleName: string) => {
+    if (isBlockedSandboxModule(moduleName)) {
+      throw new Error(
+        `Module '${moduleName}' is not available in this sandboxed runtime.`
+      );
+    }
+
     try {
       return customRequire(moduleName);
     } catch {

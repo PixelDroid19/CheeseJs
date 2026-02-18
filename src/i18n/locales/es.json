@@ -101,12 +101,24 @@
       "autoInstallPackages": "Auto-instalar paquetes",
       "autoInstallPackagesTooltip": "Instala automáticamente los paquetes faltantes cuando se detectan en imports. Desactiva para instalar paquetes manualmente."
     },
+    "compilation": {
+      "transforms": "Transformaciones de código"
+    },
+    "formatting": {
+      "display": "Visualización de salida",
+      "filters": "Filtros de consola",
+      "filterLog": "Mostrar mensajes Log",
+      "filterInfo": "Mostrar mensajes Info",
+      "filterWarn": "Mostrar mensajes Warn",
+      "filterError": "Mostrar mensajes Error"
+    },
     "common": {
       "comingSoon": "Próximamente..."
     },
     "npm": {
       "description": "Administra paquetes npm para tu código. Los paquetes se instalan automáticamente cuando se detectan en los imports.",
       "configuration": "Configuración (.npmrc)",
+      "automation": "Automatización",
       "installedPackages": "Paquetes Instalados",
       "registryPlaceholder": "registry=https://registry.npmjs.org/",
       "placeholder": "Nombre del paquete (ej: lodash)",

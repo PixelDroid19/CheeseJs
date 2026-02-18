@@ -3,14 +3,37 @@ import { usePackagesStore } from '../store/usePackagesStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { usePackageInstaller } from '../hooks/usePackageInstaller';
 import { useTranslation } from 'react-i18next';
+import { HelpCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { PackageList } from './PackageList';
+import { Toggle } from './Settings/ui/Toggle';
+import { Tooltip } from './Settings/ui/Tooltip';
+
+const HelpIcon = ({ content }: { content: string }) => {
+  return (
+    <Tooltip content={content}>
+      <HelpCircle
+        size={15}
+        className={clsx(
+          'transition-colors text-muted-foreground hover:text-foreground'
+        )}
+      />
+    </Tooltip>
+  );
+};
 
 export function PackageManager() {
   const { t } = useTranslation();
   const [packageName, setPackageName] = useState('');
   const packages = usePackagesStore((state) => state.packages);
-  const { npmRcContent, setNpmRcContent } = useSettingsStore();
+  const {
+    npmRcContent,
+    setNpmRcContent,
+    autoInstallPackages,
+    setAutoInstallPackages,
+    autoRunAfterInstall,
+    setAutoRunAfterInstall,
+  } = useSettingsStore();
   const { installPackage, uninstallPackage } = usePackageInstaller();
 
   const handleAddPackage = async () => {
@@ -61,6 +84,45 @@ export function PackageManager() {
           )}
           spellCheck={false}
         />
+      </div>
+
+      {/* Automation Section */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3 text-foreground">
+          {t('settings.npm.automation', 'Automation')}
+        </h3>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between min-h-10">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground">
+                {t('settings.advanced.autoInstallPackages')}
+              </span>
+              <HelpIcon
+                content={t('settings.advanced.autoInstallPackagesTooltip')}
+              />
+            </div>
+            <Toggle
+              checked={autoInstallPackages}
+              onChange={setAutoInstallPackages}
+            />
+          </div>
+
+          <div className="flex items-center justify-between min-h-10">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground">
+                {t('settings.advanced.autoRunAfterInstall')}
+              </span>
+              <HelpIcon
+                content={t('settings.advanced.autoRunAfterInstallTooltip')}
+              />
+            </div>
+            <Toggle
+              checked={autoRunAfterInstall}
+              onChange={setAutoRunAfterInstall}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Packages Section */}
