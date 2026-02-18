@@ -5,12 +5,15 @@ import type {
   CustomProviderConfig,
 } from '../features/ai-agent/types';
 import { AI_PROVIDERS } from '../features/ai-agent/types';
+import type { AgentProfile } from '../features/ai-agent/agentProfiles';
 
 export interface LocalServerConfig {
   baseURL: string;
   modelId: string;
   apiKey?: string; // Optional API token for LM Studio auth
 }
+
+export type AgentExecutionMode = 'agent' | 'plan';
 
 interface AISettingsState {
   // Provider and model selection
@@ -25,6 +28,9 @@ interface AISettingsState {
   // Feature toggles
   enableInlineCompletion: boolean;
   enableChat: boolean;
+  executionMode: AgentExecutionMode;
+  agentProfile: AgentProfile;
+  enableVerifierSubagent: boolean;
   strictLocalMode: boolean; // Enforces local-only operation, disables cloud providers
   maxTokens: number;
   temperature: number;
@@ -39,6 +45,9 @@ interface AISettingsState {
   ) => void;
   setEnableInlineCompletion: (enabled: boolean) => void;
   setEnableChat: (enabled: boolean) => void;
+  setExecutionMode: (mode: AgentExecutionMode) => void;
+  setAgentProfile: (profile: AgentProfile) => void;
+  setEnableVerifierSubagent: (enabled: boolean) => void;
   setStrictLocalMode: (enabled: boolean) => void;
   setMaxTokens: (tokens: number) => void;
   setTemperature: (temp: number) => void;
@@ -84,6 +93,9 @@ export const useAISettingsStore = create<AISettingsState>()(
       customConfigs: defaultCustomConfigs,
       enableInlineCompletion: true,
       enableChat: true,
+      executionMode: 'agent',
+      agentProfile: 'build',
+      enableVerifierSubagent: true,
       strictLocalMode: false,
       maxTokens: 2048,
       temperature: 0.7,
@@ -117,6 +129,21 @@ export const useAISettingsStore = create<AISettingsState>()(
         set({ enableInlineCompletion: enabled }),
 
       setEnableChat: (enabled) => set({ enableChat: enabled }),
+
+      setExecutionMode: (mode) =>
+        set({
+          executionMode: mode,
+          agentProfile: mode === 'plan' ? 'plan' : 'build',
+        }),
+
+      setAgentProfile: (profile) =>
+        set({
+          agentProfile: profile,
+          executionMode: profile === 'plan' ? 'plan' : 'agent',
+        }),
+
+      setEnableVerifierSubagent: (enabled) =>
+        set({ enableVerifierSubagent: enabled }),
 
       setStrictLocalMode: (enabled) => set({ strictLocalMode: enabled }),
 
@@ -180,6 +207,9 @@ export const useAISettingsStore = create<AISettingsState>()(
         customConfigs: state.customConfigs,
         enableInlineCompletion: state.enableInlineCompletion,
         enableChat: state.enableChat,
+        executionMode: state.executionMode,
+        agentProfile: state.agentProfile,
+        enableVerifierSubagent: state.enableVerifierSubagent,
         strictLocalMode: state.strictLocalMode,
         maxTokens: state.maxTokens,
         temperature: state.temperature,

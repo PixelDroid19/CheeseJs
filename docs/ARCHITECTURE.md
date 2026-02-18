@@ -160,6 +160,27 @@ Client-side AST transformations:
 
 ## Security Model
 
+### AI Agent Profiles and Tool Permissions
+
+The AI agent runtime follows a profile-based permission model inspired by Opencode:
+
+- **build profile**: read + write tool access (editor/file modifications)
+- **plan profile**: read-only tool access (analysis/planning, no writes)
+
+Current execution mode mapping:
+
+- `agent` → `build`
+- `plan` → `plan`
+- `verifier` → `plan`
+
+This policy is enforced in `src/features/ai-agent/codeAgent.ts` via profile-aware tool filtering using `src/features/ai-agent/agentProfiles.ts`.
+
+AI runtime concerns are separated into dedicated modules:
+
+- `src/features/ai-agent/agentRuntime.ts`: mode/profile resolution, system prompt policy, execution step limits.
+- `src/features/ai-agent/toolRegistry.ts`: centralized tool definitions and filtered tool exposure by mode/profile.
+- `src/features/ai-agent/codeAgent.ts`: orchestration layer (provider + runtime + tool registry).
+
 ### VM Sandbox (JavaScript/TypeScript)
 
 ```javascript

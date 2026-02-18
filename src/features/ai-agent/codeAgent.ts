@@ -1,120 +1,20 @@
 // Code Agent using AI SDK 6
 // Full agent with filesystem tools, code execution, and editor integration
-import { generateText, streamText, tool, stepCountIs } from 'ai';
-import { z } from 'zod/v3';
+import { generateText, streamText, stepCountIs } from 'ai';
 import { createProviderInstance, type LocalProviderConfig } from './providers';
-import { SYSTEM_PROMPTS } from './prompts';
-import type { AIProvider, CustomProviderConfig } from './types';
-
-// Workaround for AI SDK / zod type inference issues
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const createTool = tool as any;
-
-// Filesystem helpers - work in both Electron and browser environments
-async function readFile(
-  path: string
-): Promise<{ success: boolean; content?: string; error?: string }> {
-  try {
-    if (window.electronAPI?.readFile) {
-      return await window.electronAPI.readFile(path);
-    }
-    return { success: false, error: 'File system not available in browser' };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-}
-
-async function writeFile(
-  path: string,
-  content: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    if (window.electronAPI?.writeFile) {
-      return await window.electronAPI.writeFile(path, content);
-    }
-    return { success: false, error: 'File system not available in browser' };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-}
-
-async function listFiles(
-  path: string,
-  recursive: boolean = false
-): Promise<{ success: boolean; files?: string[]; error?: string }> {
-  try {
-    if (window.electronAPI?.listFiles) {
-      return await window.electronAPI.listFiles(path, recursive);
-    }
-    return { success: false, error: 'File system not available in browser' };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-}
-
-async function searchInFiles(
-  pattern: string,
-  directory: string
-): Promise<{
-  success: boolean;
-  results?: Array<{ file: string; line: number; content: string }>;
-  error?: string;
-}> {
-  try {
-    if (window.electronAPI?.searchInFiles) {
-      return await window.electronAPI.searchInFiles(pattern, directory);
-    }
-    return { success: false, error: 'File system not available in browser' };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-}
-
-async function executeCommand(
-  command: string,
-  cwd?: string
-): Promise<{
-  success: boolean;
-  stdout?: string;
-  stderr?: string;
-  error?: string;
-}> {
-  try {
-    if (window.electronAPI?.executeCommand) {
-      return await window.electronAPI.executeCommand(command, cwd);
-    }
-    return {
-      success: false,
-      error: 'Command execution not available in browser',
-    };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-}
-
-async function deleteFile(
-  path: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    if (window.electronAPI?.deleteFile) {
-      return await window.electronAPI.deleteFile(path);
-    }
-    return { success: false, error: 'File system not available in browser' };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-}
-
-async function getWorkspacePath(): Promise<string> {
-  try {
-    if (window.electronAPI?.getWorkspacePath) {
-      return await window.electronAPI.getWorkspacePath();
-    }
-    return process.cwd?.() || '/';
-  } catch {
-    return '/';
-  }
-}
+import type { AgentProfile } from './agentProfiles';
+import {
+  resolveAgentRuntime,
+  type AgentExecutionMode,
+  type AgentRuntimeOptions,
+} from './agentRuntime';
+import { createToolRegistry, resolveToolsForExecution } from './toolRegistry';
+import type {
+  AIProvider,
+  CustomProviderConfig,
+  ExecutionPlan,
+  PlanTask,
+} from './types';
 
 // Code execution result type
 export interface CodeExecutionResult {
@@ -163,10 +63,13 @@ export interface AgentCallbacks {
 
 // Simple agent interface
 export interface SimpleAgent {
-  stream: (options: { prompt: string }) => {
+  stream: (options: { prompt: string; abortSignal?: AbortSignal }) => {
     textStream: AsyncIterable<string>;
   };
-  generate: (options: { prompt: string }) => Promise<{ text: string }>;
+  generate: (options: {
+    prompt: string;
+    abortSignal?: AbortSignal;
+  }) => Promise<{ text: string }>;
 }
 
 // Keep for backward compatibility with fallback logic in AIChat
@@ -231,453 +134,182 @@ export async function processEditorActions(
   }
 }
 
-const AGENT_SYSTEM_PROMPT = `${SYSTEM_PROMPTS.codeAssistant}
+export function sanitizeAssistantOutput(
+  rawText: string,
+  options?: { showThinking?: boolean }
+): string {
+  if (!rawText) return '';
 
-You have access to powerful tools to help the user with coding tasks.
+  let sanitized = rawText;
+  const showThinking = options?.showThinking ?? false;
 
-## Editor Tools
-Use these tools to manipulate the code editor directly:
-- **replaceAll**: Replace the entire code in the editor with new content
-- **insert**: Insert code at the current cursor position
-- **replaceSelection**: Replace the currently selected code
-- **searchDocumentation**: Search the documentation (RAG) for relevant information
+  // Never surface internal editor action envelopes in chat text.
+  sanitized = sanitized.replace(
+    /<<<EDITOR_ACTION>>>[\s\S]*?<<<END_ACTION>>>/g,
+    ''
+  );
 
-## Filesystem Tools
-You have full access to the user's filesystem (when running in Electron):
-- **readFile**: Read the contents of any file. Supports optional line ranges (startLine, endLine)
-- **writeFile**: Create or overwrite a file with new content
-- **listFiles**: List files and directories in a path. Set recursive=true for deep listing
-- **searchInFiles**: Search for text or regex patterns across files in a directory
-- **executeCommand**: Run shell commands (use with caution - explain what you're doing)
-- **deleteFile**: Delete a file or directory (use with caution)
-- **getWorkspacePath**: Get the current workspace/project root path
+  if (!showThinking) {
+    // Remove fully closed hidden-reasoning blocks.
+    sanitized = sanitized.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    sanitized = sanitized.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
 
-## Guidelines
-- Use tools whenever you need to write, modify, or analyze code
-- Don't just output code in markdown unless specifically asked for an explanation
-- For filesystem operations, always confirm with the user before destructive actions
-- When exploring a project, start with getWorkspacePath and listFiles to understand the structure
-- Use readFile to examine specific files, and writeFile to make changes
-- Use searchInFiles to find code patterns, function definitions, or usages
-`;
+    // Hide trailing, unclosed reasoning blocks while streaming.
+    const hideTrailingBlock = (
+      text: string,
+      openTag: string,
+      closeTag: string
+    ) => {
+      const lower = text.toLowerCase();
+      const openIndex = lower.lastIndexOf(openTag);
+      const closeIndex = lower.lastIndexOf(closeTag);
+      return openIndex > closeIndex ? text.slice(0, openIndex) : text;
+    };
 
-const LEGACY_SYSTEM_PROMPT = `${SYSTEM_PROMPTS.codeAssistant}
+    sanitized = hideTrailingBlock(sanitized, '<think>', '</think>');
+    sanitized = hideTrailingBlock(sanitized, '<reasoning>', '</reasoning>');
+  }
 
-You have DIRECT ACCESS to the code editor.
-The current code in the editor is provided to you in the context.
-
-Your PRIMARY GOAL is to help the user by WRITING CODE DIRECTLY into the editor.
-
-To perform actions, you MUST use the following JSON block format:
-
-<<<EDITOR_ACTION>>>
-{
-  "action": "ACTION_NAME",
-  "code": "CODE_CONTENT"
+  return sanitized.trim();
 }
-<<<END_ACTION>>>
 
-Available Actions:
-- "replaceAll": Replace the entire file content. Use this to write a new file or completely rewrite the current code.
-- "insert": Insert code at cursor position. Use this to insert a helper function or snippet.
-- "replaceSelection": Replace selected code.
-
-Example:
-<<<EDITOR_ACTION>>>
-{
-  "action": "insert",
-  "code": "console.log('Hello');"
+export function isDirectEditIntent(message: string): boolean {
+  const intentRegex =
+    /(create|write|implement|build|make|add|fix|refactor|update|edit|replace|rewrite|function|archivo|crear|escribe|implementa|construye|agrega|corrige|refactoriza|edita|modifica|reemplaza|reescribe|funci[oó]n)/i;
+  return intentRegex.test(message);
 }
-<<<END_ACTION>>>
 
-CRITICAL RULES:
-- DO NOT just print the code in a markdown block. The user wants the code IN THE EDITOR.
-- Use the JSON block format for ALL code modifications.
-`;
+export function extractCodeForDirectEdit(responseText: string): string | null {
+  if (!responseText) return null;
 
-function getTools(callbacks?: AgentCallbacks) {
-  return {
-    replaceAll: createTool({
-      description: 'Replace the entire code in the editor',
-      inputSchema: z.object({
-        code: z.string().describe('The full code to write'),
-        explanation: z
-          .string()
-          .optional()
-          .describe('Explanation of the change'),
-      }),
-      execute: async (params: { code: string; explanation?: string }) => {
-        const { code, explanation } = params;
-        const invocationId = `tool_${Date.now()}_replaceAll`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'replaceAll',
-          state: 'running',
-          input: { code: code.slice(0, 50) + '...', explanation },
-        });
+  // Prefer explicit fenced code blocks.
+  const codeFenceMatch = responseText.match(/```(?:[\w.+-]+)?\n([\s\S]*?)```/);
+  if (codeFenceMatch?.[1]?.trim()) {
+    return codeFenceMatch[1].trim();
+  }
 
-        callbacks?.onReplaceAll?.(code);
+  const normalized = responseText.trim();
+  const looksLikeCode =
+    /(^|\n)\s*(function\s+\w+|const\s+\w+\s*=|let\s+\w+\s*=|class\s+\w+|import\s+.+from\s+['"]|export\s+(default\s+)?(function|const|class)|def\s+\w+\s*\(|if\s*\(|for\s*\(|while\s*\()/m.test(
+      normalized
+    );
 
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'replaceAll',
-          state: 'completed',
-          input: { code: code.slice(0, 50) + '...', explanation },
-          output: { success: true },
-        });
-        return { success: true, explanation };
-      },
-    }),
-    insert: createTool({
-      description: 'Insert code at the current cursor position',
-      inputSchema: z.object({
-        code: z.string().describe('The code to insert'),
-        explanation: z
-          .string()
-          .optional()
-          .describe('Explanation of the change'),
-      }),
-      execute: async (params: { code: string; explanation?: string }) => {
-        const { code, explanation } = params;
-        const invocationId = `tool_${Date.now()}_insert`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'insert',
-          state: 'running',
-          input: { code: code.slice(0, 50) + '...', explanation },
-        });
+  if (looksLikeCode) {
+    return normalized;
+  }
 
-        callbacks?.onInsertCode?.(code);
+  return null;
+}
 
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'insert',
-          state: 'completed',
-          input: { code: code.slice(0, 50) + '...', explanation },
-          output: { success: true },
-        });
-        return { success: true, explanation };
-      },
-    }),
-    replaceSelection: createTool({
-      description: 'Replace the currently selected code',
-      inputSchema: z.object({
-        code: z.string().describe('The new code'),
-        explanation: z
-          .string()
-          .optional()
-          .describe('Explanation of the change'),
-      }),
-      execute: async (params: { code: string; explanation?: string }) => {
-        const { code, explanation } = params;
-        const invocationId = `tool_${Date.now()}_replaceSelection`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'replaceSelection',
-          state: 'running',
-          input: { code: code.slice(0, 50) + '...', explanation },
-        });
+const PLAN_JSON_START = '<<<PLAN_JSON_START>>>';
+const PLAN_JSON_END = '<<<PLAN_JSON_END>>>';
 
-        callbacks?.onReplaceSelection?.(code);
+export function buildStructuredPlanPrompt(userRequest: string): string {
+  return [
+    `Create an actionable development plan for this request: ${userRequest}`,
+    '',
+    'Return two sections:',
+    '1) Human summary in markdown (short).',
+    `2) Machine-readable JSON between markers ${PLAN_JSON_START} and ${PLAN_JSON_END}.`,
+    '',
+    'JSON schema:',
+    '{',
+    '  "goal": "string",',
+    '  "assumptions": ["string"],',
+    '  "tasks": [',
+    '    {',
+    '      "id": "task-1",',
+    '      "title": "string",',
+    '      "description": "string",',
+    '      "dependencies": ["task-x"],',
+    '      "prompt": "single clear instruction for autonomous execution"',
+    '    }',
+    '  ]',
+    '}',
+    '',
+    'Constraints:',
+    '- 3 to 8 tasks max',
+    '- Each task must be executable independently',
+    '- dependencies should only reference existing task ids',
+  ].join('\n');
+}
 
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'replaceSelection',
-          state: 'completed',
-          input: { code: code.slice(0, 50) + '...', explanation },
-          output: { success: true },
-        });
-        return { success: true, explanation };
-      },
-    }),
-    searchDocumentation: createTool({
-      description: 'Search the documentation for relevant information (RAG)',
-      inputSchema: z.object({
-        query: z.string().describe('The search query'),
-      }),
-      execute: async (params: { query: string }) => {
-        const { query } = params;
-        const invocationId = `tool_${Date.now()}_searchDocumentation`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'searchDocumentation',
-          state: 'running',
-          input: { query },
-        });
+export function extractExecutionPlanFromText(
+  responseText: string
+): ExecutionPlan | null {
+  const start = responseText.indexOf(PLAN_JSON_START);
+  const end = responseText.indexOf(PLAN_JSON_END);
+  if (start === -1 || end === -1 || end <= start) return null;
 
-        let result: string;
-        try {
-          if (typeof window !== 'undefined' && window.rag) {
-            const pipelineResult = await window.rag.searchPipeline(query, {
-              maxContextTokens: 4000,
-              includeAttribution: true,
-            });
-            if (pipelineResult.success && pipelineResult.result?.context) {
-              result = pipelineResult.result.context;
-              if (!result) result = 'No relevant documentation found.';
-            } else {
-              result =
-                'Error searching documentation: ' +
-                (pipelineResult.error || 'Unknown error');
-            }
-          } else {
-            result = 'RAG system is not available in this environment.';
-          }
-        } catch (error) {
-          result = 'Error searching documentation: ' + String(error);
-        }
+  const rawJson = responseText
+    .slice(start + PLAN_JSON_START.length, end)
+    .trim();
 
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'searchDocumentation',
-          state: 'completed',
-          input: { query },
-          output: { success: true, resultCount: result.length },
-        });
+  try {
+    const parsed = JSON.parse(rawJson) as {
+      goal?: string;
+      assumptions?: string[];
+      tasks?: Array<{
+        id?: string;
+        title?: string;
+        description?: string;
+        dependencies?: string[];
+        prompt?: string;
+      }>;
+    };
 
-        return { result };
-      },
-    }),
-    // ========== NEW FILESYSTEM TOOLS ==========
-    readFile: createTool({
-      description: 'Read the contents of a file from the filesystem',
-      inputSchema: z.object({
-        path: z.string().describe('The file path to read'),
-        startLine: z
-          .number()
-          .optional()
-          .describe('Starting line number (1-based)'),
-        endLine: z.number().optional().describe('Ending line number (1-based)'),
-      }),
-      execute: async (params: {
-        path: string;
-        startLine?: number;
-        endLine?: number;
-      }) => {
-        const { path, startLine, endLine } = params;
-        const invocationId = `tool_${Date.now()}_readFile`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'readFile',
-          state: 'running',
-          input: { path, startLine, endLine },
-        });
+    if (
+      !parsed.goal ||
+      !Array.isArray(parsed.tasks) ||
+      parsed.tasks.length === 0
+    ) {
+      return null;
+    }
 
-        const result = await readFile(path);
+    const normalizedTasks: PlanTask[] = parsed.tasks
+      .map((task, index) => {
+        const id = task.id?.trim() || `task-${index + 1}`;
+        return {
+          id,
+          title: task.title?.trim() || `Task ${index + 1}`,
+          description: task.description?.trim() || '',
+          dependencies: Array.isArray(task.dependencies)
+            ? task.dependencies.filter(Boolean)
+            : [],
+          prompt:
+            task.prompt?.trim() ||
+            `Execute task ${id}: ${task.title?.trim() || `Task ${index + 1}`}`,
+          status: 'pending' as const,
+        };
+      })
+      .filter((task) => task.prompt.length > 0);
 
-        let content = result.content || '';
-        if (result.success && content && (startLine || endLine)) {
-          const lines = content.split('\n');
-          const start = (startLine || 1) - 1;
-          const end = endLine || lines.length;
-          content = lines.slice(start, end).join('\n');
-        }
+    if (normalizedTasks.length === 0) return null;
 
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'readFile',
-          state: result.success ? 'completed' : 'error',
-          input: { path, startLine, endLine },
-          output: result.success
-            ? { success: true, lines: content.split('\n').length }
-            : undefined,
-          error: result.error,
-        });
+    const now = Date.now();
+    return {
+      id: `plan_${now}`,
+      goal: parsed.goal,
+      assumptions: Array.isArray(parsed.assumptions)
+        ? parsed.assumptions.filter(Boolean)
+        : [],
+      tasks: normalizedTasks,
+      status: 'ready',
+      createdAt: now,
+      updatedAt: now,
+      currentTaskIndex: 0,
+    };
+  } catch {
+    return null;
+  }
+}
 
-        return result.success
-          ? { success: true, content }
-          : { success: false, error: result.error };
-      },
-    }),
-    writeFile: createTool({
-      description:
-        'Write content to a file (creates the file if it does not exist)',
-      inputSchema: z.object({
-        path: z.string().describe('The file path to write'),
-        content: z.string().describe('The content to write'),
-      }),
-      execute: async (params: { path: string; content: string }) => {
-        const { path, content } = params;
-        const invocationId = `tool_${Date.now()}_writeFile`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'writeFile',
-          state: 'running',
-          input: { path, contentLength: content.length },
-        });
-
-        const result = await writeFile(path, content);
-
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'writeFile',
-          state: result.success ? 'completed' : 'error',
-          input: { path, contentLength: content.length },
-          output: result.success ? { success: true } : undefined,
-          error: result.error,
-        });
-
-        return result;
-      },
-    }),
-    listFiles: createTool({
-      description: 'List files and directories in a given path',
-      inputSchema: z.object({
-        path: z.string().describe('The directory path to list'),
-        recursive: z
-          .boolean()
-          .optional()
-          .describe('Whether to list files recursively'),
-      }),
-      execute: async (params: { path: string; recursive?: boolean }) => {
-        const { path, recursive = false } = params;
-        const invocationId = `tool_${Date.now()}_listFiles`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'listFiles',
-          state: 'running',
-          input: { path, recursive },
-        });
-
-        const result = await listFiles(path, recursive);
-
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'listFiles',
-          state: result.success ? 'completed' : 'error',
-          input: { path, recursive },
-          output: result.success
-            ? { success: true, count: result.files?.length }
-            : undefined,
-          error: result.error,
-        });
-
-        return result;
-      },
-    }),
-    searchInFiles: createTool({
-      description:
-        'Search for a pattern (text or regex) in files within a directory',
-      inputSchema: z.object({
-        pattern: z.string().describe('The search pattern (text or regex)'),
-        directory: z.string().describe('The directory to search in'),
-      }),
-      execute: async (params: { pattern: string; directory: string }) => {
-        const { pattern, directory } = params;
-        const invocationId = `tool_${Date.now()}_searchInFiles`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'searchInFiles',
-          state: 'running',
-          input: { pattern, directory },
-        });
-
-        const result = await searchInFiles(pattern, directory);
-
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'searchInFiles',
-          state: result.success ? 'completed' : 'error',
-          input: { pattern, directory },
-          output: result.success
-            ? { success: true, matchCount: result.results?.length }
-            : undefined,
-          error: result.error,
-        });
-
-        return result;
-      },
-    }),
-    executeCommand: createTool({
-      description: 'Execute a shell command (use with caution)',
-      inputSchema: z.object({
-        command: z.string().describe('The command to execute'),
-        cwd: z
-          .string()
-          .optional()
-          .describe('Working directory for the command'),
-      }),
-      execute: async (params: { command: string; cwd?: string }) => {
-        const { command, cwd } = params;
-        const invocationId = `tool_${Date.now()}_executeCommand`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'executeCommand',
-          state: 'running',
-          input: { command, cwd },
-        });
-
-        const result = await executeCommand(command, cwd);
-
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'executeCommand',
-          state: result.success ? 'completed' : 'error',
-          input: { command, cwd },
-          output: result.success
-            ? { success: true, stdout: result.stdout?.slice(0, 500) }
-            : undefined,
-          error: result.error || result.stderr,
-        });
-
-        return result;
-      },
-    }),
-    deleteFile: createTool({
-      description: 'Delete a file or directory',
-      inputSchema: z.object({
-        path: z.string().describe('The path to delete'),
-      }),
-      execute: async (params: { path: string }) => {
-        const { path } = params;
-        const invocationId = `tool_${Date.now()}_deleteFile`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'deleteFile',
-          state: 'running',
-          input: { path },
-        });
-
-        const result = await deleteFile(path);
-
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'deleteFile',
-          state: result.success ? 'completed' : 'error',
-          input: { path },
-          output: result.success ? { success: true } : undefined,
-          error: result.error,
-        });
-
-        return result;
-      },
-    }),
-    getWorkspacePath: createTool({
-      description: 'Get the current workspace/project path',
-      inputSchema: z.object({}),
-      execute: async () => {
-        const invocationId = `tool_${Date.now()}_getWorkspacePath`;
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'getWorkspacePath',
-          state: 'running',
-          input: {},
-        });
-
-        const path = await getWorkspacePath();
-
-        callbacks?.onToolInvocation?.({
-          id: invocationId,
-          toolName: 'getWorkspacePath',
-          state: 'completed',
-          input: {},
-          output: { success: true, path },
-        });
-
-        return { success: true, path };
-      },
-    }),
-  };
+function getTools(
+  callbacks?: AgentCallbacks,
+  mode: AgentExecutionMode = 'agent',
+  profile?: AgentProfile
+) {
+  return resolveToolsForExecution(createToolRegistry(callbacks), mode, profile);
 }
 
 // Create a simple agent - compatible with all providers
@@ -688,8 +320,10 @@ export function createCodeAgent(
   localConfig?: LocalProviderConfig,
   callbacks?: AgentCallbacks,
   customConfig?: CustomProviderConfig,
-  disableTools: boolean = false
+  optionsOrDisable?: boolean | AgentRuntimeOptions
 ): SimpleAgent {
+  const { mode, disableTools, profile, systemPrompt, maxSteps } =
+    resolveAgentRuntime(optionsOrDisable);
   const providerInstance = createProviderInstance(
     provider,
     apiKey,
@@ -697,13 +331,10 @@ export function createCodeAgent(
     localConfig,
     customConfig
   );
-  const tools = disableTools ? undefined : getTools(callbacks);
-  const systemPrompt = disableTools
-    ? LEGACY_SYSTEM_PROMPT
-    : AGENT_SYSTEM_PROMPT;
+  const tools = disableTools ? undefined : getTools(callbacks, mode, profile);
 
   return {
-    stream: ({ prompt }) => {
+    stream: ({ prompt, abortSignal }) => {
       return {
         textStream: (async function* () {
           const result = streamText({
@@ -711,7 +342,8 @@ export function createCodeAgent(
             system: systemPrompt,
             prompt,
             tools,
-            stopWhen: stepCountIs(5),
+            stopWhen: stepCountIs(maxSteps),
+            abortSignal,
           });
 
           let fullResponse = '';
@@ -728,13 +360,14 @@ export function createCodeAgent(
       };
     },
 
-    generate: async ({ prompt }) => {
+    generate: async ({ prompt, abortSignal }) => {
       const result = await generateText({
         model: providerInstance.model,
         system: systemPrompt,
         prompt,
         tools,
-        stopWhen: stepCountIs(5),
+        stopWhen: stepCountIs(maxSteps),
+        abortSignal,
       });
 
       if (disableTools && callbacks) {
@@ -754,3 +387,5 @@ export type CodeAgentMessage = {
   role: 'user' | 'assistant';
   content: string;
 };
+
+export type { AgentExecutionMode, AgentRuntimeOptions } from './agentRuntime';

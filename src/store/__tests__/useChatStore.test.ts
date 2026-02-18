@@ -23,6 +23,10 @@ describe('useChatStore', () => {
       expect(state.agentPhase).toBe('idle');
       expect(state.thinkingMessage).toBe('');
       expect(state.pendingChange).toBeNull();
+      expect(state.activePlan).toBeNull();
+      expect(state.showThinking).toBe(false);
+      expect(state.appliedChanges).toEqual([]);
+      expect(state.redoChanges).toEqual([]);
     });
   });
 
@@ -207,6 +211,135 @@ describe('useChatStore', () => {
         useChatStore.getState().clearPendingChange();
       });
       expect(useChatStore.getState().pendingChange).toBeNull();
+    });
+  });
+
+  describe('integrated execution plan', () => {
+    it('should set and clear active plan', () => {
+      const plan = {
+        id: 'plan_1',
+        goal: 'Improve UX',
+        assumptions: ['User has workspace open'],
+        tasks: [
+          {
+            id: 'task-1',
+            title: 'Update UI',
+            description: 'Adjust chat layout',
+            dependencies: [],
+            prompt: 'Update panel dimensions',
+            status: 'pending' as const,
+          },
+        ],
+        status: 'ready' as const,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        currentTaskIndex: 0,
+      };
+
+      act(() => {
+        useChatStore.getState().setActivePlan(plan);
+      });
+      expect(useChatStore.getState().activePlan?.goal).toBe('Improve UX');
+
+      act(() => {
+        useChatStore.getState().clearActivePlan();
+      });
+      expect(useChatStore.getState().activePlan).toBeNull();
+    });
+
+    it('should update plan status, current task, and task notes', () => {
+      const now = Date.now();
+      act(() => {
+        useChatStore.getState().setActivePlan({
+          id: 'plan_2',
+          goal: 'Ship feature',
+          assumptions: [],
+          tasks: [
+            {
+              id: 'task-1',
+              title: 'Step 1',
+              description: 'Do first step',
+              dependencies: [],
+              prompt: 'Execute step 1',
+              status: 'pending',
+            },
+          ],
+          status: 'ready',
+          createdAt: now,
+          updatedAt: now,
+          currentTaskIndex: 0,
+        });
+      });
+
+      act(() => {
+        useChatStore.getState().setPlanStatus('running');
+        useChatStore.getState().setCurrentPlanTaskIndex(0);
+        useChatStore
+          .getState()
+          .updatePlanTaskStatus('task-1', 'completed', 'Done successfully');
+      });
+
+      const state = useChatStore.getState();
+      expect(state.activePlan?.status).toBe('running');
+      expect(state.activePlan?.currentTaskIndex).toBe(0);
+      expect(state.activePlan?.tasks[0].status).toBe('completed');
+      expect(state.activePlan?.tasks[0].notes).toBe('Done successfully');
+    });
+  });
+
+  describe('thinking visibility', () => {
+    it('should toggle showThinking preference', () => {
+      act(() => {
+        useChatStore.getState().setShowThinking(true);
+      });
+      expect(useChatStore.getState().showThinking).toBe(true);
+
+      act(() => {
+        useChatStore.getState().setShowThinking(false);
+      });
+      expect(useChatStore.getState().showThinking).toBe(false);
+    });
+  });
+
+  describe('applied change history', () => {
+    it('should push history and clear redo on new change', () => {
+      const state = useChatStore.getState();
+      act(() => {
+        state.pushAppliedChange({
+          action: 'replaceAll',
+          originalCode: 'const a = 1;',
+          newCode: 'const a = 2;',
+        });
+      });
+
+      expect(useChatStore.getState().appliedChanges).toHaveLength(1);
+      expect(useChatStore.getState().redoChanges).toHaveLength(0);
+    });
+
+    it('should undo and redo applied changes', () => {
+      const state = useChatStore.getState();
+      act(() => {
+        state.pushAppliedChange({
+          action: 'replaceAll',
+          originalCode: 'A',
+          newCode: 'B',
+        });
+        state.pushAppliedChange({
+          action: 'replaceAll',
+          originalCode: 'B',
+          newCode: 'C',
+        });
+      });
+
+      const undone = useChatStore.getState().undoAppliedChange();
+      expect(undone?.newCode).toBe('C');
+      expect(useChatStore.getState().appliedChanges).toHaveLength(1);
+      expect(useChatStore.getState().redoChanges).toHaveLength(1);
+
+      const redone = useChatStore.getState().redoAppliedChange();
+      expect(redone?.newCode).toBe('C');
+      expect(useChatStore.getState().appliedChanges).toHaveLength(2);
+      expect(useChatStore.getState().redoChanges).toHaveLength(0);
     });
   });
 });

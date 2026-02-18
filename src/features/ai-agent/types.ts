@@ -76,6 +76,41 @@ export interface AICodeAction {
   icon?: string;
 }
 
+export type PlanTaskStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'skipped';
+
+export interface PlanTask {
+  id: string;
+  title: string;
+  description: string;
+  dependencies: string[];
+  prompt: string;
+  status: PlanTaskStatus;
+  notes?: string;
+}
+
+export type PlanExecutionStatus =
+  | 'draft'
+  | 'ready'
+  | 'running'
+  | 'completed'
+  | 'failed';
+
+export interface ExecutionPlan {
+  id: string;
+  goal: string;
+  assumptions: string[];
+  tasks: PlanTask[];
+  status: PlanExecutionStatus;
+  createdAt: number;
+  updatedAt: number;
+  currentTaskIndex: number;
+}
+
 // Provider configurations with available models
 export const AI_PROVIDERS: AIProviderConfig[] = [
   {

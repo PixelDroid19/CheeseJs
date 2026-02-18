@@ -8,6 +8,10 @@ import {
   FileText,
   Edit,
   Search,
+  FolderOpen,
+  Database,
+  Trash2,
+  FilePlus2,
   Check,
   X,
   Loader2,
@@ -29,7 +33,7 @@ interface ToolInvocationUIProps {
 
 // Get icon for tool - returns a React element to avoid static component lint issue
 function getToolIcon(toolName: string): React.ReactNode {
-  const iconClass = 'w-3.5 h-3.5 text-foreground';
+  const iconClass = 'w-3.5 h-3.5';
   switch (toolName) {
     case 'executeCode':
       return <Play className={iconClass} />;
@@ -43,6 +47,20 @@ function getToolIcon(toolName: string): React.ReactNode {
       return <Edit className={iconClass} />;
     case 'analyzeCode':
       return <Search className={iconClass} />;
+    case 'readFile':
+      return <FileText className={iconClass} />;
+    case 'writeFile':
+      return <FilePlus2 className={iconClass} />;
+    case 'listFiles':
+      return <FolderOpen className={iconClass} />;
+    case 'searchInFiles':
+      return <Search className={iconClass} />;
+    case 'searchDocumentation':
+      return <Database className={iconClass} />;
+    case 'deleteFile':
+      return <Trash2 className={iconClass} />;
+    case 'getWorkspacePath':
+      return <FolderOpen className={iconClass} />;
     default:
       return <Code className={iconClass} />;
   }
@@ -63,6 +81,20 @@ function getToolLabel(toolName: string): string {
       return 'Replace Code';
     case 'analyzeCode':
       return 'Analyze Code';
+    case 'readFile':
+      return 'Read File';
+    case 'writeFile':
+      return 'Write File';
+    case 'listFiles':
+      return 'List Files';
+    case 'searchInFiles':
+      return 'Search Files';
+    case 'searchDocumentation':
+      return 'Search Docs';
+    case 'deleteFile':
+      return 'Delete File';
+    case 'getWorkspacePath':
+      return 'Workspace Path';
     default:
       return toolName;
   }
@@ -76,15 +108,15 @@ function getStateIndicator(state: ToolInvocationState) {
     case 'running':
       return { icon: Loader2, color: 'text-primary', animate: true };
     case 'approval-requested':
-      return { icon: AlertCircle, color: 'text-amber-500', animate: false };
+      return { icon: AlertCircle, color: 'text-primary', animate: false };
     case 'approved':
-      return { icon: Check, color: 'text-green-500', animate: false };
+      return { icon: Check, color: 'text-primary', animate: false };
     case 'denied':
-      return { icon: X, color: 'text-red-500', animate: false };
+      return { icon: X, color: 'text-destructive', animate: false };
     case 'completed':
-      return { icon: Check, color: 'text-green-500', animate: false };
+      return { icon: Check, color: 'text-primary', animate: false };
     case 'error':
-      return { icon: AlertCircle, color: 'text-red-500', animate: false };
+      return { icon: AlertCircle, color: 'text-destructive', animate: false };
     default:
       return { icon: Loader2, color: 'text-muted-foreground', animate: false };
   }
@@ -100,6 +132,13 @@ export function ToolInvocationCard({
   const stateIndicator = getStateIndicator(invocation.state);
   const StateIcon = stateIndicator.icon;
   const needsApproval = invocation.state === 'approval-requested';
+  const iconTone = needsApproval
+    ? 'text-primary bg-primary/10'
+    : invocation.state === 'error' || invocation.state === 'denied'
+      ? 'text-destructive bg-destructive/10'
+      : invocation.state === 'completed' || invocation.state === 'approved'
+        ? 'text-primary bg-primary/10'
+        : 'text-muted-foreground bg-muted';
 
   return (
     <motion.div
@@ -108,28 +147,24 @@ export function ToolInvocationCard({
       className={clsx(
         'rounded-lg border overflow-hidden',
         needsApproval
-          ? 'border-amber-500/50 bg-amber-500/5'
+          ? 'border-primary/30 bg-primary/5'
           : invocation.state === 'error'
-            ? 'border-red-500/30 bg-red-500/5'
+            ? 'border-destructive/30 bg-destructive/5'
             : 'border-border bg-muted/30'
       )}
     >
       {/* Header */}
-      <div
+      <button
+        type="button"
         className={clsx(
-          'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors',
-          needsApproval && 'bg-amber-500/10'
+          'w-full text-left flex items-center gap-2 px-3 py-3 min-h-11 hover:bg-muted/50 transition-colors',
+          needsApproval && 'bg-primary/10'
         )}
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-label={`Toggle details for ${getToolLabel(invocation.toolName)}`}
       >
-        <div
-          className={clsx(
-            'p-1 rounded',
-            needsApproval ? 'bg-amber-500/20' : 'bg-muted'
-          )}
-        >
-          {toolIcon}
-        </div>
+        <div className={clsx('p-1 rounded', iconTone)}>{toolIcon}</div>
 
         <span className="flex-1 text-sm font-medium text-foreground">
           {getToolLabel(invocation.toolName)}
@@ -148,7 +183,7 @@ export function ToolInvocationCard({
         ) : (
           <ChevronDown className="w-4 h-4 text-muted-foreground" />
         )}
-      </div>
+      </button>
 
       {/* Expanded Content */}
       <AnimatePresence>
@@ -166,7 +201,7 @@ export function ToolInvocationCard({
               ) && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Input:</p>
-                  <pre className="text-xs bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
+                  <pre className="text-xs text-foreground/90 bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
                     {JSON.stringify(invocation.input, null, 2)}
                   </pre>
                 </div>
@@ -179,7 +214,7 @@ export function ToolInvocationCard({
                     <p className="text-xs text-muted-foreground mb-1">
                       Output:
                     </p>
-                    <pre className="text-xs bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
+                    <pre className="text-xs text-foreground/90 bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
                       {typeof invocation.output === 'string'
                         ? invocation.output
                         : JSON.stringify(invocation.output, null, 2)}
@@ -190,8 +225,8 @@ export function ToolInvocationCard({
               {/* Error */}
               {invocation.error && (
                 <div>
-                  <p className="text-xs text-red-500 mb-1">Error:</p>
-                  <pre className="text-xs bg-red-500/10 text-red-500 rounded p-2 overflow-x-auto">
+                  <p className="text-xs text-destructive mb-1">Error:</p>
+                  <pre className="text-xs bg-destructive/10 text-destructive rounded p-2 overflow-x-auto">
                     {invocation.error}
                   </pre>
                 </div>
@@ -203,16 +238,16 @@ export function ToolInvocationCard({
 
       {/* Approval Buttons */}
       {needsApproval && (
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-amber-500/30 bg-amber-500/10">
-          <p className="flex-1 text-xs text-amber-700 dark:text-amber-300">
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-primary/20 bg-primary/5">
+          <p className="flex-1 text-xs text-foreground">
             {invocation.approval?.message ||
               'This action will modify your code'}
           </p>
           <button
             onClick={() => onDeny?.(invocation.id)}
             className={clsx(
-              'px-3 py-1.5 rounded text-xs font-medium transition-colors',
-              'bg-muted hover:bg-red-500/20 text-muted-foreground hover:text-red-500'
+              'px-3 py-2 rounded text-xs font-medium transition-colors min-h-9',
+              'bg-muted hover:bg-destructive/20 text-muted-foreground hover:text-destructive'
             )}
           >
             Deny
@@ -220,8 +255,8 @@ export function ToolInvocationCard({
           <button
             onClick={() => onApprove?.(invocation.id)}
             className={clsx(
-              'px-3 py-1.5 rounded text-xs font-medium transition-colors',
-              'bg-green-500/20 hover:bg-green-500/30 text-green-600 dark:text-green-400'
+              'px-3 py-2 rounded text-xs font-medium transition-colors min-h-9',
+              'bg-primary/15 hover:bg-primary/25 text-primary'
             )}
           >
             Approve
@@ -292,7 +327,7 @@ export function ApprovalDialog({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={onDeny}
     >
       <motion.div
@@ -303,9 +338,9 @@ export function ApprovalDialog({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-amber-500/10">
-          <div className="p-2 rounded-full bg-amber-500/20">
-            <AlertCircle className="w-5 h-5 text-amber-500" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-primary/5">
+          <div className="p-2 rounded-full bg-primary/15">
+            <AlertCircle className="w-5 h-5 text-primary" />
           </div>
           <div>
             <h3 className="font-semibold text-foreground">Approval Required</h3>
@@ -340,7 +375,7 @@ export function ApprovalDialog({
             onClick={onDeny}
             className={clsx(
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-              'bg-muted hover:bg-red-500/20 text-muted-foreground hover:text-red-500'
+              'bg-muted hover:bg-destructive/20 text-muted-foreground hover:text-destructive'
             )}
           >
             Deny
@@ -349,7 +384,7 @@ export function ApprovalDialog({
             onClick={onApprove}
             className={clsx(
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-              'bg-green-500 hover:bg-green-600 text-white'
+              'bg-primary hover:bg-primary/90 text-primary-foreground'
             )}
           >
             Approve & Apply

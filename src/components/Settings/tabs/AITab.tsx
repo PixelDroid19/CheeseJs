@@ -19,12 +19,14 @@ import { SectionHeader } from '../ui/SectionHeader';
 import { Slider } from '../ui/Slider';
 import {
   AI_PROVIDERS,
+  type AgentProfile,
   getProviderConfig,
   aiService,
   validateApiKeyFormat,
   validateLocalServerURL,
   type AIProvider,
 } from '../../../features/ai-agent';
+import type { AgentExecutionMode } from '../../../store/useAISettingsStore';
 
 interface LocalModel {
   id: string;
@@ -49,6 +51,9 @@ export function AITab() {
     customConfigs,
     enableInlineCompletion,
     enableChat,
+    executionMode,
+    agentProfile,
+    enableVerifierSubagent,
     maxTokens,
     temperature,
     localConfig,
@@ -58,6 +63,9 @@ export function AITab() {
     setCustomConfig,
     setEnableInlineCompletion,
     setEnableChat,
+    setExecutionMode,
+    setAgentProfile,
+    setEnableVerifierSubagent,
     setMaxTokens,
     setTemperature,
     setLocalConfig,
@@ -620,6 +628,64 @@ export function AITab() {
             )}
             checked={enableChat}
             onChange={setEnableChat}
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              {t('settings.ai.executionMode', 'Execution Mode')}
+            </label>
+            <Select
+              value={executionMode}
+              onChange={(e) =>
+                setExecutionMode(e.target.value as AgentExecutionMode)
+              }
+            >
+              <option value="agent">
+                {t(
+                  'settings.ai.executionModeAgent',
+                  'Agent Mode (act directly)'
+                )}
+              </option>
+              <option value="plan">
+                {t(
+                  'settings.ai.executionModePlan',
+                  'Plan Mode (read-only planning)'
+                )}
+              </option>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              {t('settings.ai.agentProfile', 'Agent Profile')}
+            </label>
+            <Select
+              value={agentProfile}
+              onChange={(e) => setAgentProfile(e.target.value as AgentProfile)}
+            >
+              <option value="build">
+                {t(
+                  'settings.ai.agentProfileBuild',
+                  'Build (read + write tools)'
+                )}
+              </option>
+              <option value="plan">
+                {t('settings.ai.agentProfilePlan', 'Plan (read-only tools)')}
+              </option>
+            </Select>
+          </div>
+
+          <Toggle
+            label={t(
+              'settings.ai.verifierSubagent',
+              'Enable @verifier subagent'
+            )}
+            description={t(
+              'settings.ai.verifierSubagentDesc',
+              'Allow quick isolated validation with @verifier in chat'
+            )}
+            checked={enableVerifierSubagent}
+            onChange={setEnableVerifierSubagent}
           />
         </div>
       </div>

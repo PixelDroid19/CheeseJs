@@ -46,6 +46,27 @@ export {
   clearInlineCompletionCache,
 } from './inlineCompletionProvider';
 
+export type { AgentProfile } from './agentProfiles';
+export {
+  PROFILE_ALLOWED_TOOLS,
+  getDefaultProfileForMode,
+  isToolAllowedForProfile,
+} from './agentProfiles';
+
+export {
+  createToolRegistry,
+  resolveToolsForExecution,
+  type ToolRegistry,
+} from './toolRegistry';
+
+export {
+  resolveAgentRuntime,
+  getSystemPromptForMode,
+  type AgentExecutionMode,
+  type AgentRuntimeOptions,
+  type ResolvedAgentRuntime,
+} from './agentRuntime';
+
 // Code Actions
 export {
   executeAIAction,

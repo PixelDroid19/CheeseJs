@@ -8,7 +8,9 @@ The AI Agent feature provides intelligent code assistance within CheeseJS. It is
 
 - **Feature-Based**: Located in `src/features/ai-agent`
 - **Service Layer**: `aiService.ts` handles all AI provider interactions
-- **Agent Logic**: `codeAgent.ts` implements the agentic behavior (tools, actions)
+- **Agent Runtime**: `agentRuntime.ts` resolves mode/profile, step limits, and system prompts
+- **Tool Registry**: `toolRegistry.ts` contains tool definitions and permission-aware filtering
+- **Agent Logic**: `codeAgent.ts` orchestrates provider + runtime + tools
 - **Inline Completion**: `inlineCompletionProvider.ts` manages autocomplete logic
 
 ## Key Capabilities

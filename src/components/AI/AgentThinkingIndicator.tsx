@@ -15,22 +15,35 @@ interface AgentThinkingIndicatorProps {
 
 const phaseConfig: Record<
   AgentPhase,
-  { icon: typeof Brain; color: string; defaultMessage: string }
+  {
+    icon: typeof Brain;
+    color: string;
+    dotColor: string;
+    defaultMessage: string;
+  }
 > = {
-  idle: { icon: Brain, color: 'text-muted-foreground', defaultMessage: '' },
+  idle: {
+    icon: Brain,
+    color: 'text-muted-foreground',
+    dotColor: 'bg-muted-foreground',
+    defaultMessage: '',
+  },
   thinking: {
     icon: Brain,
-    color: 'text-blue-500',
+    color: 'text-primary',
+    dotColor: 'bg-primary',
     defaultMessage: 'Analyzing your request...',
   },
   generating: {
     icon: Sparkles,
-    color: 'text-amber-500',
+    color: 'text-primary',
+    dotColor: 'bg-primary',
     defaultMessage: 'Generating code...',
   },
   applying: {
     icon: Pencil,
-    color: 'text-green-500',
+    color: 'text-primary',
+    dotColor: 'bg-primary',
     defaultMessage: 'Preparing changes...',
   },
 };
@@ -51,6 +64,8 @@ export function AgentThinkingIndicator({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
+      role="status"
+      aria-live="polite"
       className={clsx(
         'flex items-center gap-2 px-3 py-2 rounded-lg',
         'bg-muted/50 border border-border',
@@ -72,12 +87,7 @@ export function AgentThinkingIndicator({
 
         {/* Pulse ring */}
         <motion.div
-          className={clsx(
-            'absolute inset-0 rounded-full',
-            phase === 'thinking' && 'bg-blue-500/20',
-            phase === 'generating' && 'bg-amber-500/20',
-            phase === 'applying' && 'bg-green-500/20'
-          )}
+          className="absolute inset-0 rounded-full bg-primary/20"
           animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -91,10 +101,7 @@ export function AgentThinkingIndicator({
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
-            className={clsx(
-              'w-1 h-1 rounded-full',
-              config.color.replace('text-', 'bg-')
-            )}
+            className={clsx('w-1 h-1 rounded-full', config.dotColor)}
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{
               duration: 1,
