@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../../store/storeHooks';
 import { useAISettingsStore } from '../../../store/storeHooks';
-import { useCodeStore } from '../../../store/storeHooks';
+import { useEditorTabsStore } from '../../../store/storeHooks';
 import { useLanguageStore } from '../../../store/storeHooks';
 import { useRagStore } from '../../../store/storeHooks';
 import {
@@ -88,8 +88,12 @@ export function useAIChatController() {
     setToolPolicyPreset,
   } = useAISettingsStore();
 
-  const code = useCodeStore((state) => state.code);
-  const setCode = useCodeStore((state) => state.setCode);
+  const { tabs, activeTabId, updateTabCode } = useEditorTabsStore();
+  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+  const code = activeTab?.code || '';
+  const setCode = useCallback((c: string) => {
+    if (activeTabId) updateTabCode(activeTabId, c);
+  }, [activeTabId, updateTabCode]);
   const language = useLanguageStore((state) => state.currentLanguage);
   const { setModalOpen, getPinnedDocsContext, pinnedDocIds } = useRagStore();
 

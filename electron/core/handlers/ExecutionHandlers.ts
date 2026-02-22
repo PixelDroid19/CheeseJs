@@ -84,23 +84,15 @@ export function registerExecutionHandlers({
         requestId,
       }: { id: string; value: string; requestId?: string }
     ) => {
-      const pythonWorker = workerPool.getPythonWorker();
-      if (pythonWorker) {
-        pythonWorker.postMessage({
-          type: 'input-response',
-          id,
-          value,
-          requestId,
-        });
-      }
+      workerPool.resolvePythonInput(id, value, requestId);
     }
   );
 
   // Handle input response from renderer to JS worker
   ipcMain.on(
     'js-input-response',
-    (_event: unknown, { value }: { value: string }) => {
-      workerPool.resolveJSInput(value);
+    (_event: unknown, { id, value }: { id: string; value: string }) => {
+      workerPool.resolveJSInput(id, value);
     }
   );
 }

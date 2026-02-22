@@ -9,7 +9,7 @@ import { registerPythonMonacoProviders, disposePythonMonacoProviders } from '../
 import { registerPackageCommands } from '../../lib/monacoCommands';
 import { setupTypeAcquisition } from '../../lib/ata';
 import { createInlineCompletionProvider, registerAICodeActions } from '../../features/ai-agent';
-import { useCodeStore } from '../../store/storeHooks';
+import { useEditorTabsStore, useCodeStore } from '../../store/storeHooks';
 
 export function useEditorLifecycle({
     setMonacoInstance,
@@ -70,7 +70,8 @@ export function useEditorLifecycle({
             Object.assign(window, {
                 monaco: monacoInstance,
                 editor: editorInstance,
-                useCodeStore: useCodeStore
+                useCodeStore: useCodeStore,
+                useEditorTabsStore: useEditorTabsStore
             });
 
             const initialCode = editorInstance.getValue();

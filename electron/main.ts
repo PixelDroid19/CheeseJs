@@ -16,6 +16,7 @@ import {
 } from './packages/packageManager.js';
 import { registerAIProxy } from './aiProxy.js';
 import { initWorkspace } from './core/handlers/FilesystemHandlers.js';
+import { initializeDatabase } from './main/knowledge-base/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,6 +46,11 @@ async function initApp() {
   try {
     // Initialize secure workspace for filesystem operations
     initWorkspace();
+
+    // Initialize RAG Database First
+    await initializeDatabase().catch((err) => {
+      appLog.warn('Failed to start RAG DB:', err);
+    });
 
     // Initialize Worker Pool
     await initPackagesDirectory();

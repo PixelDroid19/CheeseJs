@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useCodeStore } from '../store/storeHooks';
+import { useEditorTabsStore } from '../store/storeHooks';
 import { useSettingsStore } from '../store/storeHooks';
 import { themes } from '../themes';
 import Editor, { Monaco } from '@monaco-editor/react';
@@ -10,8 +10,11 @@ import { ConsoleInput } from './ConsoleInput';
 import { PackagePrompts } from './PackagePrompts';
 
 function ResultDisplay() {
-  const elements = useCodeStore((state) => state.result);
-  const code = useCodeStore((state) => state.code);
+  const { tabs, activeTabId } = useEditorTabsStore();
+  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
+
+  const elements = activeTab?.result || [];
+  const code = activeTab?.code || '';
   const {
     themeName,
     fontSize,

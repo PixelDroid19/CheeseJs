@@ -10,6 +10,7 @@ import { createAISettingsSlice, partializeAISettings, type AISettingsState } fro
 import { createRagSlice, partializeRag, initRagProgressListener, type RagState } from './useRagStore';
 import { createPackagesSlice, type PackagesState, partializePackages } from './usePackagesStore';
 import { createPythonPackagesSlice, type PythonPackagesState } from './usePythonPackagesStore';
+import { createEditorTabsSlice, type EditorTabsState, partializeEditorTabs } from './useEditorTabsStore';
 import { idbStorage } from './idbStorage';
 
 export interface AppState {
@@ -23,6 +24,7 @@ export interface AppState {
     rag: RagState;
     packages: PackagesState;
     pythonPackages: PythonPackagesState;
+    editorTabs: EditorTabsState;
 }
 
 // Helper to wrap set/get for nested slices
@@ -59,6 +61,7 @@ export const useAppStore = create<AppState>()(
                 rag: createNestedSlice(set, get, 'rag', createRagSlice),
                 packages: createNestedSlice(set, get, 'packages', createPackagesSlice),
                 pythonPackages: createNestedSlice(set, get, 'pythonPackages', createPythonPackagesSlice),
+                editorTabs: createNestedSlice(set, get, 'editorTabs', createEditorTabsSlice),
             }),
             {
                 name: 'cheesejs-app-storage',
@@ -74,6 +77,7 @@ export const useAppStore = create<AppState>()(
                     rag: partializeRag(state.rag),
                     packages: partializePackages(state.packages),
                     pythonPackages: partializePackages(state.pythonPackages),
+                    editorTabs: partializeEditorTabs(state.editorTabs),
                 }),
                 merge: (persistedState: any, currentState: AppState) => {
                     if (!persistedState) return currentState;
@@ -101,6 +105,7 @@ export const useAppStore = create<AppState>()(
                         rag: mergeSlice('rag'),
                         packages: mergeSlice('packages'),
                         pythonPackages: mergeSlice('pythonPackages'),
+                        editorTabs: mergeSlice('editorTabs')
                     } as AppState;
                 }
             }

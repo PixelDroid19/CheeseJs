@@ -182,11 +182,11 @@ function PartRenderer({
   if (part.type === 'reasoning') {
     if (part.collapsed !== false) {
       return (
-        <details className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-all">
-          <summary className="cursor-pointer select-none font-medium text-foreground/70 hover:text-foreground">
-            Reasoning
+        <details className="group rounded-lg bg-muted/30 border border-border/40 px-3 py-2 text-xs text-muted-foreground transition-all hover:bg-muted/50 mb-2">
+          <summary className="cursor-pointer select-none font-medium text-foreground/70 flex items-center gap-2 group-open:mb-2 transition-colors hover:text-foreground">
+            <span className="flex-1 opacity-80">Pensamiento del modelo (Reasoning)</span>
           </summary>
-          <div className="mt-2 pl-2 border-l-2 border-border/50 whitespace-pre-wrap leading-relaxed opacity-90 overflow-hidden">
+          <div className="pl-3 border-l-2 border-primary/30 whitespace-pre-wrap leading-relaxed opacity-90 overflow-hidden text-muted-foreground">
             {part.text}
           </div>
         </details>

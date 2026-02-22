@@ -346,6 +346,7 @@ function promptImplementation(message?: string): string | null {
   // 2. Send request
   parentPort.postMessage({
     type: 'prompt-request',
+    id: currentExecutionId,
     message: message || '',
   });
 
@@ -380,6 +381,7 @@ function alertImplementation(message?: unknown): void {
   // 2. Send request
   parentPort.postMessage({
     type: 'alert-request',
+    id: currentExecutionId,
     message: String(message),
   });
 

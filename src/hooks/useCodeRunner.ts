@@ -1,28 +1,18 @@
-import { useCodeStore, type CodeState, useSettingsStore, getLanguageDisplayName } from '../store/storeHooks';
+import { useEditorTabsStore, useSettingsStore, getLanguageDisplayName } from '../store/storeHooks';
 import { useAppStore } from '../store/index';
 import { executionEngine } from '../lib/execution/ExecutionEngine';
 import { useEffect, useCallback } from 'react';
 
 export function useCodeRunner() {
-  const code = useCodeStore((state: CodeState) => state.code);
-  const setCode = useCodeStore((state: CodeState) => state.setCode);
-  const setResult = useCodeStore((state: CodeState) => state.setResult);
-  const appendResult = useCodeStore((state: CodeState) => state.appendResult);
-  const clearResult = useCodeStore((state: CodeState) => state.clearResult);
-  const setIsExecuting = useCodeStore(
-    (state: CodeState) => state.setIsExecuting
-  );
-  const setPromptRequest = useCodeStore(
-    (state: CodeState) => state.setPromptRequest
-  );
+  const { setTabPromptRequest } = useEditorTabsStore();
 
   const { showTopLevelResults, loopProtection, showUndefined, magicComments, workingDirectory } =
     useSettingsStore();
 
-  // Cancel execution on unmount
+  // Remove global cancel on unmount to allow background tab execution
   useEffect(() => {
     return () => {
-      executionEngine.cancel();
+      // Background execution is supported, no global cancel here.
     };
   }, []);
 
@@ -30,27 +20,35 @@ export function useCodeRunner() {
   useEffect(() => {
     if (!window.codeRunner?.onJSInputRequest) return;
 
-    const unsubscribe = window.codeRunner.onJSInputRequest((request) => {
-      // Use custom UI prompt instead of native prompt (which is blocked/unsupported in Electron renderer)
-      setPromptRequest(
-        request.message,
-        request.type === 'alert-request' ? 'alert' : 'text'
-      );
+    const unsubscribe = window.codeRunner.onJSInputRequest((request: any) => {
+      if (request.id) {
+        setTabPromptRequest(
+          request.id,
+          request.message,
+          request.type === 'alert-request' ? 'alert' : 'text'
+        );
+      }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [setPromptRequest]);
+  }, [setTabPromptRequest]);
 
   const runCode = useCallback(
     async (codeToRun?: string) => {
-      const debounceTimer = setTimeout(async () => {
-        const sourceCode = codeToRun ?? code;
+      const callerTabId = useEditorTabsStore.getState().activeTabId;
+      if (!callerTabId) return;
 
-        // Cancel previous execution
-        executionEngine.cancel();
-        setPromptRequest(null);
+      const debounceTimer = setTimeout(async () => {
+        const { tabs, setTabPromptRequest, setTabExecuting, setTabResults, clearTabResults } = useEditorTabsStore.getState();
+        const callerTab = tabs.find(t => t.id === callerTabId);
+
+        const sourceCode = codeToRun ?? callerTab?.code ?? '';
+
+        // Cancel previous execution for this tab ONLY
+        executionEngine.cancel(callerTabId);
+        setTabPromptRequest(callerTabId, null);
 
         // Detect language
         const detectLanguage = useAppStore.getState().language.detectLanguage;
@@ -58,8 +56,8 @@ export function useCodeRunner() {
         const currentLang = detected.monacoId;
 
         if (!useAppStore.getState().language.isExecutable(currentLang)) {
-          setIsExecuting(false);
-          setResult([
+          setTabExecuting(callerTabId, false);
+          setTabResults(callerTabId, [
             {
               element: {
                 content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python`,
@@ -70,12 +68,13 @@ export function useCodeRunner() {
           return;
         }
 
-        clearResult();
-        setIsExecuting(true);
+        clearTabResults(callerTabId);
+        setTabExecuting(callerTabId, true);
 
         const execLanguage = currentLang === 'python' ? 'python' : currentLang === 'typescript' ? 'typescript' : 'javascript';
 
         await executionEngine.run(
+          callerTabId,
           sourceCode,
           execLanguage,
           {
@@ -87,7 +86,7 @@ export function useCodeRunner() {
           },
           {
             onOutput: (result) => {
-              appendResult({
+              useEditorTabsStore.getState().appendTabResult(callerTabId, {
                 lineNumber: result.lineNumber,
                 element: {
                   content: result.content,
@@ -98,37 +97,29 @@ export function useCodeRunner() {
               });
             },
             onError: (errorMsg) => {
-              setResult([{ element: { content: errorMsg }, type: 'error' }]);
+              useEditorTabsStore.getState().appendTabResult(callerTabId, {
+                element: { content: errorMsg },
+                type: 'error',
+              });
             },
             onComplete: (historyData) => {
               useAppStore.getState().history.addToHistory(historyData);
-              setIsExecuting(false);
-              setPromptRequest(null);
-            },
+              useEditorTabsStore.getState().setTabExecuting(callerTabId, false);
+              useEditorTabsStore.getState().setTabPromptRequest(callerTabId, null);
+            }
           }
         );
 
-        // Fallback for immediate errors where onComplete isn't called normally
-        if (codeToRun !== undefined) {
-          setCode(codeToRun);
-        }
-      }, 300);
+      }, 0); // No deferral wait needed.
 
       return () => clearTimeout(debounceTimer);
     },
     [
-      setResult,
-      setCode,
-      appendResult,
-      clearResult,
-      setIsExecuting,
-      code,
       showTopLevelResults,
       loopProtection,
       showUndefined,
       magicComments,
       workingDirectory,
-      setPromptRequest,
     ]
   );
 

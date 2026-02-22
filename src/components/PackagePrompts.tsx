@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import { useCodeStore } from '../store/storeHooks';
+import { useEditorTabsStore } from '../store/storeHooks';
 import { usePackagesStore } from '../store/storeHooks';
 import { usePythonPackagesStore } from '../store/storeHooks';
 import { Download, AlertCircle, Loader2, Package as PackageIcon, X } from 'lucide-react';
@@ -9,7 +9,9 @@ import { usePackageMetadata } from '../hooks/usePackageMetadata';
 import { usePythonPackageMetadata } from '../hooks/usePythonPackageMetadata';
 
 export function PackagePrompts() {
-    const elements = useCodeStore((state) => state.result);
+    const { tabs, activeTabId } = useEditorTabsStore();
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    const elements = activeTab?.result || [];
     const {
         packages,
         addPackage,
