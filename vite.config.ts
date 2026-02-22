@@ -41,6 +41,11 @@ export default defineConfig(({ mode }) => ({
                 'mammoth',
                 'onnxruntime-node',
                 '@xenova/transformers',
+                '@libsql/client',
+                '@libsql/win32-x64-msvc',
+                '@mastra/core',
+                '@mastra/libsql',
+                '@mastra/rag',
               ],
               output: {
                 format: 'es',

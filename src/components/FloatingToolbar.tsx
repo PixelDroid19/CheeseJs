@@ -12,7 +12,7 @@ import { useSettingsStore } from '../store/storeHooks';
 import { useRuntimeStatus } from '../hooks/useRuntimeStatus';
 import { useLanguageStore } from '../store/storeHooks';
 import { useRagStore } from '../store/storeHooks';
-import { useCodeStore } from '../store/storeHooks';
+import { useEditorTabsStore } from '../store/storeHooks';
 import { usePackagesStore } from '../store/storeHooks';
 import { usePythonPackagesStore } from '../store/storeHooks';
 import { SnippetsMenu } from './SnippetsMenu';
@@ -28,8 +28,10 @@ export default function FloatingToolbar() {
     currentLanguage === 'python' ? 'python' : 'javascript'
   );
 
-  const isExecuting = useCodeStore((state) => state.isExecuting);
-  const isPendingRun = useCodeStore((state) => state.isPendingRun);
+  const { tabs, activeTabId } = useEditorTabsStore();
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  const isExecuting = activeTab?.isExecuting || false;
+  const isPendingRun = activeTab?.isPendingRun || false;
 
   const packages = usePackagesStore((state) => state.packages);
   const pythonPackages = usePythonPackagesStore((state) => state.packages);

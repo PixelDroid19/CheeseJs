@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { useCodeStore } from '../store/storeHooks';
+import { useEditorTabsStore } from '../store/storeHooks';
 import { Send, Terminal, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 
 export function ConsoleInput() {
-  const promptRequest = useCodeStore((state) => state.promptRequest);
-  const promptType = useCodeStore((state) => state.promptType);
-  const setPromptRequest = useCodeStore((state) => state.setPromptRequest);
+  const { tabs, activeTabId, setTabPromptRequest } = useEditorTabsStore();
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  const promptRequest = activeTab?.promptRequest || null;
+  const promptType = activeTab?.promptType || 'text';
 
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,7 +34,7 @@ export function ConsoleInput() {
     e?.preventDefault();
     window.codeRunner.sendJSInputResponse(input);
     setInput('');
-    setPromptRequest(null);
+    if (activeTabId) setTabPromptRequest(activeTabId, null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

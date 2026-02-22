@@ -35,6 +35,7 @@ import {
     type RegisteredDocument,
     type SubStep,
 } from './useRagStore';
+import { type EditorTabsState, type EditorTab } from './useEditorTabsStore';
 
 export {
     detectLanguageSync,
@@ -55,7 +56,8 @@ export type {
     AISettingsState, ToolPolicySettings, LocalServerConfig, AgentExecutionMode,
     RagState, RagConfig, RegisteredDocument, SubStep,
     PackagesState, PackageInfo,
-    PythonPackagesState, PythonPackageInfo
+    PythonPackagesState, PythonPackageInfo,
+    EditorTabsState, EditorTab
 };
 
 type StoreHook<TState> = {
@@ -106,6 +108,10 @@ export const usePythonPackagesStore = ((selector?: (state: PythonPackagesState) 
     return useAppStore(selector ? (state) => selector(state.pythonPackages) : (state) => state.pythonPackages as any);
 }) as StoreHook<PythonPackagesState>;
 
+export const useEditorTabsStore = ((selector?: (state: EditorTabsState) => any) => {
+    return useAppStore(selector ? (state) => selector(state.editorTabs) : (state) => state.editorTabs as any);
+}) as StoreHook<EditorTabsState>;
+
 function attachZustandMethods(
     hook: any,
     sliceKey: keyof AppState
@@ -135,3 +141,4 @@ attachZustandMethods(useAISettingsStore, 'aiSettings');
 attachZustandMethods(useRagStore, 'rag');
 attachZustandMethods(usePackagesStore, 'packages');
 attachZustandMethods(usePythonPackagesStore, 'pythonPackages');
+attachZustandMethods(useEditorTabsStore, 'editorTabs');

@@ -49,15 +49,14 @@ class WorkerUnavailableError extends Error {
  * Single Execution session handler to manage IPC subscriptions/lifecycle
  */
 export class ExecutionSession {
-    private executionId: string;
     private unsubscribe?: () => void;
 
     constructor(
+        public executionId: string,
         private code: string,
         private language: 'javascript' | 'typescript' | 'python',
         private callbacks: ExecutionCallbacks
     ) {
-        this.executionId = `exec-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
     }
 
     public async start(options: ExecutionOptions) {
@@ -191,23 +190,33 @@ export class ExecutionSession {
 }
 
 export class ExecutionEngine {
-    private currentSession?: ExecutionSession;
+    private sessions = new Map<string, ExecutionSession>();
 
     public async run(
+        tabId: string,
         code: string,
         language: 'javascript' | 'typescript' | 'python',
         options: ExecutionOptions,
         callbacks: ExecutionCallbacks
     ) {
-        this.cancel();
-        this.currentSession = new ExecutionSession(code, language, callbacks);
-        await this.currentSession.start(options);
+        this.cancel(tabId);
+        const session = new ExecutionSession(tabId, code, language, callbacks);
+        this.sessions.set(tabId, session);
+        await session.start(options);
     }
 
-    public cancel() {
-        if (this.currentSession) {
-            this.currentSession.cancel();
-            this.currentSession = undefined;
+    public cancel(tabId?: string) {
+        if (tabId) {
+            const session = this.sessions.get(tabId);
+            if (session) {
+                session.cancel();
+                this.sessions.delete(tabId);
+            }
+        } else {
+            for (const [, session] of this.sessions) {
+                session.cancel();
+            }
+            this.sessions.clear();
         }
     }
 }

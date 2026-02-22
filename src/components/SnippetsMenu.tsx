@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSnippetsStore, Snippet } from '../store/storeHooks';
-import { useCodeStore } from '../store/storeHooks';
+import { useEditorTabsStore } from '../store/storeHooks';
 import clsx from 'clsx';
 
 export function SnippetsMenu() {
@@ -22,7 +22,10 @@ export function SnippetsMenu() {
   const [view, setView] = useState<'list' | 'add'>('list');
   const [newSnippetName, setNewSnippetName] = useState('');
   const { snippets, addSnippet, removeSnippet } = useSnippetsStore();
-  const { code, setCode } = useCodeStore();
+  const { tabs, activeTabId, updateTabCode } = useEditorTabsStore();
+
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const code = activeTab?.code || '';
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
@@ -72,12 +75,12 @@ export function SnippetsMenu() {
 
   const handleLoad = (snippet: Snippet) => {
     // Removed confirm dialog to prevent focus stealing issues
-    setCode(snippet.code);
+    if (activeTabId) updateTabCode(activeTabId, snippet.code);
     setIsOpen(false);
   };
 
   const handleAppend = (snippet: Snippet) => {
-    setCode(code + '\n' + snippet.code);
+    if (activeTabId) updateTabCode(activeTabId, code + '\n' + snippet.code);
     setIsOpen(false);
   };
 

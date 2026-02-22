@@ -37,7 +37,8 @@ interface InputRequest {
 }
 // JS Input request type (from worker)
 interface JSInputRequest {
-  type: 'prompt-request';
+  type: 'prompt-request' | 'alert-request';
+  id: string;
   message: string;
 }
 
@@ -265,8 +266,8 @@ contextBridge.exposeInMainWorld('codeRunner', {
   /**
    * Send input response back to JS worker
    */
-  sendJSInputResponse: (value: string) => {
-    ipcRenderer.send('js-input-response', { value });
+  sendJSInputResponse: (id: string, value: string) => {
+    ipcRenderer.send('js-input-response', { id, value });
   },
 });
 

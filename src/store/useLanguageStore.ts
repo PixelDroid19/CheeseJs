@@ -208,6 +208,11 @@ export const createLanguageSlice: import('zustand').StateCreator<LanguageState> 
     return get().detectionVersion;
   },
 
+  // Utilities
+  isExecutable: (languageId: string) => checkExecutable(languageId),
+  getLanguageInfo: (languageId: string) => getLangInfo(languageId),
+  getDisplayName: (languageId: string) => getLangDisplayName(languageId),
+
   initializeModel: async () => {
     const state = get();
     if (state.isModelLoaded || state.isModelLoading) {
@@ -283,19 +288,6 @@ export const createLanguageSlice: import('zustand').StateCreator<LanguageState> 
         []
       );
     }
-  },
-
-  // Utilities - delegate to module
-  isExecutable: (languageId: string): boolean => {
-    return checkExecutable(languageId);
-  },
-
-  getLanguageInfo: (languageId: string): LanguageInfo | undefined => {
-    return getLangInfo(languageId);
-  },
-
-  getDisplayName: (languageId: string): string => {
-    return getLangDisplayName(languageId);
   },
 });
 
