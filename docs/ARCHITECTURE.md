@@ -175,11 +175,58 @@ Current execution mode mapping:
 
 This policy is enforced in `src/features/ai-agent/codeAgent.ts` via profile-aware tool filtering using `src/features/ai-agent/agentProfiles.ts`.
 
+Mutating tool calls are additionally guarded by mandatory pre-execution approvals in `src/features/ai-agent/toolRegistry.ts`:
+
+- `replaceAll`
+- `insert`
+- `replaceSelection`
+- `writeFile`
+- `deleteFile`
+
+User-configurable tool policy presets are persisted in `src/store/useAISettingsStore.ts` and applied per run via `src/features/ai-agent/toolPolicy.ts`:
+
+- `standard`: default capability set
+- `safe`: denies write/runtime groups
+- `readonly`: allow-focused analysis/workspace access with write/runtime denied
+
+Approval decisions are orchestrated in `src/components/AI/hooks/useAIChatController.ts` and rendered in `src/components/AI/ToolInvocationUI.tsx`.
+
 AI runtime concerns are separated into dedicated modules:
 
 - `src/features/ai-agent/agentRuntime.ts`: mode/profile resolution, system prompt policy, execution step limits.
 - `src/features/ai-agent/toolRegistry.ts`: centralized tool definitions and filtered tool exposure by mode/profile.
 - `src/features/ai-agent/codeAgent.ts`: orchestration layer (provider + runtime + tool registry).
+
+### AI Transport Security (Renderer → Main Proxy)
+
+Provider requests are routed through the Electron main process proxy:
+
+- Renderer side: `src/features/ai-agent/providers.ts` (custom `fetch` for OpenAI/Anthropic/Google/local providers)
+- Main side: `electron/aiProxy.ts` (`ai:proxy` and `ai:proxy:stream` IPC handlers)
+
+This centralizes domain allowlisting and SSRF protections while keeping provider logic in the AI runtime.
+
+### Agent Run Lifecycle Observability
+
+The chat store now tracks run lifecycle transitions (`accepted`, `running`, `completed`, `error`, `aborted`) via:
+
+- `src/store/useChatStore.ts` (`activeRun` + lifecycle actions)
+- `src/components/AI/hooks/useAIChatController.ts` (state transitions during stream/generate/abort/error paths)
+
+### Structured Chat Message Model (Backward-Compatible)
+
+AI chat messages now support optional structured content parts while preserving legacy `content: string` compatibility:
+
+- Schema: `src/features/ai-agent/types.ts`
+  - `ChatMessage.contentParts?: ChatMessagePart[]`
+  - `ChatMessage.metadata?: ChatMessageMetadata`
+  - `getChatMessageDisplayContent(message)` fallback helper
+- Runtime assembly: `src/features/ai-agent/messageParts.ts`
+  - Parses assistant output into markdown/reasoning/tool-call parts
+  - Attaches run/model metadata for observability
+- Rendering: `src/components/AI/ChatMessage.tsx`
+  - Renders `contentParts` when available
+  - Falls back to `content` for full backward compatibility
 
 ### VM Sandbox (JavaScript/TypeScript)
 

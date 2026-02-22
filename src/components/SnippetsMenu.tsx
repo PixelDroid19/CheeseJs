@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Book,
   Play,
@@ -88,7 +88,7 @@ export function SnippetsMenu() {
 
   return (
     <>
-      <motion.button
+      <m.button
         ref={buttonRef}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
@@ -100,7 +100,7 @@ export function SnippetsMenu() {
         title={t('toolbar.snippets', 'Snippets')}
       >
         <Book className="w-5 h-5" />
-      </motion.button>
+      </m.button>
 
       {createPortal(
         <AnimatePresence>
@@ -113,7 +113,7 @@ export function SnippetsMenu() {
               />
 
               {/* Menu */}
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -287,7 +287,7 @@ export function SnippetsMenu() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </m.div>
             </>
           )}
         </AnimatePresence>,

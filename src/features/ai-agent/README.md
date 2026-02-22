@@ -11,13 +11,20 @@ The AI Agent feature provides intelligent code assistance within CheeseJS. It is
 - **Agent Runtime**: `agentRuntime.ts` resolves mode/profile, step limits, and system prompts
 - **Tool Registry**: `toolRegistry.ts` contains tool definitions and permission-aware filtering
 - **Agent Logic**: `codeAgent.ts` orchestrates provider + runtime + tools
+- **Secure Transport**: `providers.ts` routes provider HTTP traffic through `window.aiProxy` (Electron main process)
 - **Inline Completion**: `inlineCompletionProvider.ts` manages autocomplete logic
 
 ## Key Capabilities
 
 1.  **Inline Autocomplete**: Fluid, low-latency code completion while typing.
 2.  **Code Agent**: Chat interface capable of generating, refactoring, and explaining code.
-3.  **Tool Usage**: The agent can perform editor actions (insert, replace).
+3.  **Tool Usage**: The agent can perform editor/file actions (insert, replace, write/delete files).
+4.  **Pre-Execution Approval**: Mutating tools (`replaceAll`, `insert`, `replaceSelection`, `writeFile`, `deleteFile`) require explicit user approval before execution.
+5.  **Run Lifecycle Tracking**: Chat state tracks run status transitions (`accepted`, `running`, `completed`, `error`, `aborted`) for observability.
+6.  **Policy Presets**: Runtime tool access can be constrained via presets:
+  - `standard`: balanced default behavior
+  - `safe`: blocks write/runtime groups
+  - `readonly`: limits execution to analysis/workspace-oriented tools
 
 ## Performance Optimizations
 
@@ -34,6 +41,7 @@ This implementation follows a "Privacy-First" approach:
 - **User Control**: Explicit provider configuration (Local vs Cloud).
 - **Transparency**: UI indicators clearly show when a cloud provider is active.
 - **Safety**: Destructive actions (like "Replace All") require explicit user confirmation via a dialog.
+- **Network Hardening**: Cloud provider calls are proxied via Electron main process with domain allowlisting and SSRF protections.
 
 ## Deployment
 

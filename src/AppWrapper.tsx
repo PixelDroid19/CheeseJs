@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { LazyMotion, domAnimation } from 'framer-motion';
 import { useSettingsStore } from './store/useSettingsStore';
 import { themesConfig } from './themes';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -24,14 +25,16 @@ function AppWrapper() {
   }, [uiFontSize]);
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <TitleBar />
-      <div className="flex-1 overflow-hidden relative">
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
+    <LazyMotion features={domAnimation}>
+      <div className="flex flex-col h-screen bg-background">
+        <TitleBar />
+        <div className="flex-1 overflow-hidden relative">
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </div>
       </div>
-    </div>
+    </LazyMotion>
   );
 }
 

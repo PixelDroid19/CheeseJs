@@ -21,7 +21,15 @@ type MarkdownPart =
 
 export function MarkdownContent({ content, onInsertCode }: MarkdownProps) {
   const parts = parseMarkdown(content);
-  return <>{parts.map((part, i) => renderPart(part, i, onInsertCode))}</>;
+  return (
+    <div className="space-y-1 leading-relaxed">
+      {parts.map((part, i) => renderPart(part, i, onInsertCode))}
+    </div>
+  );
+}
+
+function isSafeHref(url: string): boolean {
+  return /^(https?:|mailto:)/i.test(url);
 }
 
 function parseMarkdown(text: string): MarkdownPart[] {
@@ -195,9 +203,13 @@ function CodeBlock({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
@@ -208,9 +220,11 @@ function CodeBlock({
         </span>
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={handleCopy}
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            title="Copy"
+            title="Copy code"
+            aria-label="Copy code"
           >
             {copied ? (
               <Check className="w-3.5 h-3.5 text-green-500" />
@@ -220,9 +234,11 @@ function CodeBlock({
           </button>
           {onInsert && (
             <button
+              type="button"
               onClick={() => onInsert(code)}
               className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               title="Insert into editor"
+              aria-label="Insert into editor"
             >
               <Code className="w-3.5 h-3.5" />
             </button>
@@ -278,14 +294,68 @@ function TextWithInline({ content }: { content: string }) {
 }
 
 function formatInlineText(text: string): React.ReactNode {
-  // Bold
-  const boldParts = text.split(/\*\*([^*]+)\*\*/g);
-  if (boldParts.length > 1) {
+  const nodes: React.ReactNode[] = [];
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)|(https?:\/\/[^\s)]+)/g;
+  let cursor = 0;
+  let nodeIndex = 0;
+  let match: RegExpExecArray | null;
+
+  const renderBold = (segment: string, keyPrefix: string) => {
+    const boldParts = segment.split(/\*\*([^*]+)\*\*/g);
+    if (boldParts.length <= 1) {
+      return segment;
+    }
+
     return boldParts.map((part, i) =>
-      i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+      i % 2 === 1 ? <strong key={`${keyPrefix}-b-${i}`}>{part}</strong> : part
+    );
+  };
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > cursor) {
+      const prefix = text.slice(cursor, match.index);
+      nodes.push(
+        <span key={`txt-${nodeIndex++}`}>
+          {renderBold(prefix, `txt-${nodeIndex}`)}
+        </span>
+      );
+    }
+
+    const label = match[1];
+    const markdownHref = match[2];
+    const plainHref = match[3];
+    const href = markdownHref || plainHref || '';
+    const linkText = label || href;
+
+    if (isSafeHref(href)) {
+      nodes.push(
+        <a
+          key={`lnk-${nodeIndex++}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-primary underline underline-offset-2 hover:text-primary/80"
+        >
+          {linkText}
+        </a>
+      );
+    } else {
+      nodes.push(<span key={`lnk-${nodeIndex++}`}>{linkText}</span>);
+    }
+
+    cursor = match.index + match[0].length;
+  }
+
+  if (cursor < text.length) {
+    const suffix = text.slice(cursor);
+    nodes.push(
+      <span key={`txt-${nodeIndex++}`}>
+        {renderBold(suffix, `txt-${nodeIndex}`)}
+      </span>
     );
   }
-  return text;
+
+  return nodes.length > 0 ? nodes : renderBold(text, 'txt-final');
 }
 
 function Heading({ level, content }: { level: number; content: string }) {

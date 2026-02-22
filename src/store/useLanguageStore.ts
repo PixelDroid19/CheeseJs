@@ -10,8 +10,6 @@
  * @see https://github.com/microsoft/vscode-languagedetection
  */
 
-import { create } from 'zustand';
-import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type * as Monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 // Import from the new language detection module
@@ -42,7 +40,7 @@ export { clearDetectionCache };
 // TYPES
 // ============================================================================
 
-interface LanguageState {
+export interface LanguageState {
   // Current language
   currentLanguage: string;
 
@@ -83,234 +81,228 @@ interface LanguageState {
 // STORE
 // ============================================================================
 
-export const useLanguageStore = create<LanguageState>()(
-  subscribeWithSelector(
-    persist(
-      (set, get) => ({
-        // State
-        currentLanguage: 'typescript',
-        isDetecting: false,
-        lastDetectionConfidence: 1.0,
-        detectionVersion: 0,
-        isModelLoaded: false,
-        isModelLoading: false,
-        monacoInstance: null,
+export const createLanguageSlice: import('zustand').StateCreator<LanguageState> = (set, get) => ({
+  // State
+  currentLanguage: 'typescript',
+  isDetecting: false,
+  lastDetectionConfidence: 1.0,
+  detectionVersion: 0,
+  isModelLoaded: false,
+  isModelLoading: false,
+  monacoInstance: null,
 
-        // Actions
-        setLanguage: (language: string) => {
-          const state = get();
-          if (state.currentLanguage === language) return;
+  // Actions
+  setLanguage: (language: string) => {
+    const state = get();
+    if (state.currentLanguage === language) return;
 
-          set({ currentLanguage: language });
+    set({ currentLanguage: language });
 
-          // Apply to Monaco if available
-          if (state.monacoInstance) {
-            const editors = state.monacoInstance.editor.getEditors();
-            for (const editor of editors) {
-              const model = editor.getModel();
-              if (model && !model.isDisposed()) {
-                get().applyLanguageToMonaco(model);
-              }
-            }
-          }
-        },
-
-        /**
-         * Synchronous detection - uses cache or pattern fallback
-         * For immediate UI feedback, prefer detectLanguageAsync for accuracy
-         */
-        detectLanguage: (content: string): DetectionResult => {
-          const trimmed = content?.trim() || '';
-
-          // Check definitive patterns first (highest priority)
-          for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
-            if (pattern.test(trimmed)) {
-              return {
-                monacoId: 'python',
-                confidence: 0.98,
-                isExecutable: true,
-              };
-            }
-          }
-
-          for (const pattern of DEFINITIVE_TS_PATTERNS) {
-            if (pattern.test(trimmed)) {
-              return {
-                monacoId: 'typescript',
-                confidence: 0.98,
-                isExecutable: true,
-              };
-            }
-          }
-
-          for (const pattern of DEFINITIVE_JS_PATTERNS) {
-            if (pattern.test(trimmed)) {
-              return {
-                monacoId: 'javascript',
-                confidence: 0.98,
-                isExecutable: true,
-              };
-            }
-          }
-
-          // Check cache
-          const cacheKey = getCacheKey(content);
-          const cached = getCached(cacheKey);
-          if (cached) return cached;
-
-          // Fallback to pattern-based detection
-          return patternBasedDetection(content);
-        },
-
-        /**
-         * ML-first async detection - PRIMARY detection method
-         * Uses ML model for high accuracy, pattern fallback only on error
-         * Includes version checking to prevent race conditions
-         */
-        detectLanguageAsync: async (
-          content: string
-        ): Promise<DetectionResult> => {
-          // Capture version at start of detection
-          const versionAtStart = get().detectionVersion;
-
-          const result = await detectWithML(
-            content,
-            (detecting) => {
-              // Only update if version hasn't changed
-              if (get().detectionVersion === versionAtStart) {
-                set({ isDetecting: detecting });
-              }
-            },
-            (confidence) => {
-              // Only update if version hasn't changed
-              if (get().detectionVersion === versionAtStart) {
-                set({ lastDetectionConfidence: confidence });
-              }
-            }
-          );
-
-          // Check if detection result is still valid (version hasn't changed)
-          const currentVersion = get().detectionVersion;
-          if (currentVersion !== versionAtStart) {
-            // Return result but caller should check version before applying
-            return { ...result, isStale: true } as DetectionResult & {
-              isStale?: boolean;
-            };
-          }
-
-          return result;
-        },
-
-        // Version management for race condition prevention
-        incrementDetectionVersion: (): number => {
-          const newVersion = get().detectionVersion + 1;
-          set({ detectionVersion: newVersion });
-          return newVersion;
-        },
-
-        getDetectionVersion: (): number => {
-          return get().detectionVersion;
-        },
-
-        initializeModel: async () => {
-          const state = get();
-          if (state.isModelLoaded || state.isModelLoading) {
-            return;
-          }
-
-          set({ isModelLoading: true });
-
-          await initializeMLModel();
-
-          set({
-            isModelLoaded: isMLModelLoaded(),
-            isModelLoading: isMLModelLoading(),
-          });
-        },
-
-        setMonacoInstance: (monaco: typeof Monaco) => {
-          set({ monacoInstance: monaco });
-        },
-
-        applyLanguageToMonaco: (model: Monaco.editor.ITextModel | null) => {
-          const state = get();
-          if (!model || model.isDisposed() || !state.monacoInstance) return;
-
-          const currentLang = model.getLanguageId();
-          const targetLang = state.currentLanguage;
-
-          if (currentLang !== targetLang) {
-            state.monacoInstance.editor.setModelLanguage(model, targetLang);
-          }
-
-          // Configure TypeScript diagnostics
-          const isPython = targetLang === 'python';
-
-          // Type for TS diagnostics
-          interface TSDefaults {
-            setDiagnosticsOptions(opts: {
-              noSemanticValidation?: boolean;
-              noSyntaxValidation?: boolean;
-            }): void;
-          }
-          interface TSLanguages {
-            typescriptDefaults?: TSDefaults;
-            javascriptDefaults?: TSDefaults;
-          }
-
-          const ts = (
-            state.monacoInstance.languages as unknown as {
-              typescript: TSLanguages;
-            }
-          ).typescript;
-          if (ts) {
-            ts.typescriptDefaults?.setDiagnosticsOptions({
-              noSemanticValidation: isPython,
-              noSyntaxValidation: isPython,
-            });
-            ts.javascriptDefaults?.setDiagnosticsOptions({
-              noSemanticValidation: isPython,
-              noSyntaxValidation: isPython,
-            });
-          }
-
-          // Clear markers for Python
-          if (isPython) {
-            state.monacoInstance.editor.setModelMarkers(
-              model,
-              'typescript',
-              []
-            );
-            state.monacoInstance.editor.setModelMarkers(
-              model,
-              'javascript',
-              []
-            );
-          }
-        },
-
-        // Utilities - delegate to module
-        isExecutable: (languageId: string): boolean => {
-          return checkExecutable(languageId);
-        },
-
-        getLanguageInfo: (languageId: string): LanguageInfo | undefined => {
-          return getLangInfo(languageId);
-        },
-
-        getDisplayName: (languageId: string): string => {
-          return getLangDisplayName(languageId);
-        },
-      }),
-      {
-        name: 'language-storage',
-        partialize: (state) => ({
-          currentLanguage: state.currentLanguage,
-        }),
+    // Apply to Monaco if available
+    if (state.monacoInstance) {
+      const editors = state.monacoInstance.editor.getEditors();
+      for (const editor of editors) {
+        const model = editor.getModel();
+        if (model && !model.isDisposed()) {
+          get().applyLanguageToMonaco(model);
+        }
       }
-    )
-  )
-);
+    }
+  },
+
+  /**
+   * Synchronous detection - uses cache or pattern fallback
+   * For immediate UI feedback, prefer detectLanguageAsync for accuracy
+   */
+  detectLanguage: (content: string): DetectionResult => {
+    const trimmed = content?.trim() || '';
+
+    // Check definitive patterns first (highest priority)
+    for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
+      if (pattern.test(trimmed)) {
+        return {
+          monacoId: 'python',
+          confidence: 0.98,
+          isExecutable: true,
+        };
+      }
+    }
+
+    for (const pattern of DEFINITIVE_TS_PATTERNS) {
+      if (pattern.test(trimmed)) {
+        return {
+          monacoId: 'typescript',
+          confidence: 0.98,
+          isExecutable: true,
+        };
+      }
+    }
+
+    for (const pattern of DEFINITIVE_JS_PATTERNS) {
+      if (pattern.test(trimmed)) {
+        return {
+          monacoId: 'javascript',
+          confidence: 0.98,
+          isExecutable: true,
+        };
+      }
+    }
+
+    // Check cache
+    const cacheKey = getCacheKey(content);
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
+    // Fallback to pattern-based detection
+    return patternBasedDetection(content);
+  },
+
+  /**
+   * ML-first async detection - PRIMARY detection method
+   * Uses ML model for high accuracy, pattern fallback only on error
+   * Includes version checking to prevent race conditions
+   */
+  detectLanguageAsync: async (
+    content: string
+  ): Promise<DetectionResult> => {
+    // Capture version at start of detection
+    const versionAtStart = get().detectionVersion;
+
+    const result = await detectWithML(
+      content,
+      (detecting) => {
+        // Only update if version hasn't changed
+        if (get().detectionVersion === versionAtStart) {
+          set({ isDetecting: detecting });
+        }
+      },
+      (confidence) => {
+        // Only update if version hasn't changed
+        if (get().detectionVersion === versionAtStart) {
+          set({ lastDetectionConfidence: confidence });
+        }
+      }
+    );
+
+    // Check if detection result is still valid (version hasn't changed)
+    const currentVersion = get().detectionVersion;
+    if (currentVersion !== versionAtStart) {
+      // Return result but caller should check version before applying
+      return { ...result, isStale: true } as DetectionResult & {
+        isStale?: boolean;
+      };
+    }
+
+    return result;
+  },
+
+  // Version management for race condition prevention
+  incrementDetectionVersion: (): number => {
+    const newVersion = get().detectionVersion + 1;
+    set({ detectionVersion: newVersion });
+    return newVersion;
+  },
+
+  getDetectionVersion: (): number => {
+    return get().detectionVersion;
+  },
+
+  initializeModel: async () => {
+    const state = get();
+    if (state.isModelLoaded || state.isModelLoading) {
+      return;
+    }
+
+    set({ isModelLoading: true });
+
+    await initializeMLModel();
+
+    set({
+      isModelLoaded: isMLModelLoaded(),
+      isModelLoading: isMLModelLoading(),
+    });
+  },
+
+  setMonacoInstance: (monaco: typeof Monaco) => {
+    set({ monacoInstance: monaco });
+  },
+
+  applyLanguageToMonaco: (model: Monaco.editor.ITextModel | null) => {
+    const state = get();
+    if (!model || model.isDisposed() || !state.monacoInstance) return;
+
+    const currentLang = model.getLanguageId();
+    const targetLang = state.currentLanguage;
+
+    if (currentLang !== targetLang) {
+      state.monacoInstance.editor.setModelLanguage(model, targetLang);
+    }
+
+    // Configure TypeScript diagnostics
+    const isPython = targetLang === 'python';
+
+    // Type for TS diagnostics
+    interface TSDefaults {
+      setDiagnosticsOptions(opts: {
+        noSemanticValidation?: boolean;
+        noSyntaxValidation?: boolean;
+      }): void;
+    }
+    interface TSLanguages {
+      typescriptDefaults?: TSDefaults;
+      javascriptDefaults?: TSDefaults;
+    }
+
+    const ts = (
+      state.monacoInstance.languages as unknown as {
+        typescript: TSLanguages;
+      }
+    ).typescript;
+    if (ts) {
+      ts.typescriptDefaults?.setDiagnosticsOptions({
+        noSemanticValidation: isPython,
+        noSyntaxValidation: isPython,
+      });
+      ts.javascriptDefaults?.setDiagnosticsOptions({
+        noSemanticValidation: isPython,
+        noSyntaxValidation: isPython,
+      });
+    }
+
+    // Clear markers for Python
+    if (isPython) {
+      state.monacoInstance.editor.setModelMarkers(
+        model,
+        'typescript',
+        []
+      );
+      state.monacoInstance.editor.setModelMarkers(
+        model,
+        'javascript',
+        []
+      );
+    }
+  },
+
+  // Utilities - delegate to module
+  isExecutable: (languageId: string): boolean => {
+    return checkExecutable(languageId);
+  },
+
+  getLanguageInfo: (languageId: string): LanguageInfo | undefined => {
+    return getLangInfo(languageId);
+  },
+
+  getDisplayName: (languageId: string): string => {
+    return getLangDisplayName(languageId);
+  },
+});
+
+export const partializeLanguage = (state: LanguageState) => ({
+  currentLanguage: state.currentLanguage,
+});
+
+export { useLanguageStore } from './storeHooks';
 
 // ============================================================================
 // SELECTORS (for optimized re-renders)
@@ -322,6 +314,8 @@ export const selectIsDetecting = (state: LanguageState) => state.isDetecting;
 export const selectIsModelLoaded = (state: LanguageState) =>
   state.isModelLoaded;
 
+import { useAppStore } from './index';
+
 // ============================================================================
 // STANDALONE FUNCTIONS (for use outside React)
 // ============================================================================
@@ -330,7 +324,7 @@ export const selectIsModelLoaded = (state: LanguageState) =>
  * Detect language synchronously (pattern-based)
  */
 export function detectLanguageSync(content: string): DetectionResult {
-  return useLanguageStore.getState().detectLanguage(content);
+  return useAppStore.getState().language.detectLanguage(content);
 }
 
 /**
@@ -339,33 +333,33 @@ export function detectLanguageSync(content: string): DetectionResult {
 export async function detectLanguageAsync(
   content: string
 ): Promise<DetectionResult> {
-  return useLanguageStore.getState().detectLanguageAsync(content);
+  return useAppStore.getState().language.detectLanguageAsync(content);
 }
 
 /**
  * Check if a language is executable
  */
 export function isLanguageExecutable(languageId: string): boolean {
-  return useLanguageStore.getState().isExecutable(languageId);
+  return useAppStore.getState().language.isExecutable(languageId);
 }
 
 /**
  * Initialize ML model
  */
 export function initializeLanguageDetection(): Promise<void> {
-  return useLanguageStore.getState().initializeModel();
+  return useAppStore.getState().language.initializeModel();
 }
 
 /**
  * Get display name for a language
  */
 export function getLanguageDisplayName(languageId: string): string {
-  return useLanguageStore.getState().getDisplayName(languageId);
+  return useAppStore.getState().language.getDisplayName(languageId);
 }
 
 /**
  * Set Monaco instance
  */
 export function setMonacoInstance(monaco: typeof Monaco): void {
-  useLanguageStore.getState().setMonacoInstance(monaco);
+  useAppStore.getState().language.setMonacoInstance(monaco);
 }

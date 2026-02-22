@@ -7,36 +7,13 @@ import { useCodeStore } from '../../../store/useCodeStore';
 import { useLanguageStore } from '../../../store/useLanguageStore';
 import { useRagStore } from '../../../store/useRagStore';
 import {
-  createCodeAgent,
   type ToolInvocation,
   type AgentCallbacks,
-  type AgentExecutionMode,
-  processEditorActions,
-  sanitizeAssistantOutput,
-  isDirectEditIntent,
-  extractCodeForDirectEdit,
-  buildStructuredPlanPrompt,
-  extractExecutionPlanFromText,
 } from '../../../features/ai-agent/codeAgent';
-import { getDefaultProfileForMode } from '../../../features/ai-agent/agentProfiles';
-import {
-  scrubSensitiveData,
-  getSensitiveDataSummary,
-} from '../../../features/ai-agent/scrubber';
-
-export interface PendingApprovalState {
-  id: string;
-  toolName: string;
-  input: Record<string, unknown>;
-  resolve: (approved: boolean) => void;
-}
-
-export interface CloudWarningState {
-  pending: boolean;
-  sensitiveItems: string[];
-  pendingMessage: string;
-  pendingCode?: string;
-}
+import { useAIChatSendHandler } from './useAIChatSendHandler';
+import type { PendingApprovalState, CloudWarningState } from './aiChatTypes';
+import { useAIChatPlanHandlers } from './useAIChatPlanHandlers';
+import { useAIChatChangeHandlers } from './useAIChatChangeHandlers';
 
 export function useAIChatController() {
   const { t } = useTranslation();
@@ -54,11 +31,6 @@ export function useAIChatController() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
-  const activeRunRef = useRef<{
-    id: number;
-    controller: AbortController;
-  } | null>(null);
-  const runCounterRef = useRef(0);
 
   const {
     messages,
@@ -73,11 +45,9 @@ export function useAIChatController() {
     finalizeStreaming,
     setChatOpen,
     toggleChat,
-    agentPhase,
-    thinkingMessage,
     pendingChange,
     activePlan,
-    setAgentPhase,
+    activeRun,
     setPendingChange,
     clearPendingChange,
     setActivePlan,
@@ -85,6 +55,9 @@ export function useAIChatController() {
     setCurrentPlanTaskIndex,
     updatePlanTaskStatus,
     clearActivePlan,
+    startRunLifecycle,
+    updateRunLifecycle,
+    clearRunLifecycle,
     showThinking,
     setShowThinking,
     appliedChanges,
@@ -108,8 +81,11 @@ export function useAIChatController() {
     setAgentProfile,
     enableVerifierSubagent,
     strictLocalMode,
+    toolPolicyPreset,
+    toolPolicy,
     setProvider,
     setStrictLocalMode,
+    setToolPolicyPreset,
   } = useAISettingsStore();
 
   const code = useCodeStore((state) => state.code);
@@ -144,10 +120,6 @@ export function useAIChatController() {
       content: `Context compacted. Conversation summary:\n\n${summary}`,
     });
   }, [messages, clearChat, addMessage]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, currentStreamingContent, toolInvocations]);
 
   useEffect(() => {
     if (isChatOpen && textAreaRef.current) {
@@ -201,7 +173,7 @@ export function useAIChatController() {
         };
       },
       onInsertCode: (newCode: string) => {
-        setAgentPhase('applying', 'Review changes...');
+        updateRunLifecycle({ status: 'applying', message: 'Review changes...' });
         setPendingChange({
           action: 'insert',
           originalCode: '',
@@ -221,7 +193,7 @@ export function useAIChatController() {
           }
         }
 
-        setAgentPhase('applying', 'Review changes...');
+        updateRunLifecycle({ status: 'applying', message: 'Review changes...' });
         setPendingChange({
           action: 'replaceSelection',
           originalCode,
@@ -230,7 +202,7 @@ export function useAIChatController() {
         });
       },
       onReplaceAll: (newCode: string) => {
-        setAgentPhase('applying', 'Review changes...');
+        updateRunLifecycle({ status: 'applying', message: 'Review changes...' });
         setPendingChange({
           action: 'replaceAll',
           originalCode: code,
@@ -239,405 +211,22 @@ export function useAIChatController() {
         });
       },
       onToolInvocation: handleToolInvocation,
+      onRequestToolApproval: ({ id, toolName, input, message }) => {
+        return new Promise<boolean>((resolve) => {
+          setPendingApproval({
+            id,
+            toolName,
+            input,
+            message,
+            resolve,
+          });
+        });
+      },
     };
-  }, [code, language, handleToolInvocation, setAgentPhase, setPendingChange]);
+  }, [code, language, handleToolInvocation, updateRunLifecycle, setPendingChange]);
 
-  const handleSend = useCallback(
-    async (
-      textInput?: string,
-      isAutoCorrection: boolean = false,
-      options?: {
-        forcedMode?: AgentExecutionMode;
-        suppressUserMessage?: boolean;
-        skipCloudWarning?: boolean;
-        structuredPlanOutput?: boolean;
-      }
-    ): Promise<string | undefined> => {
-      const messageToSend = textInput || input;
-      if (!messageToSend.trim() || isStreaming || !isConfigured) return;
-      setLastError(null);
-
-      const userMessage = messageToSend.trim();
-
-      if (userMessage === '/clear') {
-        clearChat();
-        setToolInvocations([]);
-        setInput('');
-        return;
-      }
-
-      if (userMessage === '/compact') {
-        handleCompactContext();
-        setInput('');
-        return;
-      }
-
-      if (userMessage === '/plan') {
-        setExecutionMode('plan');
-        addMessage({
-          role: 'system',
-          content:
-            'Plan mode enabled. Define your objective and click "Generate plan".',
-        });
-        setInput('');
-        return;
-      }
-
-      if (userMessage === '/agent') {
-        setExecutionMode('agent');
-        addMessage({
-          role: 'system',
-          content: 'Agent mode enabled.',
-        });
-        setInput('');
-        return;
-      }
-
-      const isVerifierRequest =
-        enableVerifierSubagent && /^@verifier\b/i.test(userMessage);
-      const normalizedUserMessage = isVerifierRequest
-        ? userMessage.replace(/^@verifier\b\s*/i, '').trim() ||
-          'Run a quick validation for the current context.'
-        : userMessage;
-
-      const directEditIntent = isDirectEditIntent(normalizedUserMessage);
-      const selectedMode: AgentExecutionMode = options?.forcedMode
-        ? options.forcedMode
-        : isVerifierRequest
-          ? 'verifier'
-          : executionMode === 'plan' && directEditIntent
-            ? 'agent'
-            : executionMode;
-
-      if (executionMode === 'plan' && selectedMode === 'agent') {
-        addMessage({
-          role: 'system',
-          content:
-            'Auto-switched to Agent mode for this request so changes can be applied directly to the editor.',
-        });
-      }
-
-      const codeContext = includeCode ? code : undefined;
-
-      if (
-        provider !== 'local' &&
-        !strictLocalMode &&
-        !isAutoCorrection &&
-        !options?.skipCloudWarning
-      ) {
-        const sensitiveItems = codeContext
-          ? getSensitiveDataSummary(codeContext)
-          : [];
-
-        if (sensitiveItems.length > 0) {
-          setCloudWarning({
-            pending: true,
-            sensitiveItems,
-            pendingMessage: normalizedUserMessage,
-            pendingCode: codeContext,
-          });
-          return;
-        }
-      }
-
-      setLastFailedPrompt(normalizedUserMessage);
-      if (!options?.suppressUserMessage) {
-        addMessage({
-          role: 'user',
-          content: userMessage,
-          codeContext,
-        });
-      }
-
-      if (!isAutoCorrection) {
-        setInput('');
-      }
-
-      const runId = runCounterRef.current + 1;
-      runCounterRef.current = runId;
-      const abortController = new AbortController();
-      activeRunRef.current = { id: runId, controller: abortController };
-
-      setStreaming(true);
-      setStreamingContent('');
-      setToolInvocations([]);
-
-      const isAbortError = (error: unknown) => {
-        if (abortController.signal.aborted) return true;
-        if (!(error instanceof Error)) return false;
-        const normalized = `${error.name} ${error.message}`.toLowerCase();
-        return normalized.includes('abort') || normalized.includes('cancel');
-      };
-
-      try {
-        const apiKey = getCurrentApiKey();
-        const model = getCurrentModel();
-        const localCfg = getLocalConfig();
-        const customCfg = getCustomConfig();
-
-        const safeCodeContext =
-          provider !== 'local' && codeContext
-            ? scrubSensitiveData(codeContext)
-            : codeContext;
-
-        const runAgent = async (
-          disableTools: boolean,
-          mode: AgentExecutionMode
-        ): Promise<string> => {
-          let toolEditApplied = false;
-          const baseCallbacks = createAgentCallbacks();
-          const trackedCallbacks: AgentCallbacks = {
-            ...baseCallbacks,
-            onInsertCode: (newCode) => {
-              toolEditApplied = true;
-              baseCallbacks.onInsertCode?.(newCode);
-            },
-            onReplaceSelection: (newCode) => {
-              toolEditApplied = true;
-              baseCallbacks.onReplaceSelection?.(newCode);
-            },
-            onReplaceAll: (newCode) => {
-              toolEditApplied = true;
-              baseCallbacks.onReplaceAll?.(newCode);
-            },
-          };
-
-          const trackedAgent = createCodeAgent(
-            provider,
-            apiKey,
-            model,
-            provider === 'local'
-              ? { baseURL: localCfg.baseURL, modelId: localCfg.modelId }
-              : undefined,
-            trackedCallbacks,
-            provider !== 'local' ? customCfg : undefined,
-            {
-              mode,
-              disableTools,
-              profile:
-                mode === 'agent'
-                  ? agentProfile
-                  : getDefaultProfileForMode(mode),
-            }
-          );
-
-          let fullPrompt = normalizedUserMessage;
-          if (options?.structuredPlanOutput && mode === 'plan') {
-            fullPrompt = buildStructuredPlanPrompt(normalizedUserMessage);
-          }
-          if (isAutoCorrection) {
-            fullPrompt = `Review and fix the following code based on this error:\n\n${userMessage}\n\nIMPORTANT: Return the FULL corrected code using the appropriate tool.`;
-          }
-
-          let ragContext = '';
-          const docsMatch = userMessage.match(/@(docs|kb)\s*(?:\(([^)]+)\))?/i);
-          if (docsMatch && window.rag) {
-            const searchQuery =
-              docsMatch[2] ||
-              userMessage.replace(/@(docs|kb)\s*(?:\([^)]+\))?/i, '').trim();
-            if (searchQuery) {
-              try {
-                setAgentPhase('thinking', 'Searching knowledge base...');
-                const pipelineResult = await window.rag.searchPipeline(
-                  searchQuery,
-                  {
-                    maxContextTokens: 4000,
-                    includeAttribution: true,
-                  }
-                );
-                if (pipelineResult.success && pipelineResult.result?.context) {
-                  ragContext =
-                    '\n\n--- Knowledge Base Context ---\n' +
-                    pipelineResult.result.context +
-                    '\n--- End Knowledge Base Context ---\n\n';
-                }
-              } catch (e) {
-                console.warn('RAG pipeline search failed:', e);
-              }
-            }
-            fullPrompt = userMessage
-              .replace(/@(docs|kb)\s*(?:\([^)]+\))?/i, '')
-              .trim();
-          }
-
-          let pinnedContext = '';
-          if (pinnedDocIds.length > 0) {
-            try {
-              setAgentPhase('thinking', 'Loading pinned documentation...');
-              pinnedContext = await getPinnedDocsContext();
-            } catch (e) {
-              console.warn('Failed to get pinned docs:', e);
-            }
-          }
-
-          const allContext = pinnedContext + ragContext;
-          const prompt = safeCodeContext
-            ? `Context - Current code in editor (${language}):\n\`\`\`${language}\n${safeCodeContext}\n\`\`\`${allContext}\n\nUser: ${fullPrompt}`
-            : allContext
-              ? `${allContext}User: ${fullPrompt}`
-              : fullPrompt;
-
-          const thinkingMessage =
-            mode === 'plan'
-              ? 'Planning approach...'
-              : mode === 'verifier'
-                ? 'Running verification...'
-                : 'Analyzing your request...';
-
-          setAgentPhase('thinking', thinkingMessage);
-          const streamResult = trackedAgent.stream({
-            prompt,
-            abortSignal: abortController.signal,
-          });
-          setAgentPhase(
-            'generating',
-            mode === 'plan'
-              ? 'Building execution plan...'
-              : 'Generating response...'
-          );
-
-          let fullText = '';
-          let visibleText = '';
-
-          if (streamResult && streamResult.textStream) {
-            for await (const chunk of streamResult.textStream) {
-              fullText += chunk;
-              const sanitized = sanitizeAssistantOutput(fullText, {
-                showThinking,
-              });
-              if (sanitized.length < visibleText.length) {
-                setStreamingContent(sanitized);
-                visibleText = sanitized;
-                continue;
-              }
-              const delta = sanitized.slice(visibleText.length);
-              if (delta) {
-                appendStreamingContent(delta);
-              }
-              visibleText = sanitized;
-            }
-
-            if (disableTools || fullText.includes('<<<EDITOR_ACTION>>>')) {
-              await processEditorActions(fullText, trackedCallbacks);
-            }
-
-            if (mode === 'agent' && directEditIntent && !toolEditApplied) {
-              const fallbackCode = extractCodeForDirectEdit(
-                sanitizeAssistantOutput(fullText, { showThinking })
-              );
-              if (fallbackCode) {
-                trackedCallbacks.onReplaceAll?.(fallbackCode);
-              } else if (!disableTools) {
-                throw new Error(
-                  'Direct edit requested but no tool call or code payload was produced.'
-                );
-              }
-            }
-
-            finalizeStreaming();
-            return sanitizeAssistantOutput(fullText, { showThinking });
-          }
-
-          const result = await trackedAgent.generate({
-            prompt,
-            abortSignal: abortController.signal,
-          });
-          if (!result.text) {
-            throw new Error('No response from agent');
-          }
-
-          setStreamingContent(
-            sanitizeAssistantOutput(result.text, { showThinking })
-          );
-          if (disableTools || result.text.includes('<<<EDITOR_ACTION>>>')) {
-            await processEditorActions(result.text, trackedCallbacks);
-          }
-
-          if (mode === 'agent' && directEditIntent && !toolEditApplied) {
-            const fallbackCode = extractCodeForDirectEdit(
-              sanitizeAssistantOutput(result.text, { showThinking })
-            );
-            if (fallbackCode) {
-              trackedCallbacks.onReplaceAll?.(fallbackCode);
-            } else if (!disableTools) {
-              throw new Error(
-                'Direct edit requested but no tool call or code payload was produced.'
-              );
-            }
-          }
-          finalizeStreaming();
-          return sanitizeAssistantOutput(result.text, { showThinking });
-        };
-
-        try {
-          return await runAgent(false, selectedMode);
-        } catch (agentError) {
-          if (isAbortError(agentError)) {
-            finalizeStreaming();
-            setAgentPhase('idle');
-            return undefined;
-          }
-
-          console.warn('[AIChat] Standard agent failed, retrying...');
-          try {
-            setStreamingContent('');
-            return await runAgent(true, selectedMode);
-          } catch (retryError) {
-            if (isAbortError(retryError)) {
-              finalizeStreaming();
-              setAgentPhase('idle');
-              return undefined;
-            }
-
-            console.error('[AIChat] Legacy retry failed:', retryError);
-            if (directEditIntent) {
-              addMessage({
-                role: 'system',
-                content:
-                  'No pude aplicar cambios en el editor automáticamente. Intenta pedir: "reemplaza todo el archivo con el código completo" o habilita una respuesta con bloque de código completo.',
-              });
-            }
-            addMessage({
-              role: 'assistant',
-              content: `Error: ${agentError instanceof Error ? agentError.message : 'Unknown error'}`,
-            });
-            setLastError(
-              agentError instanceof Error
-                ? agentError.message
-                : 'Unknown error while processing request'
-            );
-            setStreaming(false);
-            setAgentPhase('idle');
-            return undefined;
-          }
-        }
-      } catch (error) {
-        if (isAbortError(error)) {
-          finalizeStreaming();
-          setAgentPhase('idle');
-          return undefined;
-        }
-
-        console.error('[AIChat] Send error:', error);
-        addMessage({
-          role: 'assistant',
-          content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        });
-        setLastError(
-          error instanceof Error
-            ? error.message
-            : 'Unknown error while processing request'
-        );
-        setStreaming(false);
-        setAgentPhase('idle');
-        return undefined;
-      } finally {
-        if (activeRunRef.current?.id === runId) {
-          activeRunRef.current = null;
-        }
-      }
-    },
-    [
+  const { handleSend, handleCancelGeneration: cancelGeneration } =
+    useAIChatSendHandler({
       input,
       isStreaming,
       isConfigured,
@@ -645,8 +234,22 @@ export function useAIChatController() {
       code,
       provider,
       strictLocalMode,
+      toolPolicy,
       language,
+      enableVerifierSubagent,
+      executionMode,
+      agentProfile,
+      showThinking,
+      pinnedDocIds,
+      setInput,
+      setExecutionMode,
+      setToolInvocations,
+      setCloudWarning,
+      setLastError,
+      setLastFailedPrompt,
       addMessage,
+      clearChat,
+      handleCompactContext,
       setStreaming,
       setStreamingContent,
       appendStreamingContent,
@@ -656,177 +259,50 @@ export function useAIChatController() {
       getLocalConfig,
       getCustomConfig,
       createAgentCallbacks,
-      setAgentPhase,
-      clearChat,
-      handleCompactContext,
-      enableVerifierSubagent,
-      executionMode,
-      agentProfile,
-      setExecutionMode,
       getPinnedDocsContext,
-      pinnedDocIds,
-      showThinking,
-    ]
-  );
+      startRunLifecycle,
+      updateRunLifecycle,
+    });
 
   const handleCancelGeneration = useCallback(() => {
-    const activeRun = activeRunRef.current;
-    if (!activeRun) return;
-
-    activeRun.controller.abort();
-    activeRunRef.current = null;
-    finalizeStreaming();
-    setAgentPhase('idle');
-    addMessage({
-      role: 'system',
-      content: t('chat.generationStopped', 'Generation stopped by user.'),
-    });
-  }, [finalizeStreaming, setAgentPhase, addMessage, t]);
-
-  const handleUndoChange = useCallback(() => {
-    const change = undoAppliedChange();
-    if (!change) return;
-
-    setCode(change.originalCode);
-    if (window.editor) {
-      window.editor.setValue(change.originalCode);
-    }
-
-    addMessage({
-      role: 'system',
-      content: t('chat.revertedLastChange', 'Last change reverted.'),
-    });
-  }, [undoAppliedChange, setCode, addMessage, t]);
-
-  const handleRedoChange = useCallback(() => {
-    const change = redoAppliedChange();
-    if (!change) return;
-
-    setCode(change.newCode);
-    if (window.editor) {
-      window.editor.setValue(change.newCode);
-    }
-
-    addMessage({
-      role: 'system',
-      content: t('chat.redidLastChange', 'Last reverted change applied again.'),
-    });
-  }, [redoAppliedChange, setCode, addMessage, t]);
-
-  const handleGeneratePlan = useCallback(async () => {
-    const goal = input.trim();
-    if (!goal || isStreaming || !isConfigured) return;
-
-    clearActivePlan();
-    setExecutionMode('plan');
-
-    const assistantText = await handleSend(goal, false, {
-      forcedMode: 'plan',
-      structuredPlanOutput: true,
-    });
-
-    if (!assistantText) {
-      setLastError('No plan response received from the agent.');
-      return;
-    }
-
-    const parsedPlan = extractExecutionPlanFromText(assistantText);
-    if (!parsedPlan) {
-      setLastError(
-        'The plan response was not structured correctly. Please try again.'
-      );
+    cancelGeneration(() => {
       addMessage({
         role: 'system',
-        content:
-          'Plan parsing failed. Try requesting the plan again with more explicit scope.',
+        content: t('chat.generationStopped', 'Generation stopped by user.'),
       });
-      return;
-    }
-
-    setActivePlan(parsedPlan);
-    addMessage({
-      role: 'system',
-      content: `Plan ready: ${parsedPlan.tasks.length} tasks prepared. Review and click "Execute plan" when ready.`,
     });
-  }, [
+  }, [cancelGeneration, addMessage, t]);
+
+  const { handleUndoChange, handleRedoChange, handleAcceptPendingChange, handleRejectPendingChange } =
+    useAIChatChangeHandlers({
+      t,
+      code,
+      pendingChange,
+      setCode,
+      undoAppliedChange,
+      redoAppliedChange,
+      pushAppliedChange,
+      clearPendingChange,
+      addMessage,
+    });
+
+  const { handleGeneratePlan, handleExecutePlan } = useAIChatPlanHandlers({
     input,
     isStreaming,
     isConfigured,
+    isExecutingPlan,
+    activePlan,
+    setIsExecutingPlan,
+    setLastError,
     clearActivePlan,
     setExecutionMode,
     handleSend,
     setActivePlan,
     addMessage,
-  ]);
-
-  const handleExecutePlan = useCallback(async () => {
-    if (!activePlan || activePlan.tasks.length === 0 || isExecutingPlan) return;
-
-    setIsExecutingPlan(true);
-    setPlanStatus('running');
-
-    for (let i = 0; i < activePlan.tasks.length; i += 1) {
-      const task = activePlan.tasks[i];
-      const dependenciesDone = task.dependencies.every((dependencyId) => {
-        const depTask = useChatStore
-          .getState()
-          .activePlan?.tasks.find((t) => t.id === dependencyId);
-        return depTask?.status === 'completed';
-      });
-
-      setCurrentPlanTaskIndex(i);
-
-      if (!dependenciesDone) {
-        updatePlanTaskStatus(
-          task.id,
-          'skipped',
-          'Skipped because dependencies were not completed.'
-        );
-        continue;
-      }
-
-      updatePlanTaskStatus(task.id, 'running');
-      addMessage({
-        role: 'system',
-        content: `Executing step ${i + 1}/${activePlan.tasks.length}: ${task.title}`,
-      });
-
-      const taskResult = await handleSend(task.prompt, false, {
-        forcedMode: 'agent',
-        suppressUserMessage: true,
-        skipCloudWarning: true,
-      });
-
-      if (!taskResult) {
-        updatePlanTaskStatus(
-          task.id,
-          'failed',
-          'Execution failed: no response from agent.'
-        );
-        setPlanStatus('failed');
-        setIsExecutingPlan(false);
-        setLastError(`Plan execution failed at step ${i + 1}: ${task.title}`);
-        return;
-      }
-
-      updatePlanTaskStatus(task.id, 'completed', taskResult.slice(0, 180));
-    }
-
-    setPlanStatus('completed');
-    setIsExecutingPlan(false);
-    addMessage({
-      role: 'system',
-      content: 'Plan execution completed successfully.',
-    });
-  }, [
-    activePlan,
-    isExecutingPlan,
     setPlanStatus,
     setCurrentPlanTaskIndex,
     updatePlanTaskStatus,
-    addMessage,
-    handleSend,
-  ]);
+  });
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -870,108 +346,38 @@ export function useAIChatController() {
     };
   }, [handleSend, isChatOpen, setChatOpen]);
 
-  const handleApprove = useCallback(() => {
-    if (pendingApproval) {
+  const handleApprove = useCallback(
+    (invocationId?: string) => {
+      if (!pendingApproval) return;
+      if (invocationId && pendingApproval.id !== invocationId) return;
+
       pendingApproval.resolve(true);
       setPendingApproval(null);
-    }
-  }, [pendingApproval]);
+    },
+    [pendingApproval]
+  );
 
-  const handleDeny = useCallback(() => {
-    if (pendingApproval) {
+  const handleDeny = useCallback(
+    (invocationId?: string) => {
+      if (!pendingApproval) return;
+      if (invocationId && pendingApproval.id !== invocationId) return;
+
       pendingApproval.resolve(false);
       setPendingApproval(null);
-    }
-  }, [pendingApproval]);
+    },
+    [pendingApproval]
+  );
 
   const handleNewConversation = useCallback(() => {
     clearChat();
     clearActivePlan();
+    clearRunLifecycle();
     setToolInvocations([]);
     setLastError(null);
     setLastFailedPrompt(null);
     clearChangeHistory();
-  }, [clearChat, clearActivePlan, clearChangeHistory]);
+  }, [clearChat, clearActivePlan, clearChangeHistory, clearRunLifecycle]);
 
-  const handleAcceptPendingChange = useCallback(() => {
-    if (!pendingChange) return;
-
-    const beforeCode = window.editor?.getValue() ?? code;
-    let afterCode = beforeCode;
-
-    if (pendingChange.action === 'replaceAll') {
-      setCode(pendingChange.newCode);
-      if (window.editor) {
-        window.editor.setValue(pendingChange.newCode);
-      }
-      afterCode = pendingChange.newCode;
-    } else if (pendingChange.action === 'insert') {
-      if (window.editor) {
-        const position = window.editor.getPosition();
-        if (position) {
-          window.editor.executeEdits('ai-agent-diff', [
-            {
-              range: {
-                startLineNumber: position.lineNumber,
-                startColumn: position.column,
-                endLineNumber: position.lineNumber,
-                endColumn: position.column,
-              },
-              text: pendingChange.newCode,
-              forceMoveMarkers: true,
-            },
-          ]);
-          afterCode = window.editor.getValue();
-        }
-      } else {
-        afterCode = code + '\n' + pendingChange.newCode;
-        setCode(afterCode);
-      }
-    } else if (pendingChange.action === 'replaceSelection') {
-      if (window.editor) {
-        const selection = window.editor.getSelection();
-        if (selection) {
-          window.editor.executeEdits('ai-agent-diff', [
-            {
-              range: selection,
-              text: pendingChange.newCode,
-              forceMoveMarkers: true,
-            },
-          ]);
-          afterCode = window.editor.getValue();
-        }
-      } else {
-        afterCode = pendingChange.newCode;
-        setCode(pendingChange.newCode);
-      }
-    }
-
-    pushAppliedChange({
-      action: 'replaceAll',
-      originalCode: beforeCode,
-      newCode: afterCode,
-      description: pendingChange.description || 'AI change applied to editor',
-    });
-
-    addMessage({
-      role: 'system',
-      content: t('chat.changeApplied', 'Change applied to editor.'),
-    });
-
-    clearPendingChange();
-  }, [
-    pendingChange,
-    code,
-    setCode,
-    pushAppliedChange,
-    addMessage,
-    t,
-    clearPendingChange,
-  ]);
-
-  const handleRejectPendingChange = useCallback(() => {
-    clearPendingChange();
-  }, [clearPendingChange]);
 
   const handleCloudConfirm = useCallback(() => {
     if (cloudWarning) {
@@ -1010,8 +416,8 @@ export function useAIChatController() {
     isStreaming,
     currentStreamingContent,
     isChatOpen,
-    agentPhase,
-    thinkingMessage,
+    agentPhase: activeRun?.status || 'idle',
+    thinkingMessage: activeRun?.message,
     pendingChange,
     activePlan,
     showThinking,
@@ -1020,6 +426,7 @@ export function useAIChatController() {
     enableChat,
     executionMode,
     agentProfile,
+    toolPolicyPreset,
     isConfigured,
     provider,
     estimatedContextTokens,
@@ -1027,6 +434,7 @@ export function useAIChatController() {
     setIncludeCode,
     setExecutionMode,
     setAgentProfile,
+    setToolPolicyPreset,
     setShowThinking,
     setChatOpen,
     toggleChat,

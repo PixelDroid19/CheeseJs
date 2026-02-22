@@ -3,7 +3,7 @@
  * Shows code changes side-by-side for user approval
  */
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Check,
   X,
@@ -174,14 +174,14 @@ export function DiffView({ change, onAccept, onReject }: DiffViewProps) {
   }[change.action];
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       onClick={(e) => e.target === e.currentTarget && onReject()}
     >
-      <motion.div
+      <m.div
         initial={{ y: 20 }}
         animate={{ y: 0 }}
         className="w-full max-w-4xl max-h-[80vh] bg-background border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
@@ -233,7 +233,7 @@ export function DiffView({ change, onAccept, onReject }: DiffViewProps) {
         {/* Diff Content */}
         <AnimatePresence>
           {isExpanded && (
-            <motion.div
+            <m.div
               initial={{ height: 0 }}
               animate={{ height: 'auto' }}
               exit={{ height: 0 }}
@@ -284,7 +284,7 @@ export function DiffView({ change, onAccept, onReject }: DiffViewProps) {
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -315,7 +315,7 @@ export function DiffView({ change, onAccept, onReject }: DiffViewProps) {
             </button>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }

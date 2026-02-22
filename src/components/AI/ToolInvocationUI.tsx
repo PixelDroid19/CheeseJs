@@ -1,7 +1,7 @@
 // Tool Invocation UI Components for AI Agent
 // Shows when the agent executes tools and handles approval requests
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Play,
   Code,
@@ -20,6 +20,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type {
   ToolInvocation,
   ToolInvocationState,
@@ -127,6 +128,7 @@ export function ToolInvocationCard({
   onApprove,
   onDeny,
 }: ToolInvocationUIProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const toolIcon = getToolIcon(invocation.toolName);
   const stateIndicator = getStateIndicator(invocation.state);
@@ -141,7 +143,7 @@ export function ToolInvocationCard({
         : 'text-muted-foreground bg-muted';
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={clsx(
@@ -162,7 +164,11 @@ export function ToolInvocationCard({
         )}
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        aria-label={`Toggle details for ${getToolLabel(invocation.toolName)}`}
+        aria-controls={`tool-details-${invocation.id}`}
+        aria-label={t(
+          'chat.toolToggleDetails',
+          `Toggle details for ${getToolLabel(invocation.toolName)}`
+        )}
       >
         <div className={clsx('p-1 rounded', iconTone)}>{toolIcon}</div>
 
@@ -188,10 +194,11 @@ export function ToolInvocationCard({
       {/* Expanded Content */}
       <AnimatePresence>
         {expanded && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
+            id={`tool-details-${invocation.id}`}
             className="border-t border-border"
           >
             <div className="p-3 space-y-2">
@@ -199,20 +206,22 @@ export function ToolInvocationCard({
               {Boolean(
                 invocation.input && Object.keys(invocation.input).length > 0
               ) && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Input:</p>
-                  <pre className="text-xs text-foreground/90 bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
-                    {JSON.stringify(invocation.input, null, 2)}
-                  </pre>
-                </div>
-              )}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {t('chat.inputLabel', 'Input')}:
+                    </p>
+                    <pre className="text-xs text-foreground/90 bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
+                      {JSON.stringify(invocation.input, null, 2)}
+                    </pre>
+                  </div>
+                )}
 
               {/* Output */}
               {invocation.output !== undefined &&
                 invocation.output !== null && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">
-                      Output:
+                      {t('chat.outputLabel', 'Output')}:
                     </p>
                     <pre className="text-xs text-foreground/90 bg-background rounded p-2 overflow-x-auto max-h-32 overflow-y-auto">
                       {typeof invocation.output === 'string'
@@ -225,14 +234,16 @@ export function ToolInvocationCard({
               {/* Error */}
               {invocation.error && (
                 <div>
-                  <p className="text-xs text-destructive mb-1">Error:</p>
+                  <p className="text-xs text-destructive mb-1">
+                    {t('chat.errorLabel', 'Error')}:
+                  </p>
                   <pre className="text-xs bg-destructive/10 text-destructive rounded p-2 overflow-x-auto">
                     {invocation.error}
                   </pre>
                 </div>
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -241,29 +252,31 @@ export function ToolInvocationCard({
         <div className="flex items-center gap-2 px-3 py-2 border-t border-primary/20 bg-primary/5">
           <p className="flex-1 text-xs text-foreground">
             {invocation.approval?.message ||
-              'This action will modify your code'}
+              t('chat.modifyCodeWarning', 'This action will modify your code')}
           </p>
           <button
+            type="button"
             onClick={() => onDeny?.(invocation.id)}
             className={clsx(
               'px-3 py-2 rounded text-xs font-medium transition-colors min-h-9',
               'bg-muted hover:bg-destructive/20 text-muted-foreground hover:text-destructive'
             )}
           >
-            Deny
+            {t('chat.deny', 'Deny')}
           </button>
           <button
+            type="button"
             onClick={() => onApprove?.(invocation.id)}
             className={clsx(
               'px-3 py-2 rounded text-xs font-medium transition-colors min-h-9',
               'bg-primary/15 hover:bg-primary/25 text-primary'
             )}
           >
-            Approve
+            {t('chat.approve', 'Approve')}
           </button>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -323,14 +336,14 @@ export function ApprovalDialog({
   const description = input.description as string | undefined;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={onDeny}
     >
-      <motion.div
+      <m.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -390,7 +403,7 @@ export function ApprovalDialog({
             Approve & Apply
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }

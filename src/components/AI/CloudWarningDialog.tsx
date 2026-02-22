@@ -2,7 +2,7 @@
  * Cloud Warning Dialog Component
  * Shows a warning before sending code to cloud providers
  */
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Cloud, Shield, X } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -26,14 +26,14 @@ export function CloudWarningDialog({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={onCancel}
         >
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -99,36 +99,31 @@ export function CloudWarningDialog({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-between gap-3 px-5 py-4 bg-muted/30 border-t border-border">
+            <div className="flex items-center justify-end gap-3 px-5 py-4 bg-muted/30 border-t border-border">
               {onEnableLocalMode && (
                 <button
                   onClick={onEnableLocalMode}
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="mr-auto text-xs text-primary hover:underline"
                 >
-                  <Shield className="w-4 h-4" />
-                  Use Local Mode
+                  Enable Local Mode
                 </button>
               )}
-              <div className="flex items-center gap-2 ml-auto">
-                <button
-                  onClick={onCancel}
-                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={onConfirm}
-                  className={clsx(
-                    'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                    'bg-amber-500 text-black hover:bg-amber-400'
-                  )}
-                >
-                  Send Anyway
-                </button>
-              </div>
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onConfirm}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors shadow-lg shadow-amber-900/20"
+              >
+                <Shield className="w-4 h-4" />
+                Proceed Anyway
+              </button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { HelpCircle } from 'lucide-react';
 import clsx from 'clsx';
@@ -51,7 +51,7 @@ export function FormattingTab() {
   } = useSettingsStore();
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
       className="space-y-8"
@@ -113,6 +113,6 @@ export function FormattingTab() {
           </Row>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

@@ -26,8 +26,10 @@ const ALLOWED_DOMAINS = new Set([
   'api.perplexity.ai',
   'api.cohere.ai',
 
-  // Local development (only in development mode)
-  ...(process.env.NODE_ENV === 'development' ? ['localhost', '127.0.0.1'] : []),
+  // Localhost providers (LM Studio, Ollama, etc.)
+  'localhost',
+  '127.0.0.1',
+  '::1',
 ]);
 
 // Blocked private IP ranges to prevent SSRF

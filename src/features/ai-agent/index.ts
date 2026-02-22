@@ -8,13 +8,20 @@ export type {
   AIModel,
   AISettings,
   ChatMessage,
+  ChatMessagePart,
+  ChatMessageMetadata,
   AICompletionRequest,
   AICompletionResponse,
   AIStreamCallbacks,
   CustomProviderConfig,
 } from './types';
 
-export { AI_PROVIDERS, getProviderConfig, getModelConfig } from './types';
+export {
+  AI_PROVIDERS,
+  getProviderConfig,
+  getModelConfig,
+  getChatMessageDisplayContent,
+} from './types';
 
 // Providers (lightweight validation functions)
 export {
@@ -67,6 +74,18 @@ export {
   type ResolvedAgentRuntime,
 } from './agentRuntime';
 
+export {
+  applyToolPolicyLayers,
+  TOOL_POLICY_PRESETS,
+  getToolPolicyPreset,
+  normalizeToolAccessPolicy,
+  isToolPolicyPreset,
+  type ToolPolicyGroup,
+  type ToolAccessPolicy,
+  type ToolPolicyPreset,
+  type NormalizedToolAccessPolicy,
+} from './toolPolicy';
+
 // Code Actions
 export {
   executeAIAction,
@@ -88,3 +107,9 @@ export type {
 
 // Code Agent factory - lazy loaded when used
 export { createCodeAgent } from './codeAgent';
+
+export {
+  buildAssistantMessagePayload,
+  type AssistantMessagePayload,
+  type BuildAssistantMessagePayloadOptions,
+} from './messageParts';

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   BookOpen,
   Code,
@@ -81,7 +81,7 @@ export function AIChatEmptyState({ onQuickAction }: AIChatEmptyStateProps) {
 
       <div className="flex flex-wrap gap-2 justify-center">
         {quickActions.map((action, i) => (
-          <motion.button
+          <m.button
             key={i}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -98,13 +98,13 @@ export function AIChatEmptyState({ onQuickAction }: AIChatEmptyStateProps) {
           >
             <action.icon className="w-3.5 h-3.5 text-primary" />
             <span>{action.label}</span>
-          </motion.button>
+          </m.button>
         ))}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         {capabilities.map((cap, i) => (
-          <motion.div
+          <m.div
             key={i}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -118,7 +118,7 @@ export function AIChatEmptyState({ onQuickAction }: AIChatEmptyStateProps) {
             <p className="text-xs text-muted-foreground text-center mt-0.5">
               {cap.desc}
             </p>
-          </motion.div>
+          </m.div>
         ))}
       </div>
     </div>

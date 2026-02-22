@@ -6,7 +6,7 @@
  */
 
 import { memo } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   Download,
   AlertCircle,
@@ -45,7 +45,7 @@ export const PackageToast = memo(function PackageToast({
   const { t } = useTranslation();
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 50, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -134,6 +134,6 @@ export const PackageToast = memo(function PackageToast({
           )}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 });

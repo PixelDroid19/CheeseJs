@@ -6,6 +6,13 @@ describe('useAISettingsStore', () => {
     useAISettingsStore.setState({
       executionMode: 'agent',
       agentProfile: 'build',
+      toolPolicyPreset: 'standard',
+      toolPolicy: {
+        allow: [],
+        deny: [],
+        allowGroups: [],
+        denyGroups: [],
+      },
       provider: 'local',
       apiKeys: {
         openai: '',
@@ -47,5 +54,22 @@ describe('useAISettingsStore', () => {
     const state = useAISettingsStore.getState();
     expect(state.agentProfile).toBe('build');
     expect(state.executionMode).toBe('agent');
+  });
+
+  it('setToolPolicyPreset(readonly) should set restrictive group policy', () => {
+    useAISettingsStore.getState().setToolPolicyPreset('readonly');
+
+    const state = useAISettingsStore.getState();
+    expect(state.toolPolicyPreset).toBe('readonly');
+    expect(state.toolPolicy.allowGroups).toEqual(['analysis', 'workspace']);
+    expect(state.toolPolicy.denyGroups).toEqual(['write', 'runtime']);
+  });
+
+  it('setToolPolicy should mark preset as custom', () => {
+    useAISettingsStore.getState().setToolPolicy({ denyGroups: ['write'] });
+
+    const state = useAISettingsStore.getState();
+    expect(state.toolPolicyPreset).toBe('custom');
+    expect(state.toolPolicy.denyGroups).toEqual(['write']);
   });
 });

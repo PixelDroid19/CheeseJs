@@ -6,6 +6,21 @@ import type {
 } from '../features/ai-agent/types';
 import { AI_PROVIDERS } from '../features/ai-agent/types';
 import type { AgentProfile } from '../features/ai-agent/agentProfiles';
+import {
+  getToolPolicyPreset,
+  isToolPolicyPreset,
+  type ToolPolicyGroup,
+  type ToolPolicyPreset,
+} from '../features/ai-agent/toolPolicy';
+
+type BuiltInToolPolicyPreset = Exclude<ToolPolicyPreset, 'custom'>;
+
+export interface ToolPolicySettings {
+  allow: string[];
+  deny: string[];
+  allowGroups: ToolPolicyGroup[];
+  denyGroups: ToolPolicyGroup[];
+}
 
 export interface LocalServerConfig {
   baseURL: string;
@@ -32,6 +47,8 @@ interface AISettingsState {
   agentProfile: AgentProfile;
   enableVerifierSubagent: boolean;
   strictLocalMode: boolean; // Enforces local-only operation, disables cloud providers
+  toolPolicyPreset: ToolPolicyPreset;
+  toolPolicy: ToolPolicySettings;
   maxTokens: number;
   temperature: number;
 
@@ -49,6 +66,8 @@ interface AISettingsState {
   setAgentProfile: (profile: AgentProfile) => void;
   setEnableVerifierSubagent: (enabled: boolean) => void;
   setStrictLocalMode: (enabled: boolean) => void;
+  setToolPolicyPreset: (preset: BuiltInToolPolicyPreset) => void;
+  setToolPolicy: (policy: Partial<ToolPolicySettings>) => void;
   setMaxTokens: (tokens: number) => void;
   setTemperature: (temp: number) => void;
   setLocalConfig: (config: Partial<LocalServerConfig>) => void;
@@ -97,6 +116,13 @@ export const useAISettingsStore = create<AISettingsState>()(
       agentProfile: 'build',
       enableVerifierSubagent: true,
       strictLocalMode: false,
+      toolPolicyPreset: 'standard',
+      toolPolicy: {
+        allow: [],
+        deny: [],
+        allowGroups: [],
+        denyGroups: [],
+      },
       maxTokens: 2048,
       temperature: 0.7,
       localConfig: {
@@ -146,6 +172,21 @@ export const useAISettingsStore = create<AISettingsState>()(
         set({ enableVerifierSubagent: enabled }),
 
       setStrictLocalMode: (enabled) => set({ strictLocalMode: enabled }),
+
+      setToolPolicyPreset: (preset) =>
+        set({
+          toolPolicyPreset: preset,
+          toolPolicy: getToolPolicyPreset(preset),
+        }),
+
+      setToolPolicy: (policy) =>
+        set((state) => ({
+          toolPolicyPreset: 'custom' as ToolPolicyPreset,
+          toolPolicy: {
+            ...state.toolPolicy,
+            ...policy,
+          },
+        })),
 
       setMaxTokens: (tokens) => set({ maxTokens: tokens }),
 
@@ -200,6 +241,20 @@ export const useAISettingsStore = create<AISettingsState>()(
     }),
     {
       name: 'ai-settings-storage',
+      merge: (persistedState, currentState) => {
+        const typedPersisted = persistedState as Partial<AISettingsState>;
+        const presetValue = typedPersisted.toolPolicyPreset;
+        const normalizedPreset =
+          typeof presetValue === 'string' && isToolPolicyPreset(presetValue)
+            ? presetValue
+            : 'standard';
+
+        return {
+          ...currentState,
+          ...typedPersisted,
+          toolPolicyPreset: normalizedPreset,
+        } as AISettingsState;
+      },
       partialize: (state) => ({
         provider: state.provider,
         apiKeys: state.apiKeys,
@@ -211,6 +266,8 @@ export const useAISettingsStore = create<AISettingsState>()(
         agentProfile: state.agentProfile,
         enableVerifierSubagent: state.enableVerifierSubagent,
         strictLocalMode: state.strictLocalMode,
+        toolPolicyPreset: state.toolPolicyPreset,
+        toolPolicy: state.toolPolicy,
         maxTokens: state.maxTokens,
         temperature: state.temperature,
         localConfig: state.localConfig,

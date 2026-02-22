@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
   Eye,
@@ -20,6 +20,7 @@ import { Slider } from '../ui/Slider';
 import {
   AI_PROVIDERS,
   type AgentProfile,
+  type ToolPolicyPreset,
   getProviderConfig,
   aiService,
   validateApiKeyFormat,
@@ -54,6 +55,7 @@ export function AITab() {
     executionMode,
     agentProfile,
     enableVerifierSubagent,
+    toolPolicyPreset,
     maxTokens,
     temperature,
     localConfig,
@@ -66,6 +68,7 @@ export function AITab() {
     setExecutionMode,
     setAgentProfile,
     setEnableVerifierSubagent,
+    setToolPolicyPreset,
     setMaxTokens,
     setTemperature,
     setLocalConfig,
@@ -305,7 +308,7 @@ export function AITab() {
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
@@ -687,6 +690,56 @@ export function AITab() {
             checked={enableVerifierSubagent}
             onChange={setEnableVerifierSubagent}
           />
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              {t('settings.ai.toolPolicy', 'Tool Policy')}
+            </label>
+            <Select
+              value={toolPolicyPreset}
+              onChange={(e) =>
+                setToolPolicyPreset(
+                  e.target.value as Exclude<ToolPolicyPreset, 'custom'>
+                )
+              }
+            >
+              <option value="standard">
+                {t('settings.ai.toolPolicyStandard', 'Standard (balanced)')}
+              </option>
+              <option value="safe">
+                {t('settings.ai.toolPolicySafe', 'Safe (no write tools)')}
+              </option>
+              <option value="readonly">
+                {t('settings.ai.toolPolicyReadonly', 'Read-only (analysis)')}
+              </option>
+              {toolPolicyPreset === 'custom' && (
+                <option value="custom">
+                  {t('settings.ai.toolPolicyCustom', 'Custom')}
+                </option>
+              )}
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              {toolPolicyPreset === 'standard'
+                ? t(
+                    'settings.ai.toolPolicyStandardHint',
+                    'Balanced defaults with approval prompts for mutating tools.'
+                  )
+                : toolPolicyPreset === 'safe'
+                  ? t(
+                      'settings.ai.toolPolicySafeHint',
+                      'Blocks write/runtime groups; useful for safer review sessions.'
+                    )
+                  : toolPolicyPreset === 'readonly'
+                    ? t(
+                        'settings.ai.toolPolicyReadonlyHint',
+                        'Restricts the agent to read/analysis-oriented tooling.'
+                      )
+                    : t(
+                        'settings.ai.toolPolicyCustomHint',
+                        'Custom policy is active from internal overrides.'
+                      )}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -720,6 +773,6 @@ export function AITab() {
           </p>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

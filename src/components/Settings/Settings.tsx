@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { GeneralTab } from './tabs/GeneralTab';
 import { AppearanceTab } from './tabs/AppearanceTab';
@@ -77,7 +77,7 @@ export default function Settings() {
     <AnimatePresence>
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.98, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 10 }}
@@ -169,7 +169,7 @@ export default function Settings() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       )}
     </AnimatePresence>

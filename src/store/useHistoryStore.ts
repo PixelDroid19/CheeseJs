@@ -1,5 +1,4 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
 
 export interface HistoryItem {
   id: string;
@@ -10,7 +9,7 @@ export interface HistoryItem {
   executionTime?: number;
 }
 
-interface HistoryState {
+export interface HistoryState {
   history: HistoryItem[];
   addToHistory: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
   clearHistory: () => void;
@@ -19,34 +18,34 @@ interface HistoryState {
   setMaxItems: (count: number) => void;
 }
 
-export const useHistoryStore = create<HistoryState>()(
-  persist(
-    (set) => ({
-      history: [],
-      maxItems: 50,
+export const createHistorySlice: import('zustand').StateCreator<HistoryState> = (set) => ({
+  history: [],
+  maxItems: 50,
 
-      addToHistory: (item) =>
-        set((state) => {
-          const newItem: HistoryItem = {
-            ...item,
-            id: crypto.randomUUID(),
-            timestamp: Date.now(),
-          };
+  addToHistory: (item) =>
+    set((state) => {
+      const newItem: HistoryItem = {
+        ...item,
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+      };
 
-          // Add to beginning, limit to maxItems
-          const newHistory = [newItem, ...state.history].slice(
-            0,
-            state.maxItems
-          );
-          return { history: newHistory };
-        }),
-
-      clearHistory: () => set({ history: [] }),
-
-      setMaxItems: (maxItems) => set({ maxItems }),
+      // Add to beginning, limit to maxItems
+      const newHistory = [newItem, ...state.history].slice(
+        0,
+        state.maxItems
+      );
+      return { history: newHistory };
     }),
-    {
-      name: 'execution-history',
-    }
-  )
-);
+
+  clearHistory: () => set({ history: [] }),
+
+  setMaxItems: (maxItems) => set({ maxItems }),
+});
+
+export const partializeHistory = (state: HistoryState) => ({
+  history: state.history,
+  maxItems: state.maxItems,
+});
+
+export { useHistoryStore } from './storeHooks';

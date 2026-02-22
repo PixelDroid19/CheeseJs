@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { MessageSquare } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -37,11 +37,13 @@ export function AIChat() {
     enableChat,
     executionMode,
     agentProfile,
+    toolPolicyPreset,
     isConfigured,
     provider,
     estimatedContextTokens,
     setExecutionMode,
     setAgentProfile,
+    setToolPolicyPreset,
     setShowThinking,
     setChatOpen,
     toggleChat,
@@ -71,7 +73,7 @@ export function AIChat() {
 
   return (
     <>
-      <motion.button
+      <m.button
         onClick={toggleChat}
         data-testid="toggle-chat"
         aria-label={t('settings.ai.chatPanel', 'AI Chat Panel')}
@@ -84,16 +86,16 @@ export function AIChat() {
         whileTap={{ scale: 0.95 }}
       >
         <MessageSquare className="w-5 h-5" />
-      </motion.button>
+      </m.button>
 
       <AnimatePresence>
         {isChatOpen && (
-          <motion.div
-            initial={{ opacity: 0, x: 300, scale: 0.95 }}
+          <m.div
+            initial={{ opacity: 0, x: 200, scale: 0.98 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 300, scale: 0.95 }}
+            exit={{ opacity: 0, x: 200, scale: 0.98 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed right-4 bottom-4 top-16 w-3xl max-w-[calc(100vw-1.5rem)] z-50 flex flex-col rounded-2xl shadow-2xl overflow-hidden bg-background border border-border"
+            className="fixed right-4 bottom-4 top-16 w-[420px] max-w-[calc(100vw-1.5rem)] z-50 flex flex-col rounded-xl shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)] overflow-hidden bg-background border border-border/50"
           >
             <AIChatHeader
               onNewConversation={handleNewConversation}
@@ -118,6 +120,8 @@ export function AIChat() {
               onExecutePlan={() => void handleExecutePlan()}
               onClearPlan={clearActivePlan}
               onInsertCode={handleInsertCode}
+              onToolApprove={handleApprove}
+              onToolDeny={handleDeny}
             />
 
             <AIChatInputArea
@@ -129,6 +133,7 @@ export function AIChat() {
               includeCode={includeCode}
               executionMode={executionMode}
               agentProfile={agentProfile}
+              toolPolicyPreset={toolPolicyPreset}
               estimatedContextTokens={estimatedContextTokens}
               showThinking={showThinking}
               appliedChangesCount={appliedChanges.length}
@@ -139,6 +144,7 @@ export function AIChat() {
               onCancel={handleCancelGeneration}
               onExecutionModeChange={setExecutionMode}
               onAgentProfileChange={setAgentProfile}
+              onToolPolicyPresetChange={setToolPolicyPreset}
               onToggleShowThinking={() => setShowThinking(!showThinking)}
               onUndoChange={handleUndoChange}
               onRedoChange={handleRedoChange}
@@ -146,7 +152,7 @@ export function AIChat() {
               onIndexCodebase={() => void handleIndexCodebase()}
               onGeneratePlan={() => void handleGeneratePlan()}
             />
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -155,9 +161,9 @@ export function AIChat() {
           <ApprovalDialog
             isOpen={true}
             toolName={pendingApproval.toolName}
-            input={pendingApproval.input}
-            onApprove={handleApprove}
-            onDeny={handleDeny}
+            input={{ ...pendingApproval.input, description: pendingApproval.message }}
+            onApprove={() => handleApprove(pendingApproval.id)}
+            onDeny={() => handleDeny(pendingApproval.id)}
           />
         )}
       </AnimatePresence>

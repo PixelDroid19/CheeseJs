@@ -256,6 +256,35 @@ interface Window {
   codeRunner: CodeRunner;
   packageManager: PackageManager;
   pythonPackageManager: PythonPackageManager;
+  aiProxy: {
+    fetch: (request: {
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      body?: string;
+    }) => Promise<{
+      ok: boolean;
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      body: string;
+    }>;
+    streamFetch: (
+      request: {
+        url: string;
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      },
+      onChunk: (chunk: string) => void,
+      onEnd: () => void,
+      onError: (error: {
+        status: number;
+        statusText: string;
+        body: string;
+      }) => void
+    ) => Promise<{ streamId: string; abort: () => void }>;
+  };
   rag: {
     ingest: (doc: {
       id: string;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Trash2,
   Play,
@@ -95,7 +95,7 @@ export function SnippetsTab() {
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
       className="space-y-6 h-full flex flex-col"
@@ -270,7 +270,7 @@ export function SnippetsTab() {
               {/* Expanded Content */}
               <AnimatePresence>
                 {expandedId === snippet.id && (
-                  <motion.div
+                  <m.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -357,13 +357,13 @@ export function SnippetsTab() {
                         </pre>
                       )}
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>
           ))
         )}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Select } from '../ui/Select';
@@ -15,7 +15,7 @@ export function GeneralTab() {
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
       className="space-y-8"
@@ -36,6 +36,6 @@ export function GeneralTab() {
           </Select>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

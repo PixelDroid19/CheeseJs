@@ -33,12 +33,80 @@ export interface AISettings {
   temperature: number;
 }
 
+export type ChatMessagePart =
+  | {
+      id?: string;
+      type: 'text' | 'markdown' | 'reasoning';
+      text: string;
+      collapsed?: boolean;
+    }
+  | {
+      id?: string;
+      type: 'status';
+      text: string;
+      level?: 'info' | 'success' | 'warning' | 'error';
+    }
+  | {
+      id?: string;
+      type: 'tool-call';
+      toolName: string;
+      state?:
+        | 'pending'
+        | 'running'
+        | 'approval-requested'
+        | 'approved'
+        | 'denied'
+        | 'completed'
+        | 'error';
+      summary?: string;
+    };
+
+export interface ChatMessageMetadata {
+  runId?: number;
+  model?: string;
+  status?: 'partial' | 'final' | 'error';
+  tags?: string[];
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  contentParts?: ChatMessagePart[];
+  metadata?: ChatMessageMetadata;
   codeContext?: string;
+}
+
+export function getChatMessageDisplayContent(message: ChatMessage): string {
+  if (message.content?.trim()) {
+    return message.content;
+  }
+
+  if (!message.contentParts || message.contentParts.length === 0) {
+    return '';
+  }
+
+  const chunks: string[] = [];
+  for (const part of message.contentParts) {
+    if (
+      part.type === 'text' ||
+      part.type === 'markdown' ||
+      part.type === 'reasoning' ||
+      part.type === 'status'
+    ) {
+      chunks.push(part.text);
+      continue;
+    }
+
+    if (part.type === 'tool-call') {
+      const state = part.state ? ` (${part.state})` : '';
+      const summary = part.summary ? ` - ${part.summary}` : '';
+      chunks.push(`${part.toolName}${state}${summary}`);
+    }
+  }
+
+  return chunks.join('\n').trim();
 }
 
 export interface AICompletionRequest {

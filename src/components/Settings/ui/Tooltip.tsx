@@ -1,6 +1,6 @@
 import { useState, useRef, useId, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 
 interface TooltipProps {
@@ -104,7 +104,7 @@ export function Tooltip({ content, children }: TooltipProps) {
         createPortal(
           <AnimatePresence>
             {isVisible && (
-              <motion.div
+              <m.div
                 id={tooltipId}
                 role="tooltip"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -130,7 +130,7 @@ export function Tooltip({ content, children }: TooltipProps) {
                 )}
               >
                 {content}
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>,
           document.body

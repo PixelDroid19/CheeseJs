@@ -1,6 +1,7 @@
 import type { AgentProfile } from './agentProfiles';
 import { getDefaultProfileForMode } from './agentProfiles';
 import { SYSTEM_PROMPTS } from './prompts';
+import type { ToolAccessPolicy } from './toolPolicy';
 
 export type AgentExecutionMode = 'agent' | 'plan' | 'verifier';
 
@@ -8,6 +9,7 @@ export interface AgentRuntimeOptions {
   mode?: AgentExecutionMode;
   disableTools?: boolean;
   profile?: AgentProfile;
+  toolPolicyLayers?: ToolAccessPolicy[];
 }
 
 export interface ResolvedAgentRuntime {
@@ -16,6 +18,7 @@ export interface ResolvedAgentRuntime {
   profile: AgentProfile;
   systemPrompt: string;
   maxSteps: number;
+  toolPolicyLayers: ToolAccessPolicy[];
 }
 
 const AGENT_SYSTEM_PROMPT = `${SYSTEM_PROMPTS.codeAssistant}
@@ -137,12 +140,14 @@ export function resolveAgentRuntime(
       profile,
       systemPrompt: getSystemPromptForMode(mode, disableTools),
       maxSteps: 5,
+      toolPolicyLayers: [],
     };
   }
 
   const mode = optionsOrDisable?.mode || 'agent';
   const disableTools = optionsOrDisable?.disableTools || false;
   const profile = optionsOrDisable?.profile || getDefaultProfileForMode(mode);
+  const toolPolicyLayers = optionsOrDisable?.toolPolicyLayers || [];
 
   return {
     mode,
@@ -150,5 +155,6 @@ export function resolveAgentRuntime(
     profile,
     systemPrompt: getSystemPromptForMode(mode, disableTools),
     maxSteps: mode === 'plan' ? 3 : 5,
+    toolPolicyLayers,
   };
 }

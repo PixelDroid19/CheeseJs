@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Send, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -135,7 +135,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
   return (
     <AnimatePresence>
       {request && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -192,7 +192,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
           <div className="text-xs mt-2 text-muted-foreground opacity-70">
             {t('input.hint', 'Press Enter to submit, Escape to cancel')}
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { cleanCompletionResponse } from './inlineCompletionProvider';
 import { SYSTEM_PROMPTS, buildInlineCompletionPrompt } from './prompts';
 import {
-  processEditorActions,
   sanitizeAssistantOutput,
   extractCodeForDirectEdit,
   isDirectEditIntent,
@@ -15,6 +14,9 @@ import {
 } from './agentProfiles';
 import { resolveToolsForExecution } from './toolRegistry';
 import { getSystemPromptForMode, resolveAgentRuntime } from './agentRuntime';
+import { getToolPolicyPreset } from './toolPolicy';
+import { buildAssistantMessagePayload } from './messageParts';
+import { getChatMessageDisplayContent } from './types';
 
 // Mock dependencies
 vi.mock('./aiService', () => ({
@@ -77,58 +79,6 @@ describe('AI Agent Feature', () => {
       const prompt = buildInlineCompletionPrompt(context);
       expect(prompt).toContain('[LANG] typescript');
       expect(prompt).toContain('const x = <CURSOR>');
-    });
-  });
-
-  describe('processEditorActions', () => {
-    it('should extract and execute EDITOR_ACTION', () => {
-      const callbacks = {
-        onToolInvocation: vi.fn(),
-        onReplaceAll: vi.fn(),
-      };
-
-      const text = `
-Here is the code:
-<<<EDITOR_ACTION>>>
-{"action": "replaceAll", "code": "const x = 1;"}
-<<<END_ACTION>>>
-Hope that helps!
-      `;
-
-      processEditorActions(text, callbacks);
-
-      expect(callbacks.onReplaceAll).toHaveBeenCalledWith('const x = 1;');
-      expect(callbacks.onToolInvocation).toHaveBeenCalledTimes(2); // running, completed
-      expect(callbacks.onToolInvocation).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          state: 'completed',
-          output: { success: true },
-        })
-      );
-    });
-
-    it('should handle invalid JSON gracefully', () => {
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-      const callbacks = {
-        onToolInvocation: vi.fn(),
-      };
-
-      const text = `
-<<<EDITOR_ACTION>>>
-{invalid json}
-<<<END_ACTION>>>
-      `;
-
-      processEditorActions(text, callbacks);
-
-      expect(callbacks.onToolInvocation).not.toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to parse editor action'),
-        expect.any(Error)
-      );
-      consoleSpy.mockRestore();
     });
   });
 
@@ -292,6 +242,121 @@ Done.
       const prompt = getSystemPromptForMode('agent', true);
       expect(prompt).toContain('DIRECT ACCESS to the code editor');
       expect(prompt).toContain('<<<EDITOR_ACTION>>>');
+    });
+
+    it('should apply safe preset to block write tools', () => {
+      const registry = {
+        readFile: { test: true },
+        writeFile: { test: true },
+        replaceAll: { test: true },
+      };
+
+      const filtered = resolveToolsForExecution(registry, 'agent', 'build', [
+        getToolPolicyPreset('safe'),
+      ]);
+
+      expect(Object.keys(filtered)).toEqual(['readFile']);
+    });
+
+    it('should apply readonly preset to keep analysis/workspace tools', () => {
+      const registry = {
+        readFile: { test: true },
+        listFiles: { test: true },
+        searchInFiles: { test: true },
+        searchDocumentation: { test: true },
+        writeFile: { test: true },
+      };
+
+      const filtered = resolveToolsForExecution(registry, 'agent', 'build', [
+        getToolPolicyPreset('readonly'),
+      ]);
+
+      expect(Object.keys(filtered).sort()).toEqual(
+        ['readFile', 'listFiles', 'searchInFiles', 'searchDocumentation'].sort()
+      );
+    });
+  });
+
+  describe('structured chat message payload', () => {
+    it('should build assistant payload with markdown and tool parts', () => {
+      const payload = buildAssistantMessagePayload({
+        rawText: 'Hello from assistant',
+        showThinking: false,
+        runId: 42,
+        mode: 'agent',
+        model: 'test-model',
+        toolInvocations: [
+          {
+            id: 'inv-1',
+            toolName: 'readFile',
+            state: 'completed',
+            input: { path: 'src/index.ts' },
+            output: { success: true },
+          },
+        ],
+      });
+
+      expect(payload.content).toBe('Hello from assistant');
+      expect(payload.contentParts.some((p) => p.type === 'markdown')).toBe(
+        true
+      );
+      expect(payload.contentParts.some((p) => p.type === 'tool-call')).toBe(
+        true
+      );
+      expect(payload.metadata.runId).toBe(42);
+      expect(payload.metadata.model).toBe('test-model');
+    });
+
+    it('should include reasoning parts when showThinking is enabled', () => {
+      const payload = buildAssistantMessagePayload({
+        rawText: 'Visible\n<think>private reasoning</think>\nDone',
+        showThinking: true,
+        runId: 1,
+        mode: 'plan',
+        model: 'planner',
+      });
+
+      expect(payload.content).toContain('Visible');
+      expect(payload.content).toContain('Done');
+      expect(payload.content).not.toContain('<think>');
+      expect(payload.contentParts.some((p) => p.type === 'reasoning')).toBe(
+        true
+      );
+    });
+  });
+
+  describe('chat display content fallback', () => {
+    it('should prefer content when present', () => {
+      const text = getChatMessageDisplayContent({
+        id: 'm1',
+        role: 'assistant',
+        content: 'Primary content',
+        timestamp: Date.now(),
+        contentParts: [{ type: 'text', text: 'Secondary part' }],
+      });
+
+      expect(text).toBe('Primary content');
+    });
+
+    it('should derive fallback text from contentParts when content is empty', () => {
+      const text = getChatMessageDisplayContent({
+        id: 'm2',
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        contentParts: [
+          { type: 'markdown', text: 'First part' },
+          {
+            type: 'tool-call',
+            toolName: 'readFile',
+            state: 'completed',
+            summary: 'input: path',
+          },
+        ],
+      });
+
+      expect(text).toContain('First part');
+      expect(text).toContain('readFile');
     });
   });
 });

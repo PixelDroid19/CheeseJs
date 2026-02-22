@@ -18,6 +18,148 @@ export interface LocalProviderConfig {
   apiKey?: string;
 }
 
+type ProxyRequestPayload = {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body?: string;
+};
+
+function isRequestStreaming(body: string | undefined, headers: Headers): boolean {
+  const accept = headers.get('accept') || '';
+  if (accept.includes('text/event-stream')) return true;
+  if (!body) return false;
+
+  return /"stream"\s*:\s*true/i.test(body);
+}
+
+async function buildProxyRequestPayload(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<ProxyRequestPayload> {
+  const request = input instanceof Request ? input : new Request(input, init);
+  const headers: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+
+  let body: string | undefined;
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    body = await request.text();
+  }
+
+  return {
+    url: request.url,
+    method: request.method,
+    headers,
+    body,
+  };
+}
+
+function createProxyBackedFetch(): typeof fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fallbackFetch = async () => fetch(input, init);
+    if (typeof window === 'undefined' || !window.aiProxy?.fetch) {
+      return fallbackFetch();
+    }
+
+    const payload = await buildProxyRequestPayload(input, init);
+    const headers = new Headers(payload.headers);
+    const useStreamingProxy = isRequestStreaming(payload.body, headers);
+
+    if (useStreamingProxy) {
+      let streamController:
+        | ReadableStreamDefaultController<Uint8Array>
+        | undefined;
+      let settled = false;
+      let streamHandle: { abort: () => void } | null = null;
+      const textEncoder = new TextEncoder();
+
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller;
+        },
+        cancel() {
+          streamHandle?.abort();
+        },
+      });
+
+      if (init?.signal) {
+        init.signal.addEventListener('abort', () => {
+          streamHandle?.abort();
+          streamController?.error(
+            new DOMException('The operation was aborted.', 'AbortError')
+          );
+        });
+      }
+
+      return new Promise<Response>(async (resolve, reject) => {
+        try {
+          streamHandle = await window.aiProxy!.streamFetch(
+            payload,
+            (chunk) => {
+              if (!settled) {
+                settled = true;
+                resolve(
+                  new Response(stream, {
+                    status: 200,
+                    headers: {
+                      'content-type': 'text/event-stream',
+                    },
+                  })
+                );
+              }
+
+              streamController?.enqueue(textEncoder.encode(chunk));
+            },
+            () => {
+              if (!settled) {
+                settled = true;
+                resolve(
+                  new Response(stream, {
+                    status: 200,
+                    headers: {
+                      'content-type': 'text/event-stream',
+                    },
+                  })
+                );
+              }
+              streamController?.close();
+            },
+            (error) => {
+              const message =
+                typeof error?.body === 'string' && error.body.length > 0
+                  ? error.body
+                  : error?.statusText || 'Proxy stream request failed';
+
+              if (!settled) {
+                settled = true;
+                reject(new Error(message));
+              } else {
+                streamController?.error(new Error(message));
+              }
+            }
+          );
+        } catch (error) {
+          reject(
+            error instanceof Error
+              ? error
+              : new Error('Proxy stream setup failed')
+          );
+        }
+      });
+    }
+
+    const response = await window.aiProxy.fetch(payload);
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  };
+}
+
 // Create provider instance based on configuration
 export function createProviderInstance(
   provider: AIProvider,
@@ -28,6 +170,7 @@ export function createProviderInstance(
 ): ProviderInstance {
   let model: LanguageModel;
   const effectiveModelId = customConfig?.modelId || modelId;
+  const proxyFetch = createProxyBackedFetch();
 
   switch (provider) {
     case 'local': {
@@ -38,6 +181,7 @@ export function createProviderInstance(
       const localProvider = createOpenAI({
         baseURL: localConfig.baseURL,
         apiKey: localConfig.apiKey || 'not-needed',
+        fetch: proxyFetch,
       });
       model = localProvider.chat(localConfig.modelId || modelId);
       break;
@@ -51,6 +195,7 @@ export function createProviderInstance(
       if (customConfig?.baseURL) {
         openaiConfig.baseURL = customConfig.baseURL;
       }
+      openaiConfig.fetch = proxyFetch;
       const openai = createOpenAI(openaiConfig);
       // Use .chat() for custom models to ensure compatibility
       model = customConfig?.baseURL
@@ -67,6 +212,7 @@ export function createProviderInstance(
       if (customConfig?.baseURL) {
         anthropicConfig.baseURL = customConfig.baseURL;
       }
+      anthropicConfig.fetch = proxyFetch;
       const anthropic = createAnthropic(anthropicConfig);
       model = anthropic(effectiveModelId);
       break;
@@ -75,7 +221,7 @@ export function createProviderInstance(
       if (!apiKey) {
         throw new Error('API key not configured for Google');
       }
-      const google = createGoogleGenerativeAI({ apiKey });
+      const google = createGoogleGenerativeAI({ apiKey, fetch: proxyFetch });
       model = google(effectiveModelId);
       break;
     }

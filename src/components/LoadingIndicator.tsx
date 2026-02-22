@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 interface LoadingIndicatorProps {
   message?: string;
@@ -17,7 +17,7 @@ export default function LoadingIndicator({
 
   return (
     <div className="flex flex-col items-center justify-center gap-3">
-      <motion.div
+      <m.div
         className={`border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent rounded-full ${sizeClasses[size]}`}
         animate={{ rotate: 360 }}
         transition={{
@@ -27,14 +27,14 @@ export default function LoadingIndicator({
         }}
       />
       {message && (
-        <motion.p
+        <m.p
           className="text-sm text-muted-foreground"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
           {message}
-        </motion.p>
+        </m.p>
       )}
     </div>
   );

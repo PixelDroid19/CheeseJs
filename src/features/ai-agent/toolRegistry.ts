@@ -1,11 +1,15 @@
 import { tool } from 'ai';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import {
   getDefaultProfileForMode,
   isToolAllowedForProfile,
   type AgentProfile,
 } from './agentProfiles';
 import type { AgentCallbacks, AgentExecutionMode } from './codeAgent';
+import {
+  applyToolPolicyLayers,
+  type ToolAccessPolicy,
+} from './toolPolicy';
 
 // Workaround for AI SDK / zod type inference issues
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,6 +17,71 @@ const createTool = tool as any;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ToolRegistry = Record<string, any>;
+
+const MUTATING_TOOLS = new Set([
+  'replaceAll',
+  'insert',
+  'replaceSelection',
+  'writeFile',
+  'deleteFile',
+]);
+
+const TOOL_APPROVAL_MESSAGES: Partial<Record<string, string>> = {
+  replaceAll: 'This action will replace the entire file content.',
+  insert: 'This action will insert new code into your editor.',
+  replaceSelection: 'This action will replace the selected code.',
+  writeFile: 'This action will write content to a filesystem path.',
+  deleteFile: 'This action will permanently delete a file or directory.',
+};
+
+async function requestToolApproval(
+  callbacks: AgentCallbacks | undefined,
+  invocationId: string,
+  toolName: string,
+  input: Record<string, unknown>
+): Promise<boolean> {
+  if (!MUTATING_TOOLS.has(toolName)) return true;
+
+  const approvalMessage =
+    TOOL_APPROVAL_MESSAGES[toolName] ||
+    'This tool requires approval before it can continue.';
+
+  callbacks?.onToolInvocation?.({
+    id: invocationId,
+    toolName,
+    state: 'approval-requested',
+    input,
+    approval: {
+      id: invocationId,
+      message: approvalMessage,
+    },
+  });
+
+  const approved = await callbacks?.onRequestToolApproval?.({
+    id: invocationId,
+    toolName,
+    input,
+    message: approvalMessage,
+  });
+
+  const isApproved = approved === true;
+
+  callbacks?.onToolInvocation?.({
+    id: invocationId,
+    toolName,
+    state: isApproved ? 'approved' : 'denied',
+    input,
+    approval: {
+      id: invocationId,
+      message: approvalMessage,
+    },
+    error: isApproved
+      ? undefined
+      : 'Tool execution denied by user approval policy.',
+  });
+
+  return isApproved;
+}
 
 async function readFile(
   path: string
@@ -307,12 +376,27 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
       execute: async (params: { code: string; explanation?: string }) => {
         const { code, explanation } = params;
         const invocationId = `tool_${Date.now()}_replaceAll`;
+        const input = { code: code.slice(0, 50) + '...', explanation };
         callbacks?.onToolInvocation?.({
           id: invocationId,
           toolName: 'replaceAll',
           state: 'running',
-          input: { code: code.slice(0, 50) + '...', explanation },
+          input,
         });
+
+        const approved = await requestToolApproval(
+          callbacks,
+          invocationId,
+          'replaceAll',
+          input
+        );
+
+        if (!approved) {
+          return {
+            success: false,
+            error: 'Tool execution denied by user approval policy.',
+          };
+        }
 
         callbacks?.onReplaceAll?.(code);
 
@@ -320,7 +404,7 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
           id: invocationId,
           toolName: 'replaceAll',
           state: 'completed',
-          input: { code: code.slice(0, 50) + '...', explanation },
+          input,
           output: { success: true },
         });
         return { success: true, explanation };
@@ -338,12 +422,27 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
       execute: async (params: { code: string; explanation?: string }) => {
         const { code, explanation } = params;
         const invocationId = `tool_${Date.now()}_insert`;
+        const input = { code: code.slice(0, 50) + '...', explanation };
         callbacks?.onToolInvocation?.({
           id: invocationId,
           toolName: 'insert',
           state: 'running',
-          input: { code: code.slice(0, 50) + '...', explanation },
+          input,
         });
+
+        const approved = await requestToolApproval(
+          callbacks,
+          invocationId,
+          'insert',
+          input
+        );
+
+        if (!approved) {
+          return {
+            success: false,
+            error: 'Tool execution denied by user approval policy.',
+          };
+        }
 
         callbacks?.onInsertCode?.(code);
 
@@ -351,7 +450,7 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
           id: invocationId,
           toolName: 'insert',
           state: 'completed',
-          input: { code: code.slice(0, 50) + '...', explanation },
+          input,
           output: { success: true },
         });
         return { success: true, explanation };
@@ -369,12 +468,27 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
       execute: async (params: { code: string; explanation?: string }) => {
         const { code, explanation } = params;
         const invocationId = `tool_${Date.now()}_replaceSelection`;
+        const input = { code: code.slice(0, 50) + '...', explanation };
         callbacks?.onToolInvocation?.({
           id: invocationId,
           toolName: 'replaceSelection',
           state: 'running',
-          input: { code: code.slice(0, 50) + '...', explanation },
+          input,
         });
+
+        const approved = await requestToolApproval(
+          callbacks,
+          invocationId,
+          'replaceSelection',
+          input
+        );
+
+        if (!approved) {
+          return {
+            success: false,
+            error: 'Tool execution denied by user approval policy.',
+          };
+        }
 
         callbacks?.onReplaceSelection?.(code);
 
@@ -382,7 +496,7 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
           id: invocationId,
           toolName: 'replaceSelection',
           state: 'completed',
-          input: { code: code.slice(0, 50) + '...', explanation },
+          input,
           output: { success: true },
         });
         return { success: true, explanation };
@@ -398,12 +512,27 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
       execute: async (params: { path: string; content: string }) => {
         const { path, content } = params;
         const invocationId = `tool_${Date.now()}_writeFile`;
+        const input = { path, contentLength: content.length };
         callbacks?.onToolInvocation?.({
           id: invocationId,
           toolName: 'writeFile',
           state: 'running',
-          input: { path, contentLength: content.length },
+          input,
         });
+
+        const approved = await requestToolApproval(
+          callbacks,
+          invocationId,
+          'writeFile',
+          input
+        );
+
+        if (!approved) {
+          return {
+            success: false,
+            error: 'Tool execution denied by user approval policy.',
+          };
+        }
 
         const result = await writeFile(path, content);
 
@@ -411,7 +540,7 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
           id: invocationId,
           toolName: 'writeFile',
           state: result.success ? 'completed' : 'error',
-          input: { path, contentLength: content.length },
+          input,
           output: result.success ? { success: true } : undefined,
           error: result.error,
         });
@@ -427,12 +556,27 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
       execute: async (params: { path: string }) => {
         const { path } = params;
         const invocationId = `tool_${Date.now()}_deleteFile`;
+        const input = { path };
         callbacks?.onToolInvocation?.({
           id: invocationId,
           toolName: 'deleteFile',
           state: 'running',
-          input: { path },
+          input,
         });
+
+        const approved = await requestToolApproval(
+          callbacks,
+          invocationId,
+          'deleteFile',
+          input
+        );
+
+        if (!approved) {
+          return {
+            success: false,
+            error: 'Tool execution denied by user approval policy.',
+          };
+        }
 
         const result = await deleteFile(path);
 
@@ -440,7 +584,7 @@ function getWriteTools(callbacks?: AgentCallbacks): ToolRegistry {
           id: invocationId,
           toolName: 'deleteFile',
           state: result.success ? 'completed' : 'error',
-          input: { path },
+          input,
           output: result.success ? { success: true } : undefined,
           error: result.error,
         });
@@ -461,28 +605,31 @@ export function createToolRegistry(callbacks?: AgentCallbacks): ToolRegistry {
 export function resolveToolsForExecution(
   registry: ToolRegistry,
   mode: AgentExecutionMode,
-  profile?: AgentProfile
+  profile?: AgentProfile,
+  policyLayers: ToolAccessPolicy[] = []
 ): ToolRegistry {
   const resolvedProfile = profile || getDefaultProfileForMode(mode);
   const modeSafeRegistry =
     mode === 'agent'
       ? registry
       : Object.fromEntries(
-          Object.entries(registry).filter(
-            ([toolName]) =>
-              ![
-                'replaceAll',
-                'insert',
-                'replaceSelection',
-                'writeFile',
-                'deleteFile',
-              ].includes(toolName)
-          )
-        );
+        Object.entries(registry).filter(
+          ([toolName]) =>
+            ![
+              'replaceAll',
+              'insert',
+              'replaceSelection',
+              'writeFile',
+              'deleteFile',
+            ].includes(toolName)
+        )
+      );
 
-  return Object.fromEntries(
+  const profileFilteredRegistry = Object.fromEntries(
     Object.entries(modeSafeRegistry).filter(([toolName]) =>
       isToolAllowedForProfile(resolvedProfile, toolName)
     )
   );
+
+  return applyToolPolicyLayers(profileFilteredRegistry, policyLayers);
 }

@@ -8,14 +8,34 @@
 
 import { ipcMain, app } from 'electron';
 import * as fs from 'fs/promises';
+import * as fsSync from 'node:fs';
 import * as path from 'path';
 
 let workspaceRoot: string | null = null;
 
+function resolveWorkspaceRoot(): string {
+  if (!app.isPackaged) {
+    const cwd = process.cwd();
+    const packageJsonPath = path.join(cwd, 'package.json');
+    if (fsSync.existsSync(cwd) && fsSync.existsSync(packageJsonPath)) {
+      return cwd;
+    }
+  }
+
+  return path.join(app.getPath('userData'), 'workspace');
+}
+
+function isPathWithinWorkspace(workspace: string, resolvedPath: string): boolean {
+  const relative = path.relative(workspace, resolvedPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 export function initWorkspace(): string {
   if (!workspaceRoot) {
-    workspaceRoot = path.join(app.getPath('userData'), 'workspace');
-    fs.mkdir(workspaceRoot, { recursive: true }).catch(() => {});
+    workspaceRoot = resolveWorkspaceRoot();
+    if (!fsSync.existsSync(workspaceRoot)) {
+      fs.mkdir(workspaceRoot, { recursive: true }).catch(() => {});
+    }
   }
   return workspaceRoot;
 }
@@ -31,7 +51,7 @@ function sanitizePath(userPath: string): string {
   const workspace = getWorkspaceRoot();
   const resolved = path.resolve(workspace, userPath);
 
-  if (!resolved.startsWith(workspace)) {
+  if (!isPathWithinWorkspace(workspace, resolved)) {
     throw new SecurityError('Path traversal detected: access denied');
   }
   return resolved;

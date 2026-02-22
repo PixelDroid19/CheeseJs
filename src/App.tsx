@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from 'react';
 import FloatingToolbar from './components/FloatingToolbar';
 import { Layout } from './components/Layout';
 import { useSettingsStore } from './store/useSettingsStore';
+import { useAppStore } from './store';
 import { usePackagesStore, type PackagesState } from './store/usePackagesStore';
 
 // Error boundaries for crash recovery
@@ -54,7 +55,7 @@ function App() {
   useEffect(() => {
     if (window.electronAPI?.onToggleMagicComments) {
       window.electronAPI.onToggleMagicComments(() => {
-        const current = useSettingsStore.getState().magicComments;
+        const current = useAppStore.getState().settings.magicComments;
         setMagicComments(!current);
       });
     }

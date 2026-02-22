@@ -9,6 +9,7 @@ import {
   type AgentRuntimeOptions,
 } from './agentRuntime';
 import { createToolRegistry, resolveToolsForExecution } from './toolRegistry';
+import type { ToolAccessPolicy } from './toolPolicy';
 import type {
   AIProvider,
   CustomProviderConfig,
@@ -46,6 +47,13 @@ export interface ToolInvocation {
   };
 }
 
+export interface ToolApprovalRequest {
+  id: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  message: string;
+}
+
 // Agent callbacks for editor integration
 export interface AgentCallbacks {
   onExecuteCode?: (
@@ -59,80 +67,21 @@ export interface AgentCallbacks {
   getSelectedCode?: () => string;
   getLanguage?: () => string;
   onToolInvocation?: (invocation: ToolInvocation) => void;
+  onRequestToolApproval?: (request: ToolApprovalRequest) => Promise<boolean>;
 }
 
 // Simple agent interface
 export interface SimpleAgent {
-  stream: (options: { prompt: string; abortSignal?: AbortSignal }) => {
+  stream: (options: { prompt: string; extraSystem?: string; abortSignal?: AbortSignal }) => {
     textStream: AsyncIterable<string>;
   };
   generate: (options: {
     prompt: string;
+    extraSystem?: string;
     abortSignal?: AbortSignal;
   }) => Promise<{ text: string }>;
 }
 
-// Keep for backward compatibility with fallback logic in AIChat
-export async function processEditorActions(
-  text: string,
-  callbacks?: AgentCallbacks
-) {
-  if (!callbacks) return;
-
-  const actionRegex = /<<<EDITOR_ACTION>>>\s*([\s\S]*?)\s*<<<END_ACTION>>>/g;
-  let match;
-
-  while ((match = actionRegex.exec(text)) !== null) {
-    try {
-      console.log('[CodeAgent] Found editor action block');
-      const jsonStr = match[1].trim();
-      const action = JSON.parse(jsonStr);
-
-      if (action.action) {
-        console.log('[CodeAgent] Executing action:', action.action);
-      } else {
-        console.warn(
-          '[CodeAgent] Action block missing "action" field:',
-          action
-        );
-      }
-
-      if (!action.action || !action.code) continue;
-
-      const invocationId = `action_${Date.now()}`;
-
-      // Report tool invocation start
-      callbacks.onToolInvocation?.({
-        id: invocationId,
-        toolName: action.action,
-        state: 'running',
-        input: { code: action.code.slice(0, 50) + '...' },
-      });
-
-      switch (action.action) {
-        case 'replaceAll':
-          callbacks.onReplaceAll?.(action.code);
-          break;
-        case 'insert':
-          callbacks.onInsertCode?.(action.code);
-          break;
-        case 'replaceSelection':
-          callbacks.onReplaceSelection?.(action.code);
-          break;
-      }
-
-      callbacks.onToolInvocation?.({
-        id: invocationId,
-        toolName: action.action,
-        state: 'completed',
-        input: { code: action.code.slice(0, 50) + '...' },
-        output: { success: true },
-      });
-    } catch (error) {
-      console.error('[CodeAgent] Failed to parse editor action:', error);
-    }
-  }
-}
 
 export function sanitizeAssistantOutput(
   rawText: string,
@@ -142,12 +91,6 @@ export function sanitizeAssistantOutput(
 
   let sanitized = rawText;
   const showThinking = options?.showThinking ?? false;
-
-  // Never surface internal editor action envelopes in chat text.
-  sanitized = sanitized.replace(
-    /<<<EDITOR_ACTION>>>[\s\S]*?<<<END_ACTION>>>/g,
-    ''
-  );
 
   if (!showThinking) {
     // Remove fully closed hidden-reasoning blocks.
@@ -169,6 +112,9 @@ export function sanitizeAssistantOutput(
     sanitized = hideTrailingBlock(sanitized, '<think>', '</think>');
     sanitized = hideTrailingBlock(sanitized, '<reasoning>', '</reasoning>');
   }
+
+  // Always remove editor action blocks
+  sanitized = sanitized.replace(/<<<EDITOR_ACTION>>>[\s\S]*?<<<END_ACTION>>>/gi, '');
 
   return sanitized.trim();
 }
@@ -307,9 +253,15 @@ export function extractExecutionPlanFromText(
 function getTools(
   callbacks?: AgentCallbacks,
   mode: AgentExecutionMode = 'agent',
-  profile?: AgentProfile
+  profile?: AgentProfile,
+  toolPolicyLayers: ToolAccessPolicy[] = []
 ) {
-  return resolveToolsForExecution(createToolRegistry(callbacks), mode, profile);
+  return resolveToolsForExecution(
+    createToolRegistry(callbacks),
+    mode,
+    profile,
+    toolPolicyLayers
+  );
 }
 
 // Create a simple agent - compatible with all providers
@@ -322,7 +274,7 @@ export function createCodeAgent(
   customConfig?: CustomProviderConfig,
   optionsOrDisable?: boolean | AgentRuntimeOptions
 ): SimpleAgent {
-  const { mode, disableTools, profile, systemPrompt, maxSteps } =
+  const { mode, disableTools, profile, systemPrompt, maxSteps, toolPolicyLayers } =
     resolveAgentRuntime(optionsOrDisable);
   const providerInstance = createProviderInstance(
     provider,
@@ -331,15 +283,18 @@ export function createCodeAgent(
     localConfig,
     customConfig
   );
-  const tools = disableTools ? undefined : getTools(callbacks, mode, profile);
+  const tools = disableTools
+    ? undefined
+    : getTools(callbacks, mode, profile, toolPolicyLayers);
 
   return {
-    stream: ({ prompt, abortSignal }) => {
+    stream: ({ prompt, extraSystem, abortSignal }) => {
       return {
         textStream: (async function* () {
+          const finalSystem = extraSystem ? `${systemPrompt}\n\n${extraSystem}` : systemPrompt;
           const result = streamText({
             model: providerInstance.model,
-            system: systemPrompt,
+            system: finalSystem,
             prompt,
             tools,
             stopWhen: stepCountIs(maxSteps),
@@ -351,28 +306,20 @@ export function createCodeAgent(
             fullResponse += chunk;
             yield chunk;
           }
-
-          if (disableTools && callbacks) {
-            // In legacy mode (no tools), we process the text manually
-            await processEditorActions(fullResponse, callbacks);
-          }
         })(),
       };
     },
 
-    generate: async ({ prompt, abortSignal }) => {
+    generate: async ({ prompt, extraSystem, abortSignal }) => {
+      const finalSystem = extraSystem ? `${systemPrompt}\n\n${extraSystem}` : systemPrompt;
       const result = await generateText({
         model: providerInstance.model,
-        system: systemPrompt,
+        system: finalSystem,
         prompt,
         tools,
         stopWhen: stepCountIs(maxSteps),
         abortSignal,
       });
-
-      if (disableTools && callbacks) {
-        await processEditorActions(result.text, callbacks);
-      }
 
       return { text: result.text };
     },
