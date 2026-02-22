@@ -6,6 +6,8 @@ import fs from 'fs';
 
 // Lazy-loaded to avoid loading native LanceDB binary at startup
 let lancedb: typeof import('@lancedb/lancedb') | null = null;
+import { Connection } from '@lancedb/lancedb';
+
 async function getLancedb() {
   if (!lancedb) {
     lancedb = await import('@lancedb/lancedb');
@@ -15,8 +17,7 @@ async function getLancedb() {
 
 export class VectorStore {
   private dbPath: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private db: any = null;
+  private db: Connection | null = null;
   private tableName = 'rag_chunks';
 
   constructor() {
@@ -85,7 +86,7 @@ export class VectorStore {
     // Filter by document IDs if provided
     if (documentIds && documentIds.length > 0) {
       const idSet = new Set(documentIds);
-      results = results.filter((r: { documentId: unknown }) =>
+      results = results.filter((r: Record<string, unknown>) =>
         idSet.has(r.documentId as string)
       );
     }
@@ -288,16 +289,14 @@ export class VectorStore {
 
       // Fetch all rows from table and filter by documentId
       // LanceDB doesn't support IN queries easily, so we filter in JS
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let results: any[] = await table.query().toArray();
+      let results: Record<string, unknown>[] = (await table.query().toArray()) as Record<string, unknown>[];
       results = results.filter((r) => idSet.has(r.documentId as string));
 
       if (limit && limit > 0) {
         results = results.slice(0, limit);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return results.map((r: any) => ({
+      return results.map((r) => ({
         id: r.id as string,
         documentId: r.documentId as string,
         content: r.content as string,

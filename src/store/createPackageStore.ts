@@ -197,7 +197,7 @@ export const createPackageSlice = <
   },
 });
 
-export const partializePackages = (state: BasePackagesState<any>) => ({
+export const partializePackages = <T extends BasePackageInfo>(state: BasePackagesState<T>) => ({
   packages: state.packages,
 });
 

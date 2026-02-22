@@ -20,7 +20,7 @@ export function useCodeRunner() {
   useEffect(() => {
     if (!window.codeRunner?.onJSInputRequest) return;
 
-    const unsubscribe = window.codeRunner.onJSInputRequest((request: any) => {
+    const unsubscribe = window.codeRunner.onJSInputRequest((request) => {
       if (request.id) {
         setTabPromptRequest(
           request.id,
@@ -91,7 +91,7 @@ export function useCodeRunner() {
                 element: {
                   content: result.content,
                   jsType: result.jsType,
-                  consoleType: result.consoleType as any,
+                  consoleType: result.consoleType as 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir',
                 },
                 type: result.type,
               });

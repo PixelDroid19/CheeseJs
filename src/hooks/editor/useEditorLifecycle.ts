@@ -24,7 +24,7 @@ export function useEditorLifecycle({
     initializeModel: () => Promise<void>;
     applyLanguageToMonaco: (model: editor.ITextModel) => void;
     setLanguage: (lang: string) => void;
-    detectLanguageAsync: (code: string) => Promise<any>;
+    detectLanguageAsync: (code: string) => Promise<{ monacoId: string; confidence: number }>;
     runCode: (code: string) => void;
     cleanupModels: (editorInstance: editor.IStandaloneCodeEditor) => void;
 }) {
@@ -53,7 +53,7 @@ export function useEditorLifecycle({
             setMonacoInstance(monacoInstance);
             registerPythonLanguage(monacoInstance);
 
-            initializeModel().catch((err: any) => {
+            initializeModel().catch((err: unknown) => {
                 console.warn('[Editor] Language detection model initialization failed:', err);
             });
         },
@@ -77,7 +77,7 @@ export function useEditorLifecycle({
             const initialCode = editorInstance.getValue();
             if (initialCode && initialCode.trim().length > 10) {
                 detectLanguageAsync(initialCode)
-                    .then((detected: any) => {
+                    .then((detected: { monacoId: string; confidence: number }) => {
                         const currentModel = editorInstance.getModel();
                         if (
                             currentModel &&
@@ -88,7 +88,7 @@ export function useEditorLifecycle({
                             setLanguage(detected.monacoId);
                         }
                     })
-                    .catch(console.error);
+                    .catch((err: unknown) => console.error(err));
             }
 
             ataDisposeRef.current = setupTypeAcquisition(monacoInstance);

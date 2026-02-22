@@ -11,7 +11,7 @@ import { usePythonPackageMetadata } from '../hooks/usePythonPackageMetadata';
 export function PackagePrompts() {
     const { tabs, activeTabId } = useEditorTabsStore();
     const activeTab = tabs.find(t => t.id === activeTabId);
-    const elements = activeTab?.result || [];
+    const elements = useMemo(() => activeTab?.result || [], [activeTab?.result]);
     const {
         packages,
         addPackage,

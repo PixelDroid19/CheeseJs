@@ -8,19 +8,17 @@ import { createRequire } from 'node:module';
 
 // Lazy-loaded to avoid loading parsers at startup
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let pdfParse: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let mammothLib: any;
+let pdfParse: ((buf: Buffer) => Promise<{ text: string }>) | null = null;
+let mammothLib: { extractRawText: (options: { buffer: Buffer }) => Promise<{ value: string }> } | null = null;
 let cheerioLib: typeof import('cheerio') | null = null;
 
 async function getPdfParse() {
   if (!pdfParse) pdfParse = require('pdf-parse');
-  return pdfParse;
+  return pdfParse!;
 }
 async function getMammoth() {
   if (!mammothLib) mammothLib = require('mammoth');
-  return mammothLib;
+  return mammothLib!;
 }
 async function getCheerio() {
   if (!cheerioLib) cheerioLib = await import('cheerio');

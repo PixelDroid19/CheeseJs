@@ -6,6 +6,7 @@
  */
 
 import { BrowserWindow, ipcMain, Menu, nativeImage, app } from 'electron';
+import type * as Electron from 'electron';
 import path from 'node:path';
 
 // ============================================================================
@@ -67,7 +68,7 @@ export class WindowManager {
 
     // Enable SharedArrayBuffer support
     this.mainWindow.webContents.session.webRequest.onHeadersReceived(
-      (details, callback) => {
+      (details: Electron.OnHeadersReceivedListenerDetails, callback: (beforeSendResponse: Electron.HeadersReceivedResponse) => void) => {
         callback({
           responseHeaders: {
             ...details.responseHeaders,
@@ -118,7 +119,7 @@ export class WindowManager {
     });
 
     // Handle renderer process crashes (OOM, etc.)
-    this.mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    this.mainWindow.webContents.on('render-process-gone', (_event: unknown, details: Electron.RenderProcessGoneDetails) => {
       console.error(
         '[WindowManager] Render process gone:',
         JSON.stringify(details, null, 2)
@@ -163,8 +164,7 @@ export class WindowManager {
   }
 
   private setupApplicationMenu(): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const template: any[] = [
+    const template: (Electron.MenuItemConstructorOptions | Electron.MenuItem)[] = [
       {
         label: 'File',
         submenu: [{ role: 'quit' }],

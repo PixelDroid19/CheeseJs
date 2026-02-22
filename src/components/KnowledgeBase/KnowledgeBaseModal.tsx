@@ -106,8 +106,8 @@ export function KnowledgeBaseModal() {
         setActiveTab('list');
         await window.rag.indexCodebase();
         loadDocuments();
-      } catch (e) {
-        console.error(e);
+      } catch (e: unknown) {
+        console.error(e instanceof Error ? e.message : 'Unknown scan error', e);
       }
     }
   };
@@ -215,7 +215,7 @@ export function KnowledgeBaseModal() {
             {error && (
               <div className="absolute top-0 inset-x-0 z-10 px-6 py-3 bg-destructive/10 border-b border-destructive/20 flex items-start gap-3 text-destructive shadow-sm backdrop-blur-md">
                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="text-sm">{typeof error === 'string' ? error : JSON.stringify(error)}</p>
+                <p className="text-sm">{error && typeof error === 'object' && 'message' in error ? (error as { message: string }).message : typeof error === 'string' ? error : JSON.stringify(error)}</p>
               </div>
             )}
 
@@ -565,7 +565,7 @@ export function KnowledgeBaseModal() {
                                 type="radio"
                                 className="sr-only"
                                 checked={config.injectionStrategy === opt.value}
-                                onChange={() => updateConfig({ injectionStrategy: opt.value as any })}
+                                onChange={() => updateConfig({ injectionStrategy: opt.value as 'auto' | 'always-retrieve' | 'always-inject' })}
                               />
                               <span className={clsx("text-sm font-bold mb-1", config.injectionStrategy === opt.value ? "text-primary" : "text-foreground")}>{opt.label}</span>
                               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{opt.desc}</span>

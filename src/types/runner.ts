@@ -38,9 +38,10 @@ export interface CodeRunner {
     sendInputResponse: (id: string, value: string, requestId?: string) => void;
     onJSInputRequest: (
         callback: (request: {
+            id: string;
             type: 'prompt-request' | 'alert-request';
             message: string;
         }) => void
     ) => () => void;
-    sendJSInputResponse: (value: string) => void;
+    sendJSInputResponse: (id: string, value: string) => void;
 }

@@ -30,13 +30,13 @@ vi.mock('./SnippetsMenu', () => ({
 
 // Mock framer-motion
 vi.mock('framer-motion', () => {
-  const component = (props: any) => <div {...props}>{props.children}</div>;
+  const component = (props: React.ComponentPropsWithoutRef<'div'>) => <div {...props}>{props.children}</div>;
   return {
     m: {
       div: component,
-      button: (props: any) => <button {...props}>{props.children}</button>,
+      button: (props: React.ComponentPropsWithoutRef<'button'>) => <button {...props}>{props.children}</button>,
     },
-    AnimatePresence: ({ children }: any) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });
 

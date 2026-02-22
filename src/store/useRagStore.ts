@@ -95,10 +95,10 @@ export const createRagSlice: import('zustand').StateCreator<RagState> = (set, ge
           activeDocumentIds: newActiveIds,
         });
       } else {
-        set({ error: (result as any).error || 'Failed to load documents' });
+        set({ error: (result as { error?: string }).error || 'Failed to load documents' });
       }
-    } catch (e) {
-      set({ error: String(e) });
+    } catch (e: unknown) {
+      set({ error: e instanceof Error ? e.message : String(e) });
     } finally {
       set({ isLoading: false });
     }
@@ -107,35 +107,35 @@ export const createRagSlice: import('zustand').StateCreator<RagState> = (set, ge
   addFile: async (filePath) => {
     try {
       const result = await window.rag.addFile(filePath);
-      if (!result.success) throw new Error((result as any).error);
+      if (!result.success) throw new Error((result as { error?: string }).error);
       get().loadDocuments();
-    } catch (e) {
-      set({ error: String(e) });
+    } catch (e: unknown) {
+      set({ error: e instanceof Error ? e.message : String(e) });
     }
   },
 
   addUrl: async (url) => {
     try {
       const result = await window.rag.addUrl(url);
-      if (!result.success) throw new Error((result as any).error);
+      if (!result.success) throw new Error((result as { error?: string }).error);
       get().loadDocuments();
-    } catch (e) {
-      set({ error: String(e) });
+    } catch (e: unknown) {
+      set({ error: e instanceof Error ? e.message : String(e) });
     }
   },
 
   removeDocument: async (id) => {
     try {
       const result = await window.rag.removeDocument(id);
-      if (!result.success) throw new Error((result as any).error);
+      if (!result.success) throw new Error((result as { error?: string }).error);
       set((state) => ({
         documents: state.documents.filter((d) => d.id !== id),
         activeDocumentIds: state.activeDocumentIds.filter(
           (aid) => aid !== id
         ),
       }));
-    } catch (e) {
-      set({ error: String(e) });
+    } catch (e: unknown) {
+      set({ error: e instanceof Error ? e.message : String(e) });
     }
   },
 
@@ -183,10 +183,10 @@ export const createRagSlice: import('zustand').StateCreator<RagState> = (set, ge
       if (result.success && result.config) {
         set({ config: result.config });
       } else {
-        throw new Error((result as any).error || 'Failed to update config');
+        throw new Error((result as { error?: string }).error || 'Failed to update config');
       }
-    } catch (e) {
-      set({ error: String(e) });
+    } catch (e: unknown) {
+      set({ error: e instanceof Error ? e.message : String(e) });
       // Reload to get actual config
       get().loadConfig();
     }
@@ -257,10 +257,11 @@ export const partializeRag = (state: RagState) => ({
 
 // Initialize progress listener lazily to avoid side-effects at import time
 let ragProgressInitialized = false;
-export function initRagProgressListener(useAppStore: any): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function initRagProgressListener(useAppStore: { getState: () => { rag: { handleProgress: (p: any) => void } } }): void {
   if (ragProgressInitialized) return;
   if (typeof window !== 'undefined' && window.rag) {
-    window.rag.onProgress((progress: any) => {
+    window.rag.onProgress((progress: unknown) => {
       useAppStore.getState().rag.handleProgress(progress);
     });
     ragProgressInitialized = true;

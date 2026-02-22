@@ -151,7 +151,7 @@ export function validatePythonImports(
 
       // Check if installed
       const isInstalled = packages.some(
-        (p: any) => p.name === packageName && p.isInstalled
+        (p: { name: string; isInstalled: boolean }) => p.name === packageName && p.isInstalled
       );
 
       if (!isInstalled) {

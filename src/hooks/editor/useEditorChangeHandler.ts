@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import type { editor } from 'monaco-editor';
+import type { editor, IPosition } from 'monaco-editor';
 import { useDebouncedFunction } from '../useDebounce';
 
 interface DetectionResult {
@@ -24,7 +24,7 @@ export function useEditorChangeHandler({
     monacoRef: React.MutableRefObject<editor.IStandaloneCodeEditor | null>;
     setCode: (code: string) => void;
     lastLocalCodeRef: React.MutableRefObject<string | null>;
-    lastCursorPositionRef: React.MutableRefObject<any>;
+    lastCursorPositionRef: React.MutableRefObject<IPosition | null>;
     debouncedRunner: (code: string) => void;
     language: string;
     setLanguage: (lang: string) => void;

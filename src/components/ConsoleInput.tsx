@@ -32,7 +32,9 @@ export function ConsoleInput() {
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    window.codeRunner.sendJSInputResponse(input);
+    if (activeTabId) {
+      window.codeRunner.sendJSInputResponse(activeTabId, input);
+    }
     setInput('');
     if (activeTabId) setTabPromptRequest(activeTabId, null);
   };

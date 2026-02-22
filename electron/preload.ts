@@ -1,8 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { domReady, useLoading } from './utils/index.js';
+import { domReady, createLoading } from './utils/index.js';
 
-// eslint-disable-next-line react-hooks/rules-of-hooks
-const { appendLoading, removeLoading } = useLoading();
+const { appendLoading, removeLoading } = createLoading();
 
 domReady().then(appendLoading).catch(console.error);
 

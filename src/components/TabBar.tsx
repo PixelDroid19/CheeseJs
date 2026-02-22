@@ -56,9 +56,9 @@ export function TabBar() {
                             )}
                             onClick={() => setActiveTab(tab.id)}
                             draggable
-                            onDragStart={(e: any) => handleDragStart(e, tab.id)}
-                            onDrop={(e: any) => handleDrop(e, tab.id)}
-                            onDragOver={(e: any) => handleDragOver(e)}
+                            onDragStartCapture={(e) => handleDragStart(e, tab.id)}
+                            onDropCapture={(e) => handleDrop(e, tab.id)}
+                            onDragOverCapture={(e) => handleDragOver(e)}
                         >
                             <div
                                 className={clsx(

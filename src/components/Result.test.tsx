@@ -32,13 +32,13 @@ vi.mock('@monaco-editor/react', () => ({
 
 // Framer motion mock
 vi.mock('framer-motion', () => {
-  const component = (props: any) => <div {...props}>{props.children}</div>;
+  const component = (props: React.ComponentPropsWithoutRef<'div'>) => <div {...props}>{props.children}</div>;
   return {
     m: {
       div: component,
-      button: (props: any) => <button {...props}>{props.children}</button>,
+      button: (props: React.ComponentPropsWithoutRef<'button'>) => <button {...props}>{props.children}</button>,
     },
-    AnimatePresence: ({ children }: any) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });
 
@@ -132,13 +132,13 @@ const mockPythonPackagesState = {
 };
 
 vi.mock('../store/storeHooks', () => ({
-  useCodeStore: (selector: (s: any) => any) => selector(mockCodeStoreState),
-  useSettingsStore: (selector: (s: any) => any) => useSettingsStoreMock(selector),
-  usePackagesStore: (selector: (s: any) => any) =>
+  useCodeStore: (selector: (s: typeof mockCodeStoreState) => unknown) => selector(mockCodeStoreState),
+  useSettingsStore: (selector: (s: typeof mockSettingsState) => unknown) => useSettingsStoreMock(selector),
+  usePackagesStore: (selector: (s: typeof mockPackagesState) => unknown) =>
     selector ? selector(mockPackagesState) : mockPackagesState,
-  usePythonPackagesStore: (selector: (s: any) => any) =>
+  usePythonPackagesStore: (selector: (s: typeof mockPythonPackagesState) => unknown) =>
     selector ? selector(mockPythonPackagesState) : mockPythonPackagesState,
-  useLanguageStore: (selector: (s: any) => any) =>
+  useLanguageStore: (selector: (s: { currentLanguage: string }) => unknown) =>
     selector({ currentLanguage: 'javascript' }),
   useAppStore: {
     getState: () => ({

@@ -68,64 +68,64 @@ type StoreHook<TState> = {
     subscribe: (listener: (state: TState, prevState: TState) => void) => () => void;
 };
 
-export const useCodeStore = ((selector?: (state: CodeState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.code) : (state) => state.code as any);
+export const useCodeStore = (<T,>(selector?: (state: CodeState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.code) : (state) => state.code as unknown as T);
 }) as StoreHook<CodeState>;
 
-export const useSettingsStore = ((selector?: (state: SettingsState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.settings) : (state) => state.settings as any);
+export const useSettingsStore = (<T,>(selector?: (state: SettingsState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.settings) : (state) => state.settings as unknown as T);
 }) as StoreHook<SettingsState>;
 
-export const useLanguageStore = ((selector?: (state: LanguageState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.language) : (state) => state.language as any);
+export const useLanguageStore = (<T,>(selector?: (state: LanguageState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.language) : (state) => state.language as unknown as T);
 }) as StoreHook<LanguageState>;
 
-export const useHistoryStore = ((selector?: (state: HistoryState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.history) : (state) => state.history as any);
+export const useHistoryStore = (<T,>(selector?: (state: HistoryState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.history) : (state) => state.history as unknown as T);
 }) as StoreHook<HistoryState>;
 
-export const useSnippetsStore = ((selector?: (state: SnippetsState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.snippets) : (state) => state.snippets as any);
+export const useSnippetsStore = (<T,>(selector?: (state: SnippetsState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.snippets) : (state) => state.snippets as unknown as T);
 }) as StoreHook<SnippetsState>;
 
-export const useChatStore = ((selector?: (state: ChatState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.chat) : (state) => state.chat as any);
+export const useChatStore = (<T,>(selector?: (state: ChatState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.chat) : (state) => state.chat as unknown as T);
 }) as StoreHook<ChatState>;
 
-export const useAISettingsStore = ((selector?: (state: AISettingsState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.aiSettings) : (state) => state.aiSettings as any);
+export const useAISettingsStore = (<T,>(selector?: (state: AISettingsState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.aiSettings) : (state) => state.aiSettings as unknown as T);
 }) as StoreHook<AISettingsState>;
 
-export const useRagStore = ((selector?: (state: RagState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.rag) : (state) => state.rag as any);
+export const useRagStore = (<T,>(selector?: (state: RagState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.rag) : (state) => state.rag as unknown as T);
 }) as StoreHook<RagState>;
 
-export const usePackagesStore = ((selector?: (state: PackagesState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.packages) : (state) => state.packages as any);
+export const usePackagesStore = (<T,>(selector?: (state: PackagesState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.packages) : (state) => state.packages as unknown as T);
 }) as StoreHook<PackagesState>;
 
-export const usePythonPackagesStore = ((selector?: (state: PythonPackagesState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.pythonPackages) : (state) => state.pythonPackages as any);
+export const usePythonPackagesStore = (<T,>(selector?: (state: PythonPackagesState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.pythonPackages) : (state) => state.pythonPackages as unknown as T);
 }) as StoreHook<PythonPackagesState>;
 
-export const useEditorTabsStore = ((selector?: (state: EditorTabsState) => any) => {
-    return useAppStore(selector ? (state) => selector(state.editorTabs) : (state) => state.editorTabs as any);
+export const useEditorTabsStore = (<T,>(selector?: (state: EditorTabsState) => T) => {
+    return useAppStore(selector ? (state) => selector(state.editorTabs) : (state) => state.editorTabs as unknown as T);
 }) as StoreHook<EditorTabsState>;
 
-function attachZustandMethods(
-    hook: any,
+function attachZustandMethods<T>(
+    hook: StoreHook<T>,
     sliceKey: keyof AppState
 ) {
-    hook.getState = () => useAppStore.getState()[sliceKey] as any;
-    hook.setState = (partial: any, replace?: boolean) => {
-        useAppStore.setState((state: any) => ({
+    hook.getState = () => useAppStore.getState()[sliceKey] as unknown as T;
+    hook.setState = (partial: Partial<T> | ((state: T) => Partial<T> | T), replace?: boolean) => {
+        useAppStore.setState((state: AppState) => ({
             ...state,
-            [sliceKey]: replace ? partial : { ...state[sliceKey], ...(typeof partial === 'function' ? partial(state[sliceKey]) : partial) }
-        }));
+            [sliceKey]: replace ? partial : { ...(state[sliceKey] as object), ...(typeof partial === 'function' ? (partial as (s: T) => Partial<T> | T)(state[sliceKey] as unknown as T) : partial) }
+        }) as unknown as AppState);
     };
-    hook.subscribe = (listener: (state: any, prevState: any) => void) => {
-        return (useAppStore as any).subscribe(
-            (state: AppState) => state[sliceKey],
+    hook.subscribe = (listener: (state: T, prevState: T) => void) => {
+        return useAppStore.subscribe(
+            (state: AppState) => state[sliceKey] as unknown as T,
             listener
         );
     };

@@ -29,21 +29,23 @@ export interface AppState {
 
 // Helper to wrap set/get for nested slices
 function createNestedSlice<TState, TSlice>(
-    set: any,
-    get: any,
+    set: (partial: TState | Partial<TState> | ((state: TState) => TState | Partial<TState>), replace?: boolean) => void,
+    get: () => TState,
     sliceKey: keyof TState,
-    sliceCreator: StateCreator<TSlice>
+    sliceCreator: StateCreator<TSlice, [], []>
 ): TSlice {
-    const nestedSet = (partial: any, replace?: boolean) => {
-        set((state: any) => {
-            const nextSlice = typeof partial === 'function' ? partial(state[sliceKey]) : partial;
+    const nestedSet = (partial: TSlice | Partial<TSlice> | ((state: TSlice) => TSlice | Partial<TSlice>), replace?: boolean) => {
+        set((state: TState) => {
+            const currentSlice = state[sliceKey] as unknown as TSlice;
+            const nextSlice = typeof partial === 'function' ? (partial as (s: TSlice) => TSlice | Partial<TSlice>)(currentSlice) : partial;
             return {
                 ...state,
-                [sliceKey]: replace ? nextSlice : { ...state[sliceKey], ...nextSlice }
-            };
+                [sliceKey]: replace ? nextSlice : { ...(state[sliceKey] as object), ...(nextSlice as object) }
+            } as unknown as TState | Partial<TState>;
         }, replace);
     };
-    const nestedGet = () => get()[sliceKey];
+    const nestedGet = () => get()[sliceKey] as unknown as TSlice;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return sliceCreator(nestedSet as any, nestedGet as any, {} as any);
 }
 
@@ -51,17 +53,17 @@ export const useAppStore = create<AppState>()(
     subscribeWithSelector(
         persist(
             (set, get) => ({
-                code: createNestedSlice(set, get, 'code', createCodeSlice),
-                settings: createNestedSlice(set, get, 'settings', createSettingsSlice),
-                history: createNestedSlice(set, get, 'history', createHistorySlice),
-                snippets: createNestedSlice(set, get, 'snippets', createSnippetsSlice),
-                language: createNestedSlice(set, get, 'language', createLanguageSlice),
-                chat: createNestedSlice(set, get, 'chat', createChatSlice),
-                aiSettings: createNestedSlice(set, get, 'aiSettings', createAISettingsSlice),
-                rag: createNestedSlice(set, get, 'rag', createRagSlice),
-                packages: createNestedSlice(set, get, 'packages', createPackagesSlice),
-                pythonPackages: createNestedSlice(set, get, 'pythonPackages', createPythonPackagesSlice),
-                editorTabs: createNestedSlice(set, get, 'editorTabs', createEditorTabsSlice),
+                code: createNestedSlice(set as never, get as never, 'code', createCodeSlice),
+                settings: createNestedSlice(set as never, get as never, 'settings', createSettingsSlice),
+                history: createNestedSlice(set as never, get as never, 'history', createHistorySlice),
+                snippets: createNestedSlice(set as never, get as never, 'snippets', createSnippetsSlice),
+                language: createNestedSlice(set as never, get as never, 'language', createLanguageSlice),
+                chat: createNestedSlice(set as never, get as never, 'chat', createChatSlice),
+                aiSettings: createNestedSlice(set as never, get as never, 'aiSettings', createAISettingsSlice),
+                rag: createNestedSlice(set as never, get as never, 'rag', createRagSlice),
+                packages: createNestedSlice(set as never, get as never, 'packages', createPackagesSlice),
+                pythonPackages: createNestedSlice(set as never, get as never, 'pythonPackages', createPythonPackagesSlice),
+                editorTabs: createNestedSlice(set as never, get as never, 'editorTabs', createEditorTabsSlice),
             }),
             {
                 name: 'cheesejs-app-storage',
@@ -79,18 +81,20 @@ export const useAppStore = create<AppState>()(
                     pythonPackages: partializePackages(state.pythonPackages),
                     editorTabs: partializeEditorTabs(state.editorTabs),
                 }),
-                merge: (persistedState: any, currentState: AppState) => {
-                    if (!persistedState) return currentState;
+                merge: (persistedState: unknown, currentState: AppState) => {
+                    const ps = persistedState as Partial<AppState> | null | undefined;
+                    if (!ps) return currentState;
 
                     // Helper to merge a slice while preserving functions from currentState
-                    const mergeSlice = (key: keyof AppState) => {
-                        if (persistedState[key] && currentState[key]) {
+                    const mergeSlice = <K extends keyof AppState>(key: K): AppState[K] => {
+                        const persistedSlice = ps[key] as unknown;
+                        if (persistedSlice && currentState[key]) {
                             return {
                                 ...currentState[key],
-                                ...persistedState[key]
-                            };
+                                ...(persistedSlice as object)
+                            } as AppState[K];
                         }
-                        return persistedState[key] || currentState[key];
+                        return (persistedSlice as AppState[K]) || currentState[key];
                     };
 
                     return {

@@ -140,10 +140,10 @@ function createProxyBackedFetch(): typeof fetch {
             }
           }
         )
-          .then((handle: any) => {
+          .then((handle: { abort: () => void }) => {
             streamHandle = handle;
           })
-          .catch((error: any) => {
+          .catch((error: unknown) => {
             reject(
               error instanceof Error
                 ? error

@@ -13,7 +13,7 @@ function ResultDisplay() {
   const { tabs, activeTabId } = useEditorTabsStore();
   const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId), [tabs, activeTabId]);
 
-  const elements = activeTab?.result || [];
+  const elements = useMemo(() => activeTab?.result || [], [activeTab?.result]);
   const code = activeTab?.code || '';
   const {
     themeName,
@@ -32,19 +32,12 @@ function ResultDisplay() {
   );
 
   const handleAutoFix = () => {
+    const win = window as unknown as { triggerAIAutoCorrection?: (content: string) => void };
     if (
       executionError?.element?.content &&
-      (
-        window as Window & {
-          triggerAIAutoCorrection?: (content: string) => void;
-        }
-      ).triggerAIAutoCorrection
+      win.triggerAIAutoCorrection
     ) {
-      (
-        window as Window & {
-          triggerAIAutoCorrection?: (content: string) => void;
-        }
-      ).triggerAIAutoCorrection!(String(executionError.element.content));
+      win.triggerAIAutoCorrection(String(executionError.element.content));
     }
   };
 

@@ -71,7 +71,7 @@
     "react-i18next": "^16.5.4",
     "react-json-view-lite": "^2.5.0",
     "react-split": "2.0.14",
-    "rollup": "^4.58.0",
+    "rollup": "^4.59.0",
     "stringify-object": "^6.0.0",
     "tailwind-merge": "^3.5.0",
     "typescript": "^5.9.3",

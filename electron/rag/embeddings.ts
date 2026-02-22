@@ -20,11 +20,10 @@ async function getTransformers() {
 
 class EmbeddingsService {
   private static instance: EmbeddingsService;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private pipe: any = null;
+  private pipe: import('@xenova/transformers').Pipeline | null = null;
   private modelName = 'Xenova/all-MiniLM-L6-v2';
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): EmbeddingsService {
     if (!EmbeddingsService.instance) {
@@ -38,9 +37,9 @@ class EmbeddingsService {
       const { pipeline } = await getTransformers();
       console.log('Initializing embeddings model:', this.modelName);
       try {
-        this.pipe = await pipeline('feature-extraction', this.modelName, {
+        this.pipe = (await pipeline('feature-extraction', this.modelName, {
           quantized: true,
-        });
+        })) as any;
         console.log('Embeddings model initialized');
       } catch (error) {
         console.error('Failed to initialize embeddings model:', error);
