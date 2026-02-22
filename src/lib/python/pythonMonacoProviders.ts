@@ -17,7 +17,7 @@ import type {
   Position,
   CancellationToken,
 } from 'monaco-editor';
-import { usePythonPackagesStore } from '../../store/usePythonPackagesStore';
+import { usePythonPackagesStore } from '../../store/storeHooks';
 import { isPythonStdlibModule, extractPythonPackageName } from './pythonStdlib';
 
 let pythonHoverProvider: IDisposable | null = null;
@@ -151,7 +151,7 @@ export function validatePythonImports(
 
       // Check if installed
       const isInstalled = packages.some(
-        (p) => p.name === packageName && p.isInstalled
+        (p: any) => p.name === packageName && p.isInstalled
       );
 
       if (!isInstalled) {
@@ -329,7 +329,7 @@ export function registerPythonMonacoProviders(
       });
 
       // Installation status
-      let statusText = '';
+      let statusText: string;
       if (installedPkg) {
         if (installedPkg.installing) {
           statusText = '**Status:** ⏳ Installing via micropip...';

@@ -1,5 +1,4 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
 import { MAX_RESULTS, type ConsoleType } from '../types/workerTypes';
 
 // ============================================================================
@@ -33,6 +32,10 @@ export interface CodeState {
   setIsExecuting: (isExecuting: boolean) => void;
   isPendingRun: boolean;
   setIsPendingRun: (isPendingRun: boolean) => void;
+  // Prompt state
+  promptRequest: string | null;
+  promptType: 'text' | 'alert';
+  setPromptRequest: (message: string | null, type?: 'text' | 'alert') => void;
   // Memory management
   pruneOldResults: () => void;
 }
@@ -41,50 +44,49 @@ export interface CodeState {
 // STORE
 // ============================================================================
 
-export const useCodeStore = create<CodeState>()(
-  persist(
-    (set, get) => ({
-      code: '',
-      result: [],
-      isExecuting: false,
-      isPendingRun: false,
+export const createCodeSlice: import('zustand').StateCreator<CodeState> = (set, get) => ({
+  code: '',
+  result: [],
+  isExecuting: false,
+  isPendingRun: false,
+  promptRequest: null,
+  promptType: 'text',
 
-      setCode: (code) => set({ code }),
+  setCode: (code) => set({ code }),
 
-      setResult: (result) => {
-        // Enforce max results on direct set
-        const limited =
-          result.length > MAX_RESULTS ? result.slice(-MAX_RESULTS) : result;
-        set({ result: limited });
-      },
+  setResult: (result) => {
+    // Enforce max results on direct set
+    const limited =
+      result.length > MAX_RESULTS ? result.slice(-MAX_RESULTS) : result;
+    set({ result: limited });
+  },
 
-      appendResult: (resultItem) =>
-        set((state) => {
-          const newResults = [...state.result, resultItem];
-          // Auto-prune if exceeding limit
-          if (newResults.length > MAX_RESULTS) {
-            return { result: newResults.slice(-MAX_RESULTS) };
-          }
-          return { result: newResults };
-        }),
-
-      clearResult: () => set({ result: [] }),
-
-      setIsExecuting: (isExecuting) => set({ isExecuting }),
-
-      setIsPendingRun: (isPendingRun) => set({ isPendingRun }),
-
-      // Manual pruning for explicit cleanup
-      pruneOldResults: () => {
-        const { result } = get();
-        if (result.length > MAX_RESULTS) {
-          set({ result: result.slice(-MAX_RESULTS) });
-        }
-      },
+  appendResult: (resultItem) =>
+    set((state) => {
+      const newResults = [...state.result, resultItem];
+      // Auto-prune if exceeding limit
+      if (newResults.length > MAX_RESULTS) {
+        return { result: newResults.slice(-MAX_RESULTS) };
+      }
+      return { result: newResults };
     }),
-    {
-      name: 'code-storage',
-      partialize: (state) => ({ code: state.code }), // Only persist code
+
+  clearResult: () => set({ result: [], promptRequest: null }),
+
+  setIsExecuting: (isExecuting) => set({ isExecuting }),
+
+  setIsPendingRun: (isPendingRun) => set({ isPendingRun }),
+
+  setPromptRequest: (message, type = 'text') =>
+    set({ promptRequest: message, promptType: type }),
+
+  // Manual pruning for explicit cleanup
+  pruneOldResults: () => {
+    const { result } = get();
+    if (result.length > MAX_RESULTS) {
+      set({ result: result.slice(-MAX_RESULTS) });
     }
-  )
-);
+  },
+});
+
+export const partializeCode = (state: CodeState) => ({ code: state.code });

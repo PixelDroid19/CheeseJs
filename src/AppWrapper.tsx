@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useSettingsStore } from './store/useSettingsStore';
+import { LazyMotion, domAnimation } from 'framer-motion';
+import { useSettingsStore } from './store/storeHooks';
 import { themesConfig } from './themes';
 import ErrorBoundary from './components/ErrorBoundary';
 import { TitleBar } from './components/TitleBar';
@@ -16,13 +17,6 @@ function AppWrapper() {
     document.documentElement.classList.toggle('dark', isDark);
     if (theme) {
       document.documentElement.setAttribute('data-theme', theme.name);
-
-      // Apply sketchy class to body for global overrides that can't be done via data-theme alone
-      if (theme.name === 'sketchy') {
-        document.body.classList.add('theme-sketchy');
-      } else {
-        document.body.classList.remove('theme-sketchy');
-      }
     }
   }, [themeName]);
 
@@ -31,14 +25,16 @@ function AppWrapper() {
   }, [uiFontSize]);
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <TitleBar />
-      <div className="flex-1 overflow-hidden relative">
-        <ErrorBoundary>
-          <App />
-        </ErrorBoundary>
+    <LazyMotion features={domAnimation}>
+      <div className="flex flex-col h-screen bg-background">
+        <TitleBar />
+        <div className="flex-1 overflow-hidden relative">
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </div>
       </div>
-    </div>
+    </LazyMotion>
   );
 }
 

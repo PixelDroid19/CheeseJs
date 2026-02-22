@@ -4,14 +4,10 @@
  * UI for managing Python packages via micropip (PyPI)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  usePythonPackagesStore,
-  type PythonPackageInfo,
-} from '../store/usePythonPackagesStore';
+import { useState, useEffect, useCallback } from 'react';
+import { usePythonPackagesStore } from '../store/storeHooks';
 import { useTranslation } from 'react-i18next';
-import clsx from 'clsx';
-import { Plus, Trash2, RefreshCw } from 'lucide-react';
+import { PackageList } from './PackageList';
 
 export function PythonPackageManager() {
   const { t } = useTranslation();
@@ -111,12 +107,6 @@ export function PythonPackageManager() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleInstallPackage();
-    }
-  };
-
   return (
     <div className="flex flex-col h-full space-y-6">
       {/* Header */}
@@ -129,7 +119,7 @@ export function PythonPackageManager() {
         </p>
       </div>
 
-      {/* Info Section (match NPM layout) */}
+      {/* Info Section */}
       <div>
         <h3 className="text-sm font-semibold mb-3 text-foreground">
           {t('settings.pypi.info.title', 'How it works:')}
@@ -209,124 +199,28 @@ export function PythonPackageManager() {
           {t('settings.pypi.installedPackages', 'Installed Packages')}
         </h3>
 
-        {/* Add Package Input */}
-        <div className="flex gap-2 mb-3">
-          <input
-            type="text"
-            value={packageName}
-            onChange={(e) => setPackageName(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t(
+        <PackageList
+          packages={packages}
+          packageName={packageName}
+          onPackageNameChange={setPackageName}
+          onAddPackage={handleInstallPackage}
+          onRemovePackage={handleRemovePackage}
+          onRetryInstall={handleRetryInstall}
+          isLoading={isLoading}
+          protectedPackages={['micropip']}
+          strings={{
+            placeholder: t(
               'settings.pypi.placeholder',
               'Package name (e.g., numpy, pandas)'
-            )}
-            className={clsx(
-              'flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-ring',
-              'bg-background text-foreground border-border'
-            )}
-          />
-          <button
-            onClick={handleInstallPackage}
-            disabled={!packageName.trim()}
-            className={clsx(
-              'px-3 py-2 rounded-md transition-colors flex items-center justify-center',
-              packageName.trim()
-                ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                : 'bg-muted text-muted-foreground cursor-not-allowed'
-            )}
-            title={t('settings.pypi.add', 'Add')}
-          >
-            <Plus size={18} />
-          </button>
-        </div>
-
-        {/* Packages List */}
-        <div
-          className={clsx(
-            'flex-1 overflow-auto border rounded-md',
-            'border-border bg-background'
-          )}
-        >
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <span>{t('settings.pypi.loading', 'Loading packages...')}</span>
-              </div>
-            </div>
-          ) : packages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              {t('settings.pypi.empty', 'No packages installed yet')}
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {packages.map((pkg: PythonPackageInfo) => (
-                <div
-                  key={pkg.name}
-                  className="flex items-center justify-between p-3 transition-colors hover:bg-accent/50"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">
-                        {pkg.name}
-                      </div>
-                      {pkg.version && (
-                        <div className="text-xs text-muted-foreground">
-                          v{pkg.version}
-                        </div>
-                      )}
-                      {pkg.error && (
-                        <div className="text-xs text-destructive">
-                          Error: {pkg.error}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Status Indicator */}
-                    <div className="flex items-center">
-                      {pkg.installing ? (
-                        <div className="flex items-center gap-2 text-info">
-                          <div className="w-4 h-4 border-2 border-info border-t-transparent rounded-full animate-spin"></div>
-                          <span className="text-xs">
-                            {t('packages.installing', 'Installing...')}
-                          </span>
-                        </div>
-                      ) : pkg.error ? (
-                        <button
-                          onClick={() => handleRetryInstall(pkg.name)}
-                          className="flex items-center gap-1 text-destructive hover:text-destructive/80"
-                          title={`Error: ${pkg.error}. Click to retry.`}
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          <span className="text-xs">
-                            {t('packages.retry', 'Retry')}
-                          </span>
-                        </button>
-                      ) : pkg.isInstalled ? (
-                        <div className="text-success">✓</div>
-                      ) : (
-                        <div className="text-muted-foreground text-xs">
-                          Pending
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Hide delete button for core packages */}
-                  {!['micropip'].includes(pkg.name) && (
-                    <button
-                      onClick={() => handleRemovePackage(pkg.name)}
-                      className="p-2 ml-2 rounded-md transition-colors text-destructive hover:bg-destructive/10"
-                      title={t('settings.pypi.remove', 'Remove package')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+            ),
+            addTitle: t('settings.pypi.add', 'Add'),
+            removeTitle: t('settings.pypi.remove', 'Remove package'),
+            emptyMessage: t('settings.pypi.empty', 'No packages installed yet'),
+            loadingMessage: t('settings.pypi.loading', 'Loading packages...'),
+            installingText: t('packages.installing', 'Installing...'),
+            retryText: t('packages.retry', 'Retry'),
+          }}
+        />
       </div>
     </div>
   );

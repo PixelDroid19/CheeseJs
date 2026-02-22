@@ -4,6 +4,7 @@
     "theme": "Theme",
     "language": "Language",
     "fontSize": "Font Size",
+    "uiFontSize": "Font Size (UI)",
     "close": "Close",
     "categories": {
       "general": "General",
@@ -14,8 +15,6 @@
       "npm": "NPM",
       "pypi": "PyPI (Python)",
       "snippets": "Snippets",
-      "plugins": "Plugins",
-      "marketplace": "Marketplace",
       "advanced": "Advanced"
     },
     "descriptions": {
@@ -27,40 +26,50 @@
       "npm": "Manage NPM packages and configuration",
       "pypi": "Manage Python packages from PyPI",
       "snippets": "Manage your reusable code snippets",
-      "plugins": "Manage installed plugins and extensions",
-      "marketplace": "Discover and install new plugins",
       "advanced": "Advanced settings and developer options"
+    },
+    "ai": {
+      "provider": "AI Provider",
+      "selectProvider": "Provider",
+      "model": "Model",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter your API key...",
+      "apiKeyHint": "Your API key is stored locally and never sent to our servers.",
+      "testConnection": "Test",
+      "noApiKey": "Please enter an API key first",
+      "invalidKeyFormat": "Invalid API key format",
+      "features": "Features",
+      "inlineCompletion": "Inline Completion",
+      "inlineCompletionDesc": "Get AI-powered code suggestions as you type",
+      "chatPanel": "AI Chat Panel",
+      "chatPanelDesc": "Open chat panel to ask questions about your code",
+      "executionMode": "Execution Mode",
+      "executionModeAgent": "Agent Mode (act directly)",
+      "executionModePlan": "Plan Mode (read-only planning)",
+      "agentProfile": "Agent Profile",
+      "agentProfileBuild": "Build (read + write tools)",
+      "agentProfilePlan": "Plan (read-only tools)",
+      "verifierSubagent": "Enable @verifier subagent",
+      "verifierSubagentDesc": "Allow quick isolated validation with @verifier in chat",
+      "advanced": "Advanced",
+      "maxTokens": "Max Tokens",
+      "temperature": "Temperature",
+      "temperatureHint": "Lower values for more focused output, higher for more creative",
+      "local": {
+        "serverConfig": "Local Server Configuration",
+        "baseURL": "Server URL",
+        "baseURLHint": "The base URL of your local AI server (LM Studio, Ollama, etc.). Usually ends with /v1",
+        "modelPlaceholder": "Model name (e.g., llama3)",
+        "refreshModels": "Refresh available models",
+        "noBaseURL": "Please enter a server URL first",
+        "invalidURL": "Invalid server URL format"
+      }
     },
     "snippets": {
       "description": "Save frequently used code snippets for quick access.",
       "saveCurrent": "Save Current Code",
       "empty": "No snippets saved yet.",
       "confirmLoad": "Replace current code with snippet?"
-    },
-    "plugins": {
-      "title": "Plugins",
-      "description": "Extend CheeseJS with custom languages, formatters, and UI panels.",
-      "openFolder": "Open Plugins Folder",
-      "noPlugins": "No plugins installed",
-      "reload": "Reload Plugins",
-      "openFolderTooltip": "Open the local folder where plugins are installed."
-    },
-    "marketplace": {
-      "title": "Marketplace",
-      "description": "Browse and install community plugins.",
-      "search": "Search plugins...",
-      "allCategories": "All Categories",
-      "sortBy": "Sort by",
-      "sort": {
-        "downloads": "Most Downloads",
-        "rating": "Highest Rated",
-        "updated": "Recently Updated",
-        "name": "Name"
-      },
-      "install": "Install",
-      "installing": "Installing...",
-      "installed": "Installed",
-      "noResults": "No plugins found"
     },
     "advanced": {
       "environment": "Environment",
@@ -92,9 +101,21 @@
       "autoInstallPackages": "Auto-install packages",
       "autoInstallPackagesTooltip": "Automatically install missing packages when detected in imports. Disable to install packages manually."
     },
+    "compilation": {
+      "transforms": "Code transformations"
+    },
+    "formatting": {
+      "display": "Output display",
+      "filters": "Console filters",
+      "filterLog": "Show Log messages",
+      "filterInfo": "Show Info messages",
+      "filterWarn": "Show Warn messages",
+      "filterError": "Show Error messages"
+    },
     "npm": {
       "description": "Manage npm packages for your code. Packages are automatically installed when detected in imports.",
       "configuration": "Configuration (.npmrc)",
+      "automation": "Automation",
       "installedPackages": "Installed Packages",
       "registryPlaceholder": "registry=https://registry.npmjs.org/",
       "placeholder": "Package name (e.g., lodash)",
@@ -141,16 +162,7 @@
   "toolbar": {
     "run": "Run Code",
     "format": "Format Code",
-    "settings": "Open Settings",
-    "toggleLayout": "Toggle Layout",
-    "tests": "Tests",
-    "console": "Toggle Console"
-  },
-  "console": {
-    "title": "Detailed Console",
-    "clear": "Clear Console",
-    "close": "Close Console",
-    "empty": "No output yet..."
+    "settings": "Open Settings"
   },
   "errors": {
     "title": "Something went wrong",
@@ -165,15 +177,7 @@
     "notFound": "Package not found",
     "install": "Install Package",
     "installPython": "Install via micropip",
-    "retry": "Retry",
-    "dismiss": "Dismiss",
-    "copyCommand": "Copy install command",
-    "managerUnavailable": "Package manager not available. Copy the command to install manually."
-  },
-  "result": {
-    "filters": "Filters",
-    "clear": "Clear",
-    "noOutput": "No output yet"
+    "retry": "Retry"
   },
   "common": {
     "comingSoon": "Coming soon"
@@ -184,5 +188,62 @@
     "submit": "Submit",
     "cancel": "Cancel",
     "hint": "Press Enter to submit, Escape to cancel"
+  },
+  "chat": {
+    "clear": "Clear chat",
+    "newConversation": "New conversation",
+    "notConfigured": "Configure your AI provider in Settings to start chatting.",
+    "welcome": "Ask me anything about your code!",
+    "modeAgent": "Agent",
+    "modePlan": "Plan",
+    "profileBuild": "Build",
+    "profilePlan": "Read-only",
+    "modeLabel": "Mode",
+    "contextTokens": "ctx",
+    "includeCode": "Include code",
+    "knowledgeBase": "Knowledge base",
+    "showThinking": "Show thinking",
+    "hideThinking": "Hide thinking",
+    "moreOptions": "More options",
+    "lessOptions": "Less options",
+    "generatePlan": "Generate plan",
+    "planBoard": "Plan board",
+    "executePlan": "Execute plan",
+    "executingPlan": "Executing plan...",
+    "clearPlan": "Clear plan",
+    "quickActionsHint": "Choose a quick action or type your request below.",
+    "toolActivity": "Tool activity",
+    "hint": "Press Enter to send, Shift+Enter for new line",
+    "generating": "Generating response...",
+    "generationStopped": "Generation stopped by user.",
+    "history": "History",
+    "undo": "Undo",
+    "redo": "Redo",
+    "errorTitle": "Something failed while processing your request.",
+    "retryLast": "Retry last request",
+    "changeApplied": "Change applied to editor.",
+    "messages": "Chat messages",
+    "streaming": "Streaming response",
+    "jumpToLatest": "Jump to latest message",
+    "latest": "Latest",
+    "toolToggleDetails": "Toggle tool details",
+    "inputLabel": "Input",
+    "outputLabel": "Output",
+    "errorLabel": "Error",
+    "modifyCodeWarning": "This action will modify your code",
+    "approve": "Approve",
+    "deny": "Deny",
+    "youLabel": "You",
+    "assistantLabel": "Assistant",
+    "userMessage": "User message",
+    "assistantMessage": "Assistant message",
+    "copyMessage": "Copy message",
+    "copy": "Copy",
+    "copied": "Copied",
+    "revertLastChange": "Revert last change",
+    "revertedLastChange": "Last change reverted.",
+    "redidLastChange": "Last reverted change applied again.",
+    "placeholder": "Ask about your code...",
+    "configureFirst": "Configure AI in Settings first"
   }
 }

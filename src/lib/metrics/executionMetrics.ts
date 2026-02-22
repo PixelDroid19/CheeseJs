@@ -36,20 +36,10 @@ export interface MetricEvent {
   timestamp: number;
   /** Duration in ms (for timed events) */
   duration?: number;
-  /** Detailed timing breakdown */
-  timingBreakdown?: {
-    compilation?: number;
-    execution?: number;
-    overhead?: number;
-  };
-  /** Memory usage (bytes) if available */
-  memoryUsage?: number;
   /** Language being executed */
   language?: 'javascript' | 'typescript' | 'python';
   /** Success status */
   success?: boolean;
-  /** Error category if failed */
-  errorCategory?: 'syntax' | 'runtime' | 'timeout' | 'system' | 'unknown';
   /** Additional metadata */
   metadata?: Record<string, unknown>;
 }
@@ -63,8 +53,6 @@ export interface ExecutionMetrics {
   failedExecutions: number;
   /** Cancelled executions */
   cancelledExecutions: number;
-  /** Failed executions by category */
-  errorsByCategory: Record<string, number>;
   /** Average execution time (ms) */
   averageExecutionTime: number;
   /** Maximum execution time (ms) */
@@ -140,7 +128,6 @@ class MetricsCollector {
       successfulExecutions: 0,
       failedExecutions: 0,
       cancelledExecutions: 0,
-      errorsByCategory: {},
       averageExecutionTime: 0,
       maxExecutionTime: 0,
       minExecutionTime: Infinity,
@@ -232,11 +219,6 @@ class MetricsCollector {
             this.metrics.execution.cancelledExecutions++;
           } else {
             this.metrics.execution.failedExecutions++;
-            if (event.errorCategory) {
-              this.metrics.execution.errorsByCategory[event.errorCategory] =
-                (this.metrics.execution.errorsByCategory[event.errorCategory] ||
-                  0) + 1;
-            }
           }
         }
 
@@ -354,14 +336,7 @@ class MetricsCollector {
     duration: number;
     success: boolean;
     error?: string;
-    errorCategory?: 'syntax' | 'runtime' | 'timeout' | 'system' | 'unknown';
     codeLength?: number;
-    memoryUsage?: number;
-    timingBreakdown?: {
-      compilation?: number;
-      execution?: number;
-      overhead?: number;
-    };
   }): void {
     this.recordEvent({
       type: MetricType.EXECUTION,
@@ -369,9 +344,6 @@ class MetricsCollector {
       duration: options.duration,
       language: options.language,
       success: options.success,
-      errorCategory: options.errorCategory,
-      memoryUsage: options.memoryUsage,
-      timingBreakdown: options.timingBreakdown,
       metadata: {
         error: options.error,
         codeLength: options.codeLength,
@@ -505,8 +477,9 @@ class MetricsCollector {
       filtered = filtered.filter((e) => e.type === options.type);
     }
 
-    if (options?.since !== undefined) {
-      filtered = filtered.filter((e) => e.timestamp >= options.since!);
+    if (options?.since) {
+      const sinceTime = options.since;
+      filtered = filtered.filter((e) => e.timestamp >= sinceTime);
     }
 
     if (options?.limit) {
@@ -535,8 +508,9 @@ class MetricsCollector {
       filtered = filtered.filter((e) => e.category === options.category);
     }
 
-    if (options?.since !== undefined) {
-      filtered = filtered.filter((e) => e.timestamp >= options.since!);
+    if (options?.since) {
+      const sinceTime = options.since;
+      filtered = filtered.filter((e) => e.timestamp >= sinceTime);
     }
 
     if (options?.limit) {
@@ -570,7 +544,6 @@ class MetricsCollector {
         successfulExecutions: 0,
         failedExecutions: 0,
         cancelledExecutions: 0,
-        errorsByCategory: {},
         averageExecutionTime: 0,
         maxExecutionTime: 0,
         minExecutionTime: Infinity,

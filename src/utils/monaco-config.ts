@@ -1,16 +1,13 @@
 import type { Monaco } from '@monaco-editor/react';
 import type { editor, languages } from 'monaco-editor';
-import { themes, themesConfig } from '../themes';
-import { themeManager } from '../lib/themes/theme-manager';
-import { themePluginAdapter } from '../lib/themes/theme-plugin-adapter';
-import type { ExtendedThemeDefinition } from '../lib/themes/types';
+import { themes } from '../themes';
 
-// Import Monaco workers using Vite's worker syntax
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+// Import Monaco workers using Vite's worker syntax with inline to avoid path issues in Electron
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker&inline';
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker&inline';
+import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker&inline';
+import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker&inline';
+import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker&inline';
 
 /**
  * Configure Monaco's web workers for different language services.
@@ -71,58 +68,10 @@ interface TypeScriptLanguages {
 }
 
 export const configureMonaco = (monaco: Monaco) => {
-  // Register all built-in themes with Monaco and ThemeManager
+  // Register all themes
   Object.entries(themes).forEach(([name, themeData]) => {
-    // Register with Monaco directly
     monaco.editor.defineTheme(name, themeData as editor.IStandaloneThemeData);
-
-    // Also register with ThemeManager for unified management
-    const config = themesConfig[name];
-    if (config) {
-      const extendedDef: ExtendedThemeDefinition = {
-        base: (themeData as editor.IStandaloneThemeData).base as
-          | 'vs'
-          | 'vs-dark'
-          | 'hc-black',
-        inherit: (themeData as editor.IStandaloneThemeData).inherit,
-        rules: (themeData as editor.IStandaloneThemeData).rules.map((r) => ({
-          token: r.token,
-          foreground: r.foreground,
-          background: r.background,
-          fontStyle: r.fontStyle,
-        })),
-        colors: (themeData as editor.IStandaloneThemeData).colors,
-        metadata: {
-          name: config.label,
-        },
-      };
-
-      themeManager.registerThemeWithDefinition(name, extendedDef, 'builtin');
-    }
   });
-
-  // Initialize ThemeManager with Monaco instance
-  themeManager.setMonacoInstance({
-    editor: {
-      defineTheme: (
-        themeName: string,
-        themeData: editor.IStandaloneThemeData
-      ) => monaco.editor.defineTheme(themeName, themeData),
-      setTheme: (themeName: string) => monaco.editor.setTheme(themeName),
-      getModels: () => monaco.editor.getModels(),
-    },
-  });
-
-  // Also register any plugin themes that were registered before Monaco was ready
-  const pluginThemes = themeManager
-    .getAllThemes()
-    .filter((t) => t.pluginId !== 'builtin');
-  for (const theme of pluginThemes) {
-    if (theme.definition && !theme.isRegisteredWithMonaco) {
-      const adapted = themePluginAdapter.toMonacoFormat(theme.definition);
-      monaco.editor.defineTheme(theme.id, adapted);
-    }
-  }
 
   // Shared language configuration
   const languageConfig: languages.LanguageConfiguration = {

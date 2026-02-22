@@ -2,7 +2,6 @@
  * Language Registry
  *
  * Centralized definitions for supported programming languages.
- * Supports dynamic registration of WASM-based languages.
  */
 
 // ============================================================================
@@ -15,7 +14,6 @@ export interface LanguageInfo {
   displayName: string; // Human-readable name
   extensions: string[]; // File extensions
   isExecutable: boolean; // Can be executed in CheeseJS
-  isWasm?: boolean; // Is a WASM-based language
 }
 
 // ============================================================================
@@ -103,48 +101,6 @@ export const DETECTION_TO_MONACO: Record<string, string> = {
   yaml: 'yaml',
   xml: 'xml',
 };
-
-// ============================================================================
-// DYNAMIC WASM LANGUAGE REGISTRATION
-// ============================================================================
-
-/**
- * Register a WASM language dynamically
- */
-export function registerWasmLanguage(info: {
-  id: string;
-  name: string;
-  extensions: string[];
-}): void {
-  const monacoId = info.id.toLowerCase();
-  LANGUAGES[monacoId] = {
-    id: info.id,
-    monacoId,
-    displayName: info.name,
-    extensions: info.extensions,
-    isExecutable: true,
-    isWasm: true,
-  };
-  DETECTION_TO_MONACO[info.id] = monacoId;
-}
-
-/**
- * Unregister a WASM language
- */
-export function unregisterWasmLanguage(languageId: string): void {
-  const monacoId = languageId.toLowerCase();
-  if (LANGUAGES[monacoId]?.isWasm) {
-    delete LANGUAGES[monacoId];
-    delete DETECTION_TO_MONACO[languageId];
-  }
-}
-
-/**
- * Get all registered WASM languages
- */
-export function getWasmLanguages(): LanguageInfo[] {
-  return Object.values(LANGUAGES).filter((lang) => lang.isWasm);
-}
 
 // ============================================================================
 // UTILITIES

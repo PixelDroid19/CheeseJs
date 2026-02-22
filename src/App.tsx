@@ -1,8 +1,9 @@
 import { useEffect, lazy, Suspense } from 'react';
 import FloatingToolbar from './components/FloatingToolbar';
 import { Layout } from './components/Layout';
-import { useSettingsStore } from './store/useSettingsStore';
-import { usePackagesStore, type PackagesState } from './store/usePackagesStore';
+import { useSettingsStore } from './store/storeHooks';
+import { useAppStore } from './store';
+import { usePackagesStore, type PackagesState } from './store/storeHooks';
 
 // Error boundaries for crash recovery
 import { RecoverableErrorBoundary } from './components/RecoverableErrorBoundary';
@@ -16,22 +17,19 @@ const Settings = lazy(() => import('./components/Settings/Settings'));
 import CodeEditor from './components/Editor';
 import ResultDisplay from './components/Result';
 import { InputTooltip } from './components/InputTooltip';
-import { TestPanel } from './components/TestPanel';
-import { ConsolePanel } from './components/ConsolePanel';
-
-import { usePluginSystem } from './hooks/usePluginSystem';
+import { AIChat } from './components/AI/AIChat';
+import { KnowledgeBaseModal } from './components/KnowledgeBase/KnowledgeBaseModal';
+import { useRagStore } from './store/storeHooks';
 
 function App() {
-  const { setMagicComments, showTestPanel } = useSettingsStore();
+  const { setMagicComments } = useSettingsStore();
+  const { loadDocuments, handleProgress } = useRagStore();
   const addPackage = usePackagesStore(
     (state: PackagesState) => state.addPackage
   );
   const setPackageInstalled = usePackagesStore(
     (state: PackagesState) => state.setPackageInstalled
   );
-
-  // Initialize plugin system
-  usePluginSystem();
 
   // Load installed packages from disk on app start
   useEffect(() => {
@@ -57,11 +55,25 @@ function App() {
   useEffect(() => {
     if (window.electronAPI?.onToggleMagicComments) {
       window.electronAPI.onToggleMagicComments(() => {
-        const current = useSettingsStore.getState().magicComments;
+        const current = useAppStore.getState().settings.magicComments;
         setMagicComments(!current);
       });
     }
   }, [setMagicComments]);
+
+  // RAG Progress Listener
+  useEffect(() => {
+    if (window.rag?.onProgress) {
+      // Initial load
+      loadDocuments();
+
+      // Listen for progress
+      const cleanup = window.rag.onProgress((progress) => {
+        handleProgress(progress);
+      });
+      return cleanup;
+    }
+  }, [handleProgress, loadDocuments]);
 
   return (
     <>
@@ -70,37 +82,24 @@ function App() {
       </Suspense>
       <FloatingToolbar />
       <InputTooltip />
-
-      {/* Main layout with optional test panel */}
-      <div className="flex h-full">
-        <div className={showTestPanel ? 'flex-1 h-full' : 'w-full h-full'}>
-          <Layout>
-            <RecoverableErrorBoundary
-              fallback={<EditorFallback />}
-              componentName="CodeEditor"
-              config={{ maxRetries: 3, shouldRecover: true }}
-            >
-              <CodeEditor />
-            </RecoverableErrorBoundary>
-            <RecoverableErrorBoundary
-              fallback={<ResultFallback />}
-              componentName="ResultDisplay"
-              config={{ maxRetries: 3, shouldRecover: true }}
-            >
-              <ResultDisplay />
-            </RecoverableErrorBoundary>
-          </Layout>
-        </div>
-
-        {/* Test Panel Sidebar */}
-        {showTestPanel && (
-          <div className="w-80 shrink-0">
-            <TestPanel />
-          </div>
-        )}
-      </div>
-
-      <ConsolePanel />
+      <AIChat />
+      <KnowledgeBaseModal />
+      <Layout>
+        <RecoverableErrorBoundary
+          fallback={<EditorFallback />}
+          componentName="CodeEditor"
+          config={{ maxRetries: 3, shouldRecover: true }}
+        >
+          <CodeEditor />
+        </RecoverableErrorBoundary>
+        <RecoverableErrorBoundary
+          fallback={<ResultFallback />}
+          componentName="ResultDisplay"
+          config={{ maxRetries: 3, shouldRecover: true }}
+        >
+          <ResultDisplay />
+        </RecoverableErrorBoundary>
+      </Layout>
     </>
   );
 }

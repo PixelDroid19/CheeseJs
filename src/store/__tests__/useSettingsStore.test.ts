@@ -1,5 +1,6 @@
+import { useAppStore } from '../index';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useSettingsStore } from '../useSettingsStore';
+import { useSettingsStore } from '../storeHooks';
 
 describe('useSettingsStore', () => {
   beforeEach(() => {
@@ -17,24 +18,24 @@ describe('useSettingsStore', () => {
   });
 
   it('should have alignResults disabled by default', () => {
-    const state = useSettingsStore.getState();
+    const state = useAppStore.getState().settings;
     expect(state.alignResults).toBe(false);
   });
 
   it('should have internalLogLevel set to none by default', () => {
-    const state = useSettingsStore.getState();
+    const state = useAppStore.getState().settings;
     expect(state.internalLogLevel).toBe('none');
   });
 
   it('should update alignResults', () => {
-    const { setAlignResults } = useSettingsStore.getState();
+    const { setAlignResults } = useAppStore.getState().settings;
     setAlignResults(true);
-    expect(useSettingsStore.getState().alignResults).toBe(true);
+    expect(useAppStore.getState().settings.alignResults).toBe(true);
   });
 
   it('should update internalLogLevel', () => {
-    const { setInternalLogLevel } = useSettingsStore.getState();
+    const { setInternalLogLevel } = useAppStore.getState().settings;
     setInternalLogLevel('debug');
-    expect(useSettingsStore.getState().internalLogLevel).toBe('debug');
+    expect(useAppStore.getState().settings.internalLogLevel).toBe('debug');
   });
 });

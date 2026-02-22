@@ -7,7 +7,7 @@ import type {
   Position,
   CancellationToken,
 } from 'monaco-editor';
-import { usePackagesStore } from '../store/usePackagesStore';
+import { usePackagesStore } from '../store/storeHooks';
 import {
   fetchPackageInfo,
   getCachedPackageInfo,
@@ -30,6 +30,9 @@ function getPackageAtPosition(
   position: Position
 ): { packageName: string; range: IRange } | null {
   const lineContent = model.getLineContent(position.lineNumber);
+
+  // DEBUG: Trace package detection
+  // console.log('[MonacoProviders] Checking line:', lineContent);
 
   // Match various import patterns
   const patterns = [
@@ -59,7 +62,7 @@ function getPackageAtPosition(
       // Check if cursor is within the package name (between quotes)
       if (position.column > packageStart && position.column <= packageEnd + 1) {
         // Extract base package name (handle scoped packages and subpaths)
-        let packageName = packagePath;
+        let packageName: string;
         if (packagePath.startsWith('@')) {
           const parts = packagePath.split('/');
           packageName =
@@ -274,7 +277,7 @@ export function registerMonacoProviders(
           });
 
           // Installation status with color coding
-          let statusText = '';
+          let statusText: string;
           if (installedPkg) {
             if (installedPkg.installing) {
               statusText = '**Status:** ⏳ Installing...';
@@ -298,7 +301,7 @@ export function registerMonacoProviders(
 
           // Try to get cached info from npm
           const pkgInfo = getCachedPackageInfo(packageName);
-          if (pkgInfo && !('error' in pkgInfo)) {
+          if (pkgInfo) {
             contents.push({ value: '---', isTrusted: true });
 
             if (pkgInfo.description) {

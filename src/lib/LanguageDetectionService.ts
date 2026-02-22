@@ -13,6 +13,10 @@ import {
   patternBasedDetection,
   isMLModelLoaded,
 } from './languageDetection';
+import {
+  LANGUAGE_DETECTION_DEBOUNCE_MS,
+  LANGUAGE_DETECTION_IDLE_TIMEOUT_MS,
+} from '../constants';
 import type { DetectionResult } from './languageDetection';
 
 // ============================================================================
@@ -69,9 +73,9 @@ export class LanguageDetectionService {
 
   private constructor(config: Partial<ServiceConfig> = {}) {
     this.config = {
-      debounceMs: config.debounceMs ?? 150,
+      debounceMs: config.debounceMs ?? LANGUAGE_DETECTION_DEBOUNCE_MS,
       useIdleCallback: config.useIdleCallback ?? true,
-      idleTimeout: config.idleTimeout ?? 100,
+      idleTimeout: config.idleTimeout ?? LANGUAGE_DETECTION_IDLE_TIMEOUT_MS,
     };
   }
 

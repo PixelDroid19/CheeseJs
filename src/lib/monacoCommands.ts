@@ -7,8 +7,8 @@
 
 import type { Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { usePackagesStore } from '../store/usePackagesStore';
-import { usePythonPackagesStore } from '../store/usePythonPackagesStore';
+import { usePackagesStore } from '../store/storeHooks';
+import { usePythonPackagesStore } from '../store/storeHooks';
 
 // Track registered commands to prevent duplicates
 const registeredCommands = new Set<string>();

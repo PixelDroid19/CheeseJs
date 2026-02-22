@@ -2,7 +2,6 @@ import { app } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Import core modules
 import {
   WorkerPoolManager,
   WindowManager,
@@ -15,18 +14,16 @@ import {
   getNodeModulesPath,
   initPackagesDirectory,
 } from './packages/packageManager.js';
-import { registerTestHandlers } from './core/handlers/TestHandlers.js';
-import { pluginHost } from './core/plugins/plugin-host.js';
+import { registerAIProxy } from './aiProxy.js';
+import { initWorkspace } from './core/handlers/FilesystemHandlers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Configure global paths
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../public');
 
-// Configure global error handlers
 process.on('uncaughtException', (error) => {
   appLog.error('Uncaught Exception:', error);
 });
@@ -37,22 +34,21 @@ process.on('unhandledRejection', (reason) => {
 
 appLog.info('Starting CheeseJS...');
 
-// Only ignore certificate errors in development
-if (!app.isPackaged) {
-  app.commandLine.appendSwitch('ignore-certificate-errors');
-  app.commandLine.appendSwitch('allow-insecure-localhost');
-}
+// SECURITY NOTE: Certificate error handling removed for production safety
+// If you need to work with self-signed certs in development, use proper
+// certificate installation in your OS certificate store
 
-// Global instances
 let windowManager: WindowManager | null = null;
 let workerPool: WorkerPoolManager | null = null;
 
 async function initApp() {
   try {
-    // 1. Initialize Worker Pool
+    // Initialize secure workspace for filesystem operations
+    initWorkspace();
+
+    // Initialize Worker Pool
     await initPackagesDirectory();
     const nodeModulesPath = getNodeModulesPath();
-    // Pass __dirname as distElectronPath so workers are found in the same directory as main.js
     workerPool = new WorkerPoolManager(__dirname, nodeModulesPath);
 
     // Start workers early for performance (especially Python)
@@ -64,10 +60,9 @@ async function initApp() {
           err
         );
       }),
-      pluginHost.initialize(),
     ]);
 
-    // 2. Initialize Window Manager
+    // Initialize Window Manager
     windowManager = new WindowManager(
       {
         publicPath: process.env.PUBLIC as string,
@@ -77,32 +72,33 @@ async function initApp() {
       },
       {
         onWindowReady: (win) => {
-          // Configure logger with main window for IPC forwarding
           mainLogger.setMainWindow(win);
           workerPool?.setMainWindow(win);
-          pluginHost.setMainWindow(win);
-          // Register test handlers with window for result streaming
-          registerTestHandlers(win);
         },
         onWindowClosed: () => {
-          // Cleanup if needed
           mainLogger.setMainWindow(null);
           workerPool?.setMainWindow(null);
-          pluginHost.setMainWindow(null);
         },
       }
     );
 
-    // 3. Register IPC Handlers
+    // Register IPC Handlers
     registerIPCHandlers({
       workerPool,
       transformCode,
     });
 
-    // 4. Create Main Window
+    // RAG handlers loaded lazily to avoid loading heavy deps at startup
+    const { setupRagHandlers } = await import('./rag/ipc.js');
+    setupRagHandlers();
+
+    // AI Proxy with SSRF protection
+    registerAIProxy();
+
+    // Create Main Window
     windowManager.createWindow();
 
-    appLog.info('App initialized successfully');
+    appLog.info('App initialized successfully (security hardened)');
   } catch (error) {
     appLog.error('Failed to initialize app:', error);
     app.quit();
@@ -111,13 +107,12 @@ async function initApp() {
 
 // App Lifecycle
 app.on('window-all-closed', () => {
-  // Terminate workers when app closes
   if (workerPool) {
-    // We can't easily wait for this, but we should trigger it
-    // The process exit will clean up threads anyway usually
+    workerPool.terminate().catch((err) => {
+      appLog.error('Error terminating worker pool:', err);
+    });
   }
 
-  // Quit on all platforms (even macOS) for this type of utility app
   app.quit();
 });
 

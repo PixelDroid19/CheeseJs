@@ -16,21 +16,6 @@ export {
   type WindowManagerCallbacks,
 } from './WindowManager';
 
-// Worker Pool
-export {
-  WorkerPool,
-  type WorkerPoolConfig,
-  type PoolStats,
-  type PooledTask,
-  type WorkerState,
-  type WorkerMessage,
-} from './WorkerPool';
-export {
-  CodeWorkerPool,
-  type ExecuteMessage,
-  type CodeWorkerResult,
-} from './CodeWorkerPool';
-
 // Centralized logging
 export {
   mainLogger,

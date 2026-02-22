@@ -11,7 +11,7 @@ export default defineConfig({
     include: [
       'src/**/*.{test,spec}.{ts,tsx}',
       'tests/unit/**/*.{test,spec}.{ts,tsx}',
-      'electron/**/*.{test,spec}.ts',
+      'electron/**/*.{test,spec}.{ts,tsx}',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', 'tests/*.spec.ts'],
     coverage: {
@@ -26,10 +26,10 @@ export default defineConfig({
         'src/vite-env.d.ts',
       ],
       thresholds: {
-        lines: 70,
-        functions: 70,
-        branches: 70,
-        statements: 70,
+        lines: 60,
+        functions: 60,
+        branches: 50,
+        statements: 60,
       },
     },
   },

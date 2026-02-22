@@ -25,9 +25,6 @@ export {
   getLanguageInfo,
   isExecutable,
   getDisplayName,
-  registerWasmLanguage,
-  unregisterWasmLanguage,
-  getWasmLanguages,
 } from './languages';
 
 // Cache

@@ -15,11 +15,15 @@ import util from 'util';
 import path from 'path';
 import Module from 'module';
 import { createRequire } from 'module';
+import { config as dotenvConfig } from 'dotenv';
+import { expand as dotenvExpand } from 'dotenv-expand';
 
 const require = createRequire(import.meta.url);
 
 // Get node_modules path from worker data
 const nodeModulesPath: string | undefined = workerData?.nodeModulesPath;
+const jsInputBuffer: SharedArrayBuffer | undefined = workerData?.jsInputBuffer;
+const jsInputLock: SharedArrayBuffer | undefined = workerData?.jsInputLock;
 
 // Message types
 interface ExecuteMessage {
@@ -44,16 +48,16 @@ type WorkerMessage = ExecuteMessage | CancelMessage | ClearCacheMessage;
 interface ExecuteOptions {
   timeout?: number;
   showUndefined?: boolean;
+  workingDirectory?: string;
 }
 
 interface ResultMessage {
-  type: 'result' | 'console' | 'debug' | 'error' | 'complete' | 'line-executed';
+  type: 'result' | 'console' | 'debug' | 'error' | 'complete';
   id: string;
   data: unknown;
   line?: number;
   jsType?: string;
   consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir';
-  variables?: Record<string, { value: string; type: string }>;
 }
 
 // Active execution tracking for cancellation
@@ -66,6 +70,7 @@ let cancellationRequested = false;
 // ============================================================================
 
 import { getScriptCache } from './SmartScriptCache.js';
+import { isBlockedSandboxModule } from './sandboxRequirePolicy.js';
 
 // Get singleton script cache instance
 const scriptCache = getScriptCache({
@@ -276,6 +281,12 @@ function createRequireFunction() {
   );
 
   return (moduleName: string) => {
+    if (isBlockedSandboxModule(moduleName)) {
+      throw new Error(
+        `Module '${moduleName}' is not available in this sandboxed runtime.`
+      );
+    }
+
     try {
       return customRequire(moduleName);
     } catch {
@@ -321,13 +332,77 @@ function createCancellationCheckFunction(): () => boolean {
 }
 
 /**
+ * Synchronous prompt implementation using SharedArrayBuffer and Atomics
+ */
+function promptImplementation(message?: string): string | null {
+  if (!jsInputBuffer || !jsInputLock || !parentPort) {
+    throw new Error('Prompt is not supported in this environment');
+  }
+
+  // 1. Reset lock (0 = wait)
+  const lock = new Int32Array(jsInputLock);
+  Atomics.store(lock, 0, 0);
+
+  // 2. Send request
+  parentPort.postMessage({
+    type: 'prompt-request',
+    message: message || '',
+  });
+
+  // 3. Wait for input (blocking)
+  // This blocks the thread until the main process sets lock[0] to 1 and notifies
+  Atomics.wait(lock, 0, 0);
+
+  // 4. Read result
+  const buffer = new Uint8Array(jsInputBuffer);
+  // Find first null byte
+  let end = 0;
+  while (end < buffer.length && buffer[end] !== 0) {
+    end++;
+  }
+
+  const decoder = new TextDecoder();
+  return decoder.decode(buffer.slice(0, end));
+}
+
+/**
+ * Synchronous alert implementation using SharedArrayBuffer and Atomics
+ */
+function alertImplementation(message?: unknown): void {
+  if (!jsInputBuffer || !jsInputLock || !parentPort) {
+    throw new Error('Alert is not supported in this environment');
+  }
+
+  // 1. Reset lock (0 = wait)
+  const lock = new Int32Array(jsInputLock);
+  Atomics.store(lock, 0, 0);
+
+  // 2. Send request
+  parentPort.postMessage({
+    type: 'alert-request',
+    message: String(message),
+  });
+
+  // 3. Wait for acknowledgement (blocking)
+  Atomics.wait(lock, 0, 0);
+}
+
+/**
  * Create the sandboxed context with safe globals
+ *
+ * SECURITY: The following dangerous globals have been removed:
+ * - eval: Allows arbitrary code execution from strings
+ * - Function: Constructor can execute arbitrary code
+ * - Proxy: Can be used to intercept and modify behavior
+ * - Reflect: Low-level operations can bypass security
+ *
+ * These removalals prevent common VM escape vectors.
  */
 function createSandboxContext(
   executionId: string,
   options: ExecuteOptions
 ): vm.Context {
-  const console = createSandboxConsole(executionId);
+  const sandboxConsole = createSandboxConsole(executionId);
   const debugFunc = createDebugFunction(
     executionId,
     options.showUndefined ?? false
@@ -335,50 +410,24 @@ function createSandboxContext(
   const require = createRequireFunction();
   const checkCancellation = createCancellationCheckFunction();
 
-  // Line execution tracking for visual execution
-  const lineExecutedFunc = (
-    line: number,
-    variables?: Record<string, unknown>
-  ) => {
-    // Serialize variables if provided
-    const serializedVars = variables
-      ? Object.fromEntries(
-          Object.entries(variables).map(([name, value]) => [
-            name,
-            {
-              value: customInspect(value, 2),
-              type: value === null ? 'null' : typeof value,
-            },
-          ])
-        )
-      : undefined;
-
-    parentPort?.postMessage({
-      type: 'line-executed',
-      id: executionId,
-      line,
-      data: null,
-      variables: serializedVars,
-    } as ResultMessage);
-  };
-
   // CommonJS module support
   const moduleExports = {};
   const moduleObj = { exports: moduleExports };
 
   // Safe globals whitelist
+  // NOTE: eval, Function, Proxy, and Reflect are intentionally excluded for security
   const globals: Record<string, unknown> = {
     // Console and debug functions
-    // We provide both 'debug' (legacy) and '__jsDebug' (language-specific) for compatibility
-    console,
+    console: sandboxConsole,
     debug: debugFunc,
     __jsDebug: debugFunc,
 
-    // Line execution tracking for visual execution
-    __lineExecuted: lineExecutedFunc,
-
     // Cancellation checkpoint for cooperative cancellation
     __checkCancellation__: checkCancellation,
+
+    // Synchronous prompt
+    prompt: promptImplementation,
+    alert: alertImplementation,
 
     // Package require and CommonJS module support
     require,
@@ -394,7 +443,7 @@ function createSandboxContext(
     clearImmediate,
 
     // ========================================================================
-    // STANDARD CONSTRUCTORS (ES5-ES2021)
+    // STANDARD CONSTRUCTORS (ES5-ES2021) - Safe to expose
     // ========================================================================
     Array,
     ArrayBuffer,
@@ -408,7 +457,7 @@ function createSandboxContext(
     EvalError,
     Float32Array,
     Float64Array,
-    // Function removed for security - prevents new Function('code') sandbox escape
+    // Function constructor REMOVED - security risk (can execute arbitrary strings)
     Int8Array,
     Int16Array,
     Int32Array,
@@ -416,10 +465,10 @@ function createSandboxContext(
     Number,
     Object,
     Promise,
-    Proxy,
+    // Proxy REMOVED - can be used for VM escape
     RangeError,
     ReferenceError,
-    Reflect,
+    // Reflect REMOVED - low-level operations can bypass security
     RegExp,
     Set,
     SharedArrayBuffer,
@@ -449,26 +498,12 @@ function createSandboxContext(
         : undefined,
 
     // ========================================================================
-    // ES2024 FEATURES (Node.js 22+)
-    // ========================================================================
-
-    // Promise.withResolvers - convenient way to create promise with external resolve/reject
-    // Already available on Promise object, no extra global needed
-
-    // Object.groupBy and Map.groupBy - grouping arrays into objects/maps
-    // Already available on Object and Map, no extra global needed
-
-    // ========================================================================
     // ES2025 FEATURES (Node.js 22+)
     // ========================================================================
-
-    // Iterator global with helper methods (map, filter, take, drop, etc.)
     Iterator:
       'Iterator' in globalThis
         ? (globalThis as Record<string, unknown>).Iterator
         : undefined,
-
-    // Float16Array - 16-bit floating point array (ES2025)
     Float16Array:
       'Float16Array' in globalThis
         ? (globalThis as Record<string, unknown>).Float16Array
@@ -477,8 +512,6 @@ function createSandboxContext(
     // ========================================================================
     // RESOURCE MANAGEMENT (Explicit Resource Management - Stage 3+)
     // ========================================================================
-
-    // DisposableStack and AsyncDisposableStack for using/await using
     DisposableStack:
       'DisposableStack' in globalThis
         ? (globalThis as Record<string, unknown>).DisposableStack
@@ -487,10 +520,8 @@ function createSandboxContext(
       'AsyncDisposableStack' in globalThis
         ? (globalThis as Record<string, unknown>).AsyncDisposableStack
         : undefined,
-    // Symbol.dispose and Symbol.asyncDispose are already on Symbol
 
-    // WebAssembly - Required for Pyodide (Python) and future language support (Rust, C/C++)
-    // Note: wasm: false in codeGeneration only blocks compiling from strings, not pre-compiled modules
+    // WebAssembly - SAFE: sandboxed by design
     WebAssembly,
 
     // Built-in objects
@@ -499,8 +530,7 @@ function createSandboxContext(
     Intl,
     Atomics,
 
-    // Global functions
-    // eval removed for security - prevents eval('code') sandbox escape
+    // Safe global functions (eval REMOVED)
     isNaN,
     isFinite,
     parseFloat,
@@ -509,8 +539,7 @@ function createSandboxContext(
     encodeURIComponent,
     decodeURI,
     decodeURIComponent,
-    escape,
-    unescape,
+    // escape/unescape REMOVED - deprecated and rarely needed
 
     // Fetch API (if available in Node.js)
     fetch: typeof fetch !== 'undefined' ? fetch : undefined,
@@ -526,7 +555,7 @@ function createSandboxContext(
     URL,
     URLSearchParams,
 
-    // Blob and File (if available)
+    // Blob (if available)
     Blob: typeof Blob !== 'undefined' ? Blob : undefined,
 
     // Structured clone
@@ -540,7 +569,7 @@ function createSandboxContext(
     queueMicrotask,
 
     // globalThis reference (safe, points to sandbox)
-    globalThis: null, // Will be set to context itself
+    globalThis: null,
 
     // Undefined and NaN
     undefined,
@@ -548,18 +577,29 @@ function createSandboxContext(
     Infinity,
   };
 
-  const context = vm.createContext(globals, {
-    name: `code-execution-${executionId}`,
-    codeGeneration: {
-      strings: false, // SECURITY: Disable eval() and new Function('string')
-      wasm: true, // ENABLED: Required for Pyodide (Python) and future Wasm languages (Rust, C/C++)
-    },
-  });
+  const context = vm.createContext(globals);
 
   // Set globalThis to point to the context itself
   context.globalThis = context;
   context.global = context;
   context.self = context;
+
+  // Dotenv loading feature when working directory is provided
+  let processEnv = { ...process.env };
+  if (options.workingDirectory) {
+    try {
+      const parsedEnv = dotenvConfig({ path: path.join(options.workingDirectory, '.env') });
+      if (parsedEnv.parsed) {
+        dotenvExpand(parsedEnv);
+        processEnv = { ...processEnv, ...parsedEnv.parsed };
+      }
+    } catch (err) {
+      console.warn('Failed to parse .env from working directory:', err);
+    }
+  }
+
+  // Provide a rudimentary process object for env access
+  context.process = { env: processEnv };
 
   return context;
 }
@@ -579,11 +619,7 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
     const context = createSandboxContext(id, options);
 
     // Wrap code in async IIFE to support top-level await
-    const wrappedCode = `
-      (async () => {
-        ${code}
-      })()
-    `;
+    const wrappedCode = '(async () => {\n' + code + '\n})()';
 
     // Get cached or create new compiled script
     const script = getOrCreateScript(wrappedCode);
@@ -597,7 +633,7 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
       }),
       new Promise((_, reject) => {
         setTimeout(
-          () => reject(new Error(`Execution timeout (${timeout}ms)`)),
+          () => reject(new Error(`Execution timeout(${timeout}ms)`)),
           timeout + 100
         );
       }),
@@ -610,6 +646,17 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
       data: result !== undefined ? serializeValue(result) : null,
     } as ResultMessage);
   } catch (error) {
+    // Enhance SyntaxError messages that might be caused by the wrapper
+    if (error instanceof SyntaxError && error.stack) {
+      // If the error is "Unexpected end of input" or similar, it often means unclosed blocks
+      if (
+        error.message.includes('Unexpected token') ||
+        error.message.includes('end of input')
+      ) {
+        error.message += ' (Check for unclosed parentheses, braces, or quotes)';
+      }
+    }
+
     const errorMessage =
       error instanceof Error
         ? { name: error.name, message: error.message, stack: error.stack }

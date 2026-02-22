@@ -32,7 +32,8 @@ const isPromise = (
   ) {
     return false;
   }
-  return typeof (promiseToCheck as { then?: unknown }).then === 'function';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return typeof (promiseToCheck as any).then === 'function';
 };
 
 export function flattenColoredElement(
@@ -58,12 +59,9 @@ export function flattenColoredElement(
     .flat();
 }
 // Helper to safely inspect global objects like Window without freezing
-function formatGlobalObject(obj: unknown, name: string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatGlobalObject(obj: any, name: string): string {
   const props: string[] = [];
-  if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
-    return String(obj);
-  }
-  const target = obj as Record<string, unknown>;
 
   // Get all properties (own and inherited) safely
   // We use a Set to avoid duplicates if we traverse prototype chain manually
@@ -71,14 +69,14 @@ function formatGlobalObject(obj: unknown, name: string): string {
 
   // Add own keys
   try {
-    Object.getOwnPropertyNames(target).forEach((k) => keys.add(k));
+    Object.getOwnPropertyNames(obj).forEach((k) => keys.add(k));
   } catch {
     // Ignore access errors
   }
 
   // Add prototype keys (one level up is usually enough for Window/Document)
   try {
-    const proto = Object.getPrototypeOf(target);
+    const proto = Object.getPrototypeOf(obj);
     if (proto) {
       Object.getOwnPropertyNames(proto).forEach((k) => keys.add(k));
     }
@@ -95,12 +93,9 @@ function formatGlobalObject(obj: unknown, name: string): string {
       let desc: PropertyDescriptor | undefined;
       try {
         desc =
-          Object.getOwnPropertyDescriptor(target, key) ||
-          (Object.getPrototypeOf(target)
-            ? Object.getOwnPropertyDescriptor(
-                Object.getPrototypeOf(target),
-                key
-              )
+          Object.getOwnPropertyDescriptor(obj, key) ||
+          (Object.getPrototypeOf(obj)
+            ? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(obj), key)
             : undefined);
       } catch {
         // ignore
@@ -111,9 +106,9 @@ function formatGlobalObject(obj: unknown, name: string): string {
         continue;
       }
 
-      const value = target[key];
+      const value = obj[key];
 
-      if (value === target) {
+      if (value === obj) {
         props.push(`  ${key}: [Circular]`);
       } else if (typeof value === 'function') {
         // Format: alert: ƒ alert()

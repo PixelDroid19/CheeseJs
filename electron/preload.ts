@@ -17,7 +17,6 @@ interface ExecutionOptions {
   loopProtection?: boolean;
   magicComments?: boolean;
   language?: 'javascript' | 'typescript' | 'python';
-  visualExecution?: boolean;
 }
 
 interface ExecutionResult {
@@ -36,7 +35,14 @@ interface InputRequest {
   id: string;
   data: { prompt: string; line: number; requestId?: string };
 }
+// JS Input request type (from worker)
+interface JSInputRequest {
+  type: 'prompt-request';
+  message: string;
+}
+
 type InputRequestCallback = (request: InputRequest) => void;
+type JSInputRequestCallback = (request: JSInputRequest) => void;
 
 // ============================================================================
 // CODE RUNNER API
@@ -44,11 +50,17 @@ type InputRequestCallback = (request: InputRequest) => void;
 
 const resultCallbacks = new Set<ResultCallback>();
 const inputRequestCallbacks = new Set<InputRequestCallback>();
+const jsInputRequestCallbacks = new Set<JSInputRequestCallback>();
 
 // Listen for execution results from main process
 ipcRenderer.on(
   'code-execution-result',
   (_event: unknown, result: ExecutionResult) => {
+    console.log(
+      '[Preload] code-execution-result received:',
+      result.id,
+      result.type
+    );
     resultCallbacks.forEach((callback) => callback(result));
   }
 );
@@ -61,6 +73,14 @@ ipcRenderer.on(
   }
 );
 
+// Listen for JS input requests
+ipcRenderer.on(
+  'js-input-request',
+  (_event: unknown, request: JSInputRequest) => {
+    jsInputRequestCallbacks.forEach((callback) => callback(request));
+  }
+);
+
 contextBridge.exposeInMainWorld('electronAPI', {
   closeApp: () => ipcRenderer.send('close-me'),
   maximizeApp: () => ipcRenderer.send('maximize'),
@@ -70,13 +90,84 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onToggleMagicComments: (callback: () => void) =>
     ipcRenderer.on('toggle-magic-comments', () => callback()),
 
-  // Shell operations
-  showItemInFolder: (path: string) =>
-    ipcRenderer.invoke('shell:show-item-in-folder', path),
+  // Filesystem operations for AI agent (SECURITY: executeCommand removed)
+  readFile: (
+    path: string,
+    options?: { startLine?: number; endLine?: number }
+  ) => ipcRenderer.invoke('fs:readFile', path, options),
+  writeFile: (path: string, content: string) =>
+    ipcRenderer.invoke('fs:writeFile', path, content),
+  listFiles: (path: string, recursive?: boolean) =>
+    ipcRenderer.invoke('fs:listFiles', path, recursive),
+  searchInFiles: (pattern: string, directory: string) =>
+    ipcRenderer.invoke('fs:searchInFiles', pattern, directory),
+  deleteFile: (path: string) => ipcRenderer.invoke('fs:deleteFile', path),
+  getWorkspacePath: () => ipcRenderer.invoke('fs:getWorkspacePath'),
+});
 
-  // Capture operations
-  saveImage: (buffer: ArrayBuffer, filename: string) =>
-    ipcRenderer.invoke('capture:save-image', buffer, filename),
+import {
+  RagDocument,
+  RagConfig,
+  SearchOptions,
+  SubStep,
+  PipelineOptions,
+} from './rag/types';
+
+contextBridge.exposeInMainWorld('rag', {
+  ingest: (doc: RagDocument) => ipcRenderer.invoke('rag:ingest', doc),
+  search: (query: string, limit?: number) =>
+    ipcRenderer.invoke('rag:search', query, limit),
+  clear: () => ipcRenderer.invoke('rag:clear'),
+  indexCodebase: () => ipcRenderer.invoke('rag:index-codebase'),
+
+  // Document Management
+  getDocuments: () => ipcRenderer.invoke('rag:get-documents'),
+  addFile: (filePath: string) => ipcRenderer.invoke('rag:add-file', filePath),
+  addUrl: (url: string) => ipcRenderer.invoke('rag:add-url', url),
+  removeDocument: (id: string) => ipcRenderer.invoke('rag:remove-document', id),
+
+  // Configuration
+  getConfig: () => ipcRenderer.invoke('rag:get-config'),
+  setConfig: (config: Partial<RagConfig>) =>
+    ipcRenderer.invoke('rag:set-config', config),
+
+  // Advanced Search
+  searchAdvanced: (query: string, options?: SearchOptions) =>
+    ipcRenderer.invoke('rag:search-advanced', query, options),
+
+  // Get chunks by document IDs (for pinned docs - no embedding needed)
+  getChunksByDocuments: (documentIds: string[], limit?: number) =>
+    ipcRenderer.invoke('rag:get-chunks-by-documents', documentIds, limit),
+
+  // Strategy Decision
+  decideStrategy: (documentIds: string[], query: string) =>
+    ipcRenderer.invoke('rag:decide-strategy', documentIds, query),
+
+  // Pipeline Search (full chain: rewrite → hybrid → rerank → distill → trim)
+  searchPipeline: (query: string, options?: PipelineOptions) =>
+    ipcRenderer.invoke('rag:search-pipeline', query, options),
+
+  // Progress Events
+  onProgress: (
+    callback: (progress: {
+      id: string;
+      status: string;
+      message: string;
+      subSteps?: SubStep[];
+    }) => void
+  ) => {
+    const handler = (
+      _: unknown,
+      progress: {
+        id: string;
+        status: string;
+        message: string;
+        subSteps?: SubStep[];
+      }
+    ) => callback(progress);
+    ipcRenderer.on('rag:progress', handler);
+    return () => ipcRenderer.removeListener('rag:progress', handler);
+  },
 });
 
 contextBridge.exposeInMainWorld('codeRunner', {
@@ -86,6 +177,7 @@ contextBridge.exposeInMainWorld('codeRunner', {
   execute: async (id: string, code: string, options: ExecutionOptions = {}) => {
     // Extract language from options and pass it at request level for routing
     const { language, ...restOptions } = options;
+    console.log('[Preload] execute called:', id, language);
     return ipcRenderer.invoke('execute-code', {
       id,
       code,
@@ -113,7 +205,7 @@ contextBridge.exposeInMainWorld('codeRunner', {
    * Wait for worker to be ready (polls every 100ms, max 10s)
    */
   waitForReady: async (language: string = 'javascript'): Promise<boolean> => {
-    const maxWait = 10000;
+    const maxWait = 30000;
     const interval = 100;
     let waited = 0;
 
@@ -158,6 +250,23 @@ contextBridge.exposeInMainWorld('codeRunner', {
    */
   sendInputResponse: (id: string, value: string, requestId?: string) => {
     ipcRenderer.send('python-input-response', { id, value, requestId });
+  },
+
+  /**
+   * Subscribe to JS input requests
+   */
+  onJSInputRequest: (callback: JSInputRequestCallback) => {
+    jsInputRequestCallbacks.add(callback);
+    return () => {
+      jsInputRequestCallbacks.delete(callback);
+    };
+  },
+
+  /**
+   * Send input response back to JS worker
+   */
+  sendJSInputResponse: (value: string) => {
+    ipcRenderer.send('js-input-response', { value });
   },
 });
 
@@ -282,304 +391,103 @@ contextBridge.exposeInMainWorld('pythonPackageManager', {
 });
 
 // ============================================================================
-// PLUGIN API
+// AI PROXY API
 // ============================================================================
 
-interface PluginInfo {
-  manifest: {
-    id: string;
-    name: string;
-    version: string;
-    description?: string;
-    main: string;
-  };
-  status: 'installed' | 'active' | 'disabled' | 'error';
-  error?: string;
-  loadedAt?: number;
+interface AIProxyRequest {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body?: string;
 }
 
-const pluginStateCallbacks = new Set<(plugins: PluginInfo[]) => void>();
+interface AIProxyResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+}
 
-ipcRenderer.on(
-  'plugins:state-changed',
-  (_event: unknown, plugins: PluginInfo[]) => {
-    pluginStateCallbacks.forEach((callback) => callback(plugins));
+// Store for active stream listeners
+const streamListeners = new Map<
+  string,
+  {
+    onChunk: (chunk: string) => void;
+    onEnd: () => void;
+    onError: (error: {
+      status: number;
+      statusText: string;
+      body: string;
+    }) => void;
   }
-);
-
-contextBridge.exposeInMainWorld('pluginAPI', {
-  /**
-   * List all discovered plugins
-   */
-  list: async (): Promise<PluginInfo[]> => {
-    return ipcRenderer.invoke('plugins:list');
-  },
-
-  /**
-   * Activate a plugin
-   */
-  activate: async (id: string): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('plugins:activate', id);
-  },
-
-  /**
-   * Deactivate a plugin
-   */
-  deactivate: async (id: string): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('plugins:deactivate', id);
-  },
-
-  /**
-   * Install a plugin from a directory path
-   */
-  install: async (
-    sourcePath: string
-  ): Promise<{ success: boolean; plugin: PluginInfo }> => {
-    return ipcRenderer.invoke('plugins:install', sourcePath);
-  },
-
-  /**
-   * Install a plugin from a URL
-   */
-  installFromUrl: async (
-    url: string,
-    pluginId?: string
-  ): Promise<{ success: boolean; path?: string; error?: string }> => {
-    return ipcRenderer.invoke('plugins:install-from-url', url, pluginId);
-  },
-
-  /**
-   * Uninstall a plugin
-   */
-  uninstall: async (id: string): Promise<{ success: boolean }> => {
-    return ipcRenderer.invoke('plugins:uninstall', id);
-  },
-
-  /**
-   * Get the plugins directory path
-   */
-  getPath: async (): Promise<string> => {
-    return ipcRenderer.invoke('plugins:get-path');
-  },
-
-  /**
-   * Read a file from the filesystem
-   */
-  readFile: async (path: string): Promise<string> => {
-    return ipcRenderer.invoke('plugins:read-file', path);
-  },
-
-  /**
-   * Listen for plugin state changes
-   */
-  onStateChanged: (callback: (plugins: PluginInfo[]) => void) => {
-    pluginStateCallbacks.add(callback);
-    return () => {
-      pluginStateCallbacks.delete(callback);
-    };
-  },
-});
-
-// ============================================================================
-// TEST RUNNER API
-// ============================================================================
-
-interface TestResult {
-  name: string;
-  fullName: string;
-  status: 'passed' | 'failed' | 'skipped' | 'running';
-  duration?: number;
-  error?: string;
-  stack?: string;
-  line?: number;
-}
-
-// ============================================================================
-// WASM LANGUAGES API
-// ============================================================================
-
-interface WasmLanguageInfo {
-  id: string;
-  name: string;
-  version: string;
-  extensions: string[];
-  status: 'loading' | 'ready' | 'error';
-  error?: string;
-}
-
-const wasmLanguageCallbacks = new Set<
-  (languages: WasmLanguageInfo[]) => void
 >();
 
-ipcRenderer.on(
-  'wasm-languages:changed',
-  (_event: unknown, languages: WasmLanguageInfo[]) => {
-    wasmLanguageCallbacks.forEach((callback) => callback(languages));
-  }
-);
-
-contextBridge.exposeInMainWorld('wasmLanguages', {
+contextBridge.exposeInMainWorld('aiProxy', {
   /**
-   * Get all available WASM languages
+   * Make a proxied fetch request through the main process (CORS-free)
    */
-  getAll: async (): Promise<{
-    success: boolean;
-    languages: WasmLanguageInfo[];
-  }> => {
-    return ipcRenderer.invoke('get-wasm-languages');
+  fetch: async (request: AIProxyRequest): Promise<AIProxyResponse> => {
+    return ipcRenderer.invoke('ai:proxy', request);
   },
 
   /**
-   * Check if a language is available and ready
+   * Start a streaming request through the main process
    */
-  isReady: async (languageId: string): Promise<boolean> => {
-    const result = await ipcRenderer.invoke('is-worker-ready', languageId);
-    return result.ready;
-  },
-
-  /**
-   * Get Monaco configuration for a WASM language
-   */
-  getMonacoConfig: async (
-    languageId: string
-  ): Promise<{
-    success: boolean;
-    config?: Record<string, unknown>;
-  }> => {
-    return ipcRenderer.invoke('get-wasm-monaco-config', languageId);
-  },
-
-  /**
-   * Subscribe to WASM language changes
-   */
-  onChanged: (callback: (languages: WasmLanguageInfo[]) => void) => {
-    wasmLanguageCallbacks.add(callback);
-    return () => {
-      wasmLanguageCallbacks.delete(callback);
-    };
-  },
-});
-
-interface CoverageData {
-  lines: number;
-  statements: number;
-  functions: number;
-  branches: number;
-  uncoveredLines: number[];
-}
-
-const testResultCallbacks = new Set<
-  (result: { filePath: string; test: TestResult }) => void
->();
-const testCompleteCallbacks = new Set<
-  (result: {
-    filePath: string;
-    status: 'passed' | 'failed';
-    coverage?: CoverageData;
-  }) => void
->();
-const testErrorCallbacks = new Set<(error: { message: string }) => void>();
-
-ipcRenderer.on(
-  'test-runner:result',
-  (_event: unknown, data: { filePath: string; test: TestResult }) => {
-    testResultCallbacks.forEach((callback) => callback(data));
-  }
-);
-
-ipcRenderer.on(
-  'test-runner:complete',
-  (
-    _event: unknown,
-    data: {
-      filePath: string;
-      status: 'passed' | 'failed';
-      coverage?: CoverageData;
-    }
-  ) => {
-    testCompleteCallbacks.forEach((callback) => callback(data));
-  }
-);
-
-ipcRenderer.on(
-  'test-runner:error',
-  (_event: unknown, data: { message: string }) => {
-    testErrorCallbacks.forEach((callback) => callback(data));
-  }
-);
-
-contextBridge.exposeInMainWorld('testRunner', {
-  /**
-   * Run inline test code from the playground editor
-   */
-  runInline: async (code: string): Promise<void> => {
-    return ipcRenderer.invoke('test-runner:run-inline', code);
-  },
-
-  /**
-   * Run all tests or tests in a specific file
-   */
-  run: async (filePath?: string): Promise<void> => {
-    return ipcRenderer.invoke('test-runner:run', filePath);
-  },
-
-  /**
-   * Run a single test
-   */
-  runSingle: async (filePath: string, testName: string): Promise<void> => {
-    return ipcRenderer.invoke('test-runner:run-single', filePath, testName);
-  },
-
-  /**
-   * Stop running tests
-   */
-  stop: (): void => {
-    ipcRenderer.send('test-runner:stop');
-  },
-
-  /**
-   * Check if test runner is ready
-   */
-  isReady: async (): Promise<boolean> => {
-    const result = await ipcRenderer.invoke('test-runner:is-ready');
-    return result.ready;
-  },
-
-  /**
-   * Subscribe to test results
-   */
-  onResult: (
-    callback: (result: { filePath: string; test: TestResult }) => void
-  ) => {
-    testResultCallbacks.add(callback);
-    return () => {
-      testResultCallbacks.delete(callback);
-    };
-  },
-
-  /**
-   * Subscribe to test completion
-   */
-  onComplete: (
-    callback: (result: {
-      filePath: string;
-      status: 'passed' | 'failed';
-      coverage?: CoverageData;
+  streamFetch: async (
+    request: AIProxyRequest,
+    onChunk: (chunk: string) => void,
+    onEnd: () => void,
+    onError: (error: {
+      status: number;
+      statusText: string;
+      body: string;
     }) => void
-  ) => {
-    testCompleteCallbacks.add(callback);
-    return () => {
-      testCompleteCallbacks.delete(callback);
-    };
-  },
+  ): Promise<{ streamId: string; abort: () => void }> => {
+    const { streamId } = await ipcRenderer.invoke('ai:proxy:stream', request);
 
-  /**
-   * Subscribe to test errors
-   */
-  onError: (callback: (error: { message: string }) => void) => {
-    testErrorCallbacks.add(callback);
-    return () => {
-      testErrorCallbacks.delete(callback);
+    // Store listeners
+    streamListeners.set(streamId, { onChunk, onEnd, onError });
+
+    // Setup IPC listeners for this stream
+    const chunkHandler = (_event: unknown, chunk: string) => {
+      const listener = streamListeners.get(streamId);
+      listener?.onChunk(chunk);
+    };
+
+    const endHandler = () => {
+      const listener = streamListeners.get(streamId);
+      listener?.onEnd();
+      cleanup();
+    };
+
+    const errorHandler = (
+      _event: unknown,
+      error: { status: number; statusText: string; body: string }
+    ) => {
+      const listener = streamListeners.get(streamId);
+      listener?.onError(error);
+      cleanup();
+    };
+
+    const cleanup = () => {
+      streamListeners.delete(streamId);
+      ipcRenderer.removeListener(`ai:stream:chunk:${streamId}`, chunkHandler);
+      ipcRenderer.removeListener(`ai:stream:end:${streamId}`, endHandler);
+      ipcRenderer.removeListener(`ai:stream:error:${streamId}`, errorHandler);
+    };
+
+    ipcRenderer.on(`ai:stream:chunk:${streamId}`, chunkHandler);
+    ipcRenderer.on(`ai:stream:end:${streamId}`, endHandler);
+    ipcRenderer.on(`ai:stream:error:${streamId}`, errorHandler);
+
+    return {
+      streamId,
+      abort: () => {
+        // Signal the main process to abort the underlying fetch request
+        ipcRenderer.send('ai:proxy:stream:abort', streamId);
+        cleanup();
+      },
     };
   },
 });

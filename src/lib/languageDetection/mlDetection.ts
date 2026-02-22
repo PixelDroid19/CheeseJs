@@ -10,6 +10,7 @@ import type { DetectionResult } from './types';
 import { patternBasedDetection } from './patternDetection';
 import { DETECTION_TO_MONACO, LANGUAGES } from './languages';
 import { getCacheKey, getCached, updateCache } from './cache';
+import { ML_MODEL_LOAD_TIMEOUT_MS } from '../../constants';
 import {
   DEFINITIVE_PYTHON_PATTERNS,
   DEFINITIVE_TS_PATTERNS,
@@ -43,7 +44,10 @@ export async function initializeMLModel(): Promise<void> {
     try {
       // Add timeout to prevent infinite loading state
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Model load timeout')), 5000)
+        setTimeout(
+          () => reject(new Error('Model load timeout')),
+          ML_MODEL_LOAD_TIMEOUT_MS
+        )
       );
 
       const loadPromise = async () => {
@@ -202,9 +206,9 @@ export async function detectWithML(
     onConfidenceUpdate?.(result.confidence);
     onDetecting?.(false);
 
-    console.debug(
-      `[MLDetection] ML detected: ${monacoId} (${(topResult.confidence * 100).toFixed(1)}%)`
-    );
+    // console.debug(
+    //   `[MLDetection] ML detected: ${monacoId} (${(topResult.confidence * 100).toFixed(1)}%)`
+    // );
     return result;
   } catch (error) {
     console.error('[MLDetection] ML detection failed:', error);

@@ -12,19 +12,18 @@ import {
   Wrench,
   FileCode,
   Bug,
-  Puzzle,
-  Store,
 } from 'lucide-react';
-import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSettingsStore } from '../../store/storeHooks';
 import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { GeneralTab } from './tabs/GeneralTab';
 import { AppearanceTab } from './tabs/AppearanceTab';
 import { AdvancedTab } from './tabs/AdvancedTab';
 import { SnippetsTab } from './tabs/SnippetsTab';
-import { PluginTab } from './tabs/PluginTab';
-import { MarketplaceTab } from './tabs/MarketplaceTab';
+import { AITab } from './tabs/AITab';
+import { CompilationTab } from './tabs/CompilationTab';
+import { FormattingTab } from './tabs/FormattingTab';
 
 type Tab =
   | 'general'
@@ -35,14 +34,12 @@ type Tab =
   | 'npm'
   | 'pypi'
   | 'snippets'
-  | 'plugins'
-  | 'marketplace'
   | 'advanced';
 
 export default function Settings() {
   const { t } = useTranslation();
   const { isSettingsOpen, setIsSettingsOpen } = useSettingsStore();
-  const [activeTab, setActiveTab] = useState<Tab>('advanced');
+  const [activeTab, setActiveTab] = useState<Tab>('general');
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'general', label: t('settings.categories.general'), icon: Sliders },
@@ -73,16 +70,6 @@ export default function Settings() {
       label: t('settings.categories.pypi', 'PyPI (Python)'),
       icon: Bug,
     },
-    {
-      id: 'plugins',
-      label: t('settings.categories.plugins', 'Plugins'),
-      icon: Puzzle,
-    },
-    {
-      id: 'marketplace',
-      label: t('settings.categories.marketplace', 'Marketplace'),
-      icon: Store,
-    },
     { id: 'advanced', label: t('settings.categories.advanced'), icon: Wrench },
   ];
 
@@ -90,13 +77,13 @@ export default function Settings() {
     <AnimatePresence>
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.98, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 10 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className={clsx(
-              'settings-modal max-w-4xl w-full mx-4 h-[600px] max-h-[90vh] flex rounded-xl shadow-2xl overflow-hidden border',
+              'max-w-4xl w-full mx-4 h-[600px] max-h-[90vh] flex rounded-xl shadow-2xl overflow-hidden border',
               'bg-background text-foreground border-border'
             )}
           >
@@ -122,9 +109,9 @@ export default function Settings() {
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={clsx(
-                        'settings-sidebar-item w-full px-4 py-3 text-sm font-medium rounded-md transition-all flex items-center gap-3',
+                        'w-full px-4 py-3 text-sm font-medium rounded-md transition-all flex items-center gap-3',
                         isActive
-                          ? 'bg-accent text-accent-foreground active'
+                          ? 'bg-accent text-accent-foreground'
                           : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground'
                       )}
                     >
@@ -171,25 +158,18 @@ export default function Settings() {
               <div className="flex-1 overflow-y-auto p-8">
                 <div className="max-w-2xl space-y-8">
                   {activeTab === 'general' && <GeneralTab />}
+                  {activeTab === 'compilation' && <CompilationTab />}
+                  {activeTab === 'formatting' && <FormattingTab />}
                   {activeTab === 'appearance' && <AppearanceTab />}
                   {activeTab === 'npm' && <PackageManager />}
                   {activeTab === 'pypi' && <PythonPackageManager />}
                   {activeTab === 'advanced' && <AdvancedTab />}
                   {activeTab === 'snippets' && <SnippetsTab />}
-                  {activeTab === 'plugins' && <PluginTab />}
-                  {activeTab === 'marketplace' && <MarketplaceTab />}
-
-                  {/* Placeholders for other tabs */}
-                  {['compilation', 'formatting', 'ai'].includes(activeTab) && (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                      <Wrench className="w-12 h-12 mb-4 opacity-20" />
-                      <p>{t('common.comingSoon')}</p>
-                    </div>
-                  )}
+                  {activeTab === 'ai' && <AITab />}
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       )}
     </AnimatePresence>

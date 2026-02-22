@@ -2,7 +2,6 @@
  * SWC-based Code Transpiler
  *
  * High-performance TypeScript/JSX transpilation using SWC (20-70x faster than TSC).
- * Provides the same API as tsTranspiler for drop-in replacement.
  *
  * Supports ES2024/2025 Features:
  * - Iterator helpers (Iterator.from(), .map(), .filter(), .take(), .drop())
@@ -27,13 +26,14 @@
 
 import { transformSync, type Options } from '@swc/core';
 import {
+  type TransformOptions,
   applyCodeTransforms,
   applyMagicComments,
-  type TransformOptions,
 } from './codeTransforms.js';
 
-// Re-export TransformOptions for consumers
+// Re-export TransformOptions and applyCodeTransforms for consumers
 export type { TransformOptions };
+export { applyCodeTransforms };
 
 /**
  * Get SWC target based on options
@@ -130,11 +130,10 @@ export function transformCode(
     // Step 1: Apply magic comments BEFORE transpilation
     let processedCode = code;
     if (options.magicComments) {
-      const debugFn = options.debugFunctionName || 'debug';
-      processedCode = applyMagicComments(code, debugFn);
+      processedCode = applyMagicComments(code);
     }
 
-    // Step 2: Transpile TS/JSX with SWC (much faster than TSC)
+    // Step 2: Transpile TS/JSX with SWC (much faster than TSC), passing options
     const transpiled = transpileWithSWC(processedCode, options);
 
     // Step 3: Apply other code transformations
@@ -150,4 +149,3 @@ export function transformCode(
 
 // Re-export for backwards compatibility
 export { transpileWithSWC as transpileWithTypeScript };
-export { applyCodeTransforms };

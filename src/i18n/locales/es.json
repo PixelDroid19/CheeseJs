@@ -5,8 +5,6 @@
     "language": "Idioma",
     "fontSize": "Tamaño de fuente",
     "uiFontSize": "Tamaño de fuente (UI)",
-    "captureIncludeOutput": "Incluir salida en captura",
-    "captureBackground": "Fondo de Captura",
     "close": "Cerrar",
     "categories": {
       "general": "Configuración General",
@@ -17,10 +15,7 @@
       "npm": "Integración NPM",
       "pypi": "PyPI (Python)",
       "snippets": "Fragmentos (Snippets)",
-      "plugins": "Plugins",
-      "marketplace": "Marketplace",
-      "advanced": "Opciones Avanzadas",
-      "capture": "Personalización de Captura"
+      "advanced": "Opciones Avanzadas"
     },
     "descriptions": {
       "general": "Configura el comportamiento general del editor",
@@ -31,9 +26,44 @@
       "npm": "Gestiona los paquetes y la configuración de NPM",
       "pypi": "Administra paquetes Python desde PyPI",
       "snippets": "Administra tus fragmentos de código reutilizables",
-      "plugins": "Gestiona los plugins instalados y extensiones",
-      "marketplace": "Descubre e instala nuevos plugins de la comunidad",
       "advanced": "Configuraciones avanzadas y opciones de desarrollador"
+    },
+    "ai": {
+      "provider": "Proveedor de IA",
+      "selectProvider": "Proveedor",
+      "model": "Modelo",
+      "apiKey": "Clave API",
+      "apiKeyPlaceholder": "Ingresa tu clave API...",
+      "apiKeyHint": "Tu clave API se almacena localmente y nunca se envía a nuestros servidores.",
+      "testConnection": "Probar",
+      "noApiKey": "Por favor ingresa una clave API primero",
+      "invalidKeyFormat": "Formato de clave API inválido",
+      "features": "Funcionalidades",
+      "inlineCompletion": "Autocompletado Inline",
+      "inlineCompletionDesc": "Obtén sugerencias de código con IA mientras escribes",
+      "chatPanel": "Panel de Chat IA",
+      "chatPanelDesc": "Abre el panel de chat para preguntar sobre tu código",
+      "executionMode": "Modo de ejecución",
+      "executionModeAgent": "Modo Agente (actúa directamente)",
+      "executionModePlan": "Modo Plan (planificación de solo lectura)",
+      "agentProfile": "Perfil del agente",
+      "agentProfileBuild": "Build (herramientas lectura + escritura)",
+      "agentProfilePlan": "Plan (herramientas solo lectura)",
+      "verifierSubagent": "Habilitar subagente @verifier",
+      "verifierSubagentDesc": "Permite validación aislada rápida con @verifier en el chat",
+      "advanced": "Avanzado",
+      "maxTokens": "Tokens Máximos",
+      "temperature": "Temperatura",
+      "temperatureHint": "Valores bajos para resultados más enfocados, altos para más creatividad",
+      "local": {
+        "serverConfig": "Configuración del Servidor Local",
+        "baseURL": "URL del Servidor",
+        "baseURLHint": "La URL base de tu servidor de IA local (LM Studio, Ollama, etc.). Generalmente termina con /v1",
+        "modelPlaceholder": "Nombre del modelo (ej: llama3)",
+        "refreshModels": "Actualizar modelos disponibles",
+        "noBaseURL": "Por favor ingresa una URL de servidor primero",
+        "invalidURL": "Formato de URL de servidor inválido"
+      }
     },
     "snippets": {
       "description": "Guarda fragmentos de código utilizados frecuentemente para un acceso rápido.",
@@ -79,12 +109,24 @@
       "autoInstallPackages": "Auto-instalar paquetes",
       "autoInstallPackagesTooltip": "Instala automáticamente los paquetes faltantes cuando se detectan en imports. Desactiva para instalar paquetes manualmente."
     },
+    "compilation": {
+      "transforms": "Transformaciones de código"
+    },
+    "formatting": {
+      "display": "Visualización de salida",
+      "filters": "Filtros de consola",
+      "filterLog": "Mostrar mensajes Log",
+      "filterInfo": "Mostrar mensajes Info",
+      "filterWarn": "Mostrar mensajes Warn",
+      "filterError": "Mostrar mensajes Error"
+    },
     "common": {
       "comingSoon": "Próximamente..."
     },
     "npm": {
       "description": "Administra paquetes npm para tu código. Los paquetes se instalan automáticamente cuando se detectan en los imports.",
       "configuration": "Configuración (.npmrc)",
+      "automation": "Automatización",
       "installedPackages": "Paquetes Instalados",
       "registryPlaceholder": "registry=https://registry.npmjs.org/",
       "placeholder": "Nombre del paquete (ej: lodash)",
@@ -122,31 +164,6 @@
         "wheels": "Solo funcionan paquetes Python puros o con wheels WebAssembly",
         "learnMore": "Más información →"
       }
-    },
-    "plugins": {
-      "title": "Plugins",
-      "description": "Extiende CheeseJS con lenguajes personalizados, formateadores y paneles UI.",
-      "openFolder": "Abrir carpeta de plugins",
-      "noPlugins": "No hay plugins instalados",
-      "reload": "Recargar plugins",
-      "openFolderTooltip": "Abre la carpeta local donde se instalan los plugins."
-    },
-    "marketplace": {
-      "title": "Marketplace",
-      "description": "Explora e instala plugins comunitarios.",
-      "search": "Buscar plugins...",
-      "allCategories": "Todas las categorías",
-      "sortBy": "Ordenar por",
-      "sort": {
-        "downloads": "Más descargados",
-        "rating": "Mejor valorados",
-        "updated": "Recientes",
-        "name": "Nombre"
-      },
-      "install": "Instalar",
-      "installing": "Instalando...",
-      "installed": "Instalado",
-      "noResults": "No se encontraron plugins"
     }
   },
   "editor": {
@@ -154,18 +171,9 @@
     "clear": "Limpiar"
   },
   "toolbar": {
-    "run": "Ejecutar Codigo",
-    "format": "Formatear Codigo",
-    "settings": "Abrir Configuracion",
-    "toggleLayout": "Alternar Disposicion",
-    "tests": "Tests",
-    "console": "Alternar Consola"
-  },
-  "console": {
-    "title": "Consola Detallada",
-    "clear": "Limpiar Consola",
-    "close": "Cerrar Consola",
-    "empty": "Sin salida aún..."
+    "run": "Ejecutar Código",
+    "format": "Formatear Código",
+    "settings": "Abrir Configuración"
   },
   "errors": {
     "title": "Algo salió mal",
@@ -180,15 +188,7 @@
     "notFound": "Paquete no encontrado",
     "install": "Instalar Paquete",
     "installPython": "Instalar via micropip",
-    "retry": "Reintentar",
-    "dismiss": "Descartar",
-    "copyCommand": "Copiar comando de instalacion",
-    "managerUnavailable": "Gestor de paquetes no disponible. Copia el comando para instalar manualmente."
-  },
-  "result": {
-    "filters": "Filtros",
-    "clear": "Limpiar",
-    "noOutput": "Sin salida aun"
+    "retry": "Reintentar"
   },
   "common": {
     "comingSoon": "Próximamente..."
@@ -199,5 +199,62 @@
     "submit": "Enviar",
     "cancel": "Cancelar",
     "hint": "Enter para enviar, Escape para cancelar"
+  },
+  "chat": {
+    "clear": "Limpiar chat",
+    "newConversation": "Nueva conversación",
+    "notConfigured": "Configura tu proveedor de IA en Ajustes para comenzar a chatear.",
+    "welcome": "¡Pregúntame cualquier cosa sobre tu código!",
+    "modeAgent": "Agente",
+    "modePlan": "Plan",
+    "profileBuild": "Build",
+    "profilePlan": "Solo lectura",
+    "modeLabel": "Modo",
+    "contextTokens": "ctx",
+    "includeCode": "Incluir código",
+    "knowledgeBase": "Base de conocimiento",
+    "showThinking": "Ver pensamiento",
+    "hideThinking": "Ocultar pensamiento",
+    "moreOptions": "Más opciones",
+    "lessOptions": "Menos opciones",
+    "generatePlan": "Generar plan",
+    "planBoard": "Tablero de plan",
+    "executePlan": "Ejecutar plan",
+    "executingPlan": "Ejecutando plan...",
+    "clearPlan": "Limpiar plan",
+    "quickActionsHint": "Elige una acción rápida o escribe tu instrucción abajo.",
+    "toolActivity": "Actividad de herramientas",
+    "hint": "Pulsa Enter para enviar, Shift+Enter para nueva línea",
+    "generating": "Generando respuesta...",
+    "generationStopped": "Generación detenida por el usuario.",
+    "history": "Historial",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "errorTitle": "Algo falló mientras procesaba tu solicitud.",
+    "retryLast": "Reintentar última solicitud",
+    "changeApplied": "Cambio aplicado al editor.",
+    "messages": "Mensajes del chat",
+    "streaming": "Respuesta en curso",
+    "jumpToLatest": "Ir al último mensaje",
+    "latest": "Último",
+    "toolToggleDetails": "Mostrar u ocultar detalles de la herramienta",
+    "inputLabel": "Entrada",
+    "outputLabel": "Salida",
+    "errorLabel": "Error",
+    "modifyCodeWarning": "Esta acción modificará tu código",
+    "approve": "Aprobar",
+    "deny": "Denegar",
+    "youLabel": "Tú",
+    "assistantLabel": "Asistente",
+    "userMessage": "Mensaje del usuario",
+    "assistantMessage": "Mensaje del asistente",
+    "copyMessage": "Copiar mensaje",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "revertLastChange": "Revertir último cambio",
+    "revertedLastChange": "Último cambio revertido.",
+    "redidLastChange": "Último cambio revertido aplicado de nuevo.",
+    "placeholder": "Pregunta sobre tu código...",
+    "configureFirst": "Configura la IA en Ajustes primero"
   }
 }

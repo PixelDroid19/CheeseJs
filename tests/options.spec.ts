@@ -7,6 +7,11 @@ import {
 } from '@playwright/test';
 import path from 'path';
 import electronPath from 'electron';
+import {
+  ensureMonacoReady,
+  runAndGetOutput,
+  setInputCode,
+} from './helpers/monaco';
 
 let app: ElectronApplication;
 let page: Page;
@@ -22,123 +27,119 @@ test.beforeAll(async () => {
 
   page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
+
+  // Wait for Monaco to be initialized
+  await ensureMonacoReady(page);
+});
+
+test.beforeEach(async () => {
+  // Ensure AI Chat is closed
+  const closeChat = page.getByTestId('close-ai-chat');
+  if (await closeChat.isVisible()) {
+    await closeChat.click();
+    await expect(closeChat).not.toBeVisible();
+  }
 });
 
 test.afterAll(async () => {
   await app.close();
 });
 
+async function openSettings(p: Page) {
+  await p.evaluate(() => {
+    const btn = document.querySelector(
+      '[data-testid="settings-button"]'
+    ) as HTMLButtonElement | null;
+    btn?.click();
+  });
+
+  await expect(p.locator('.fixed.inset-0').first()).toBeVisible();
+}
+
 test.describe('Application Options & Behavior', () => {
   test('should toggle "Show undefined" and affect output', async () => {
     // 1. Open Settings
-    await page
-      .getByRole('button', { name: /Settings|Configuraci|Ajustes/i })
-      .click();
+    await openSettings(page);
 
-    // 2. Go to Advanced
-    await page
-      .getByRole('button', { name: /Advanced|Avanzado|Avanzadas/i })
-      .click();
+    // 2. Go to Formatting
+    await page.getByRole('button', { name: /Formatting|Formato/i }).click();
 
     // 3. Find "Show undefined" toggle
     // The label text in Spanish is "Mostrar valores indefinidos explícitamente"
-    const row = page.locator('.flex.items-center.justify-between', {
-      hasText: /Show undefined|Mostrar valores indefinidos/i,
-    });
+    const row = page
+      .locator('div.flex.items-center.justify-between', {
+        has: page.locator('span', {
+          hasText: /Show undefined|Mostrar valores indefinidos/i,
+        }),
+      })
+      .first();
     await expect(row).toBeVisible();
 
     // Click the toggle inside the row (label wrapper)
     await row.locator('label').click();
 
+    // 4. Ensure top-level results are enabled (required for undefined expression visibility)
+    await page.getByRole('button', { name: /Compilation|Compilaci/i }).click();
+    const topLevelRow = page
+      .locator('div.flex.items-center.justify-between', {
+        has: page.locator('span', {
+          hasText:
+            /Show top-level results|Mostrar resultados de nivel superior/i,
+        }),
+      })
+      .first();
+    await expect(topLevelRow).toBeVisible();
+    const topLevelToggle = topLevelRow.locator('input[type="checkbox"]');
+    if (!(await topLevelToggle.isChecked())) {
+      await topLevelRow.locator('label').click();
+    }
+
     // Close settings
     const settingsModal = page.locator('.fixed.inset-0.z-\\[100\\]');
     await settingsModal.locator('button:has(svg.lucide-x)').click();
 
-    // 4. Run code that returns undefined explicitly
-    await page.evaluate(() => {
-      // @ts-expect-error - Monaco is injected globally
-      const model = window.monaco.editor.getModels()[0];
-      model.setValue('undefined');
-    });
-
-    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await page.waitForTimeout(1000);
-
-    const output = await page.evaluate(() => {
-      // @ts-expect-error - Monaco is injected globally
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return window.monaco.editor
-        .getModels()
-        .map((m: any) => m.getValue())
-        .join('\n');
-    });
+    // 5. Run code that returns undefined explicitly
+    await setInputCode(page, 'const maybe = undefined;\nmaybe;');
+    const output = await runAndGetOutput(page, 10000);
 
     // If enabled, it should show 'undefined'
     expect(output).toContain('undefined');
   });
 
   test('should handle runtime errors gracefully', async () => {
-    await page.evaluate(() => {
-      // @ts-expect-error - Monaco is injected globally
-      const model = window.monaco.editor.getModels()[0];
-      model.setValue("throw new Error('Test Error')");
-    });
-
-    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await page.waitForTimeout(1000);
-
-    const output = await page.evaluate(() => {
-      // @ts-expect-error - Monaco is injected globally
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return window.monaco.editor
-        .getModels()
-        .map((m: any) => m.getValue())
-        .join('\n');
-    });
+    await setInputCode(page, "throw new Error('Test Error')");
+    const output = await runAndGetOutput(page, 10000);
 
     expect(output).toContain('Test Error');
   });
 
   test('should support Magic Comments', async () => {
     // 1. Ensure Magic Comments are enabled
-    await page
-      .getByRole('button', { name: /Settings|Configuraci|Ajustes/i })
-      .click();
-    await page
-      .getByRole('button', { name: /Advanced|Avanzado|Avanzadas/i })
-      .click();
+    await openSettings(page);
+    await page.getByRole('button', { name: /Compilation|Compilaci/i }).click();
 
-    const row = page.locator('.flex.items-center.justify-between', {
-      hasText: /Magic Comments|Comentarios mágicos/i,
-    });
+    const row = page
+      .locator('div.flex.items-center.justify-between', {
+        has: page.locator('span', {
+          hasText: /Magic Comments|Comentarios mágicos/i,
+        }),
+      })
+      .first();
     await expect(row).toBeVisible();
 
-    // Toggle it
-    await row.locator('label').click();
+    // Ensure it's enabled (default may already be true)
+    const toggleInput = row.locator('input[type="checkbox"]');
+    if (!(await toggleInput.isChecked())) {
+      await row.locator('label').click();
+    }
 
     // Close settings
     const settingsModal = page.locator('.fixed.inset-0.z-\\[100\\]');
     await settingsModal.locator('button:has(svg.lucide-x)').click();
 
     // 2. Run code with //?
-    await page.evaluate(() => {
-      // @ts-expect-error - Monaco is injected globally
-      const model = window.monaco.editor.getModels()[0];
-      model.setValue('const x = 10;\nx //?');
-    });
-
-    await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
-    await page.waitForTimeout(1000);
-
-    const output = await page.evaluate(() => {
-      // @ts-expect-error - Monaco is injected globally
-      // Check all models content (output might be in second model)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return window.monaco.editor
-        .getModels()
-        .map((m: any) => m.getValue())
-        .join('\n');
-    });
+    await setInputCode(page, 'const x = 10;\nx //?');
+    const output = await runAndGetOutput(page, 10000);
 
     // Expect output to contain '10' (the result of magic comment)
     expect(output).toContain('10');

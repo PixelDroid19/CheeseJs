@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Send, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -135,7 +135,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
   return (
     <AnimatePresence>
       {request && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -166,7 +166,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t('input.placeholder', 'Ingresa un valor...')}
+              placeholder={t('input.placeholder', 'Enter a value...')}
               className="flex-1 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-input border border-border text-foreground"
               autoComplete="off"
               spellCheck={false}
@@ -174,7 +174,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
             <button
               type="submit"
               className="px-3 py-2 rounded bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-              title={t('input.submit', 'Enviar')}
+              title={t('input.submit', 'Submit')}
             >
               <Send className="w-4 h-4" />
             </button>
@@ -182,7 +182,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
               type="button"
               onClick={handleCancel}
               className="px-3 py-2 rounded bg-muted text-muted-foreground hover:opacity-80 transition-opacity"
-              title={t('input.cancel', 'Cancelar')}
+              title={t('input.cancel', 'Cancel')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -190,9 +190,9 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
 
           {/* Hint */}
           <div className="text-xs mt-2 text-muted-foreground opacity-70">
-            {t('input.hint', 'Enter para enviar, Escape para cancelar')}
+            {t('input.hint', 'Press Enter to submit, Escape to cancel')}
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

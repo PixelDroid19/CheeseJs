@@ -4,26 +4,15 @@
  * Handles the lifecycle and communication with code execution workers.
  * Provides a centralized interface for managing JavaScript/TypeScript
  * and Python code execution workers.
- *
- * JS/TS: Uses CodeWorkerPool for concurrent execution
- * Python: Uses single worker (Pyodide is memory-heavy)
  */
 
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
+import type { BrowserWindow } from 'electron';
 
 import { createMainLogger } from './logger.js';
-import { CodeWorkerPool } from './CodeWorkerPool.js';
 
 const log = createMainLogger('WorkerPoolManager');
-
-// Minimal interface to avoid direct Electron dependency in type checking
-interface BrowserWindowLike {
-  isDestroyed(): boolean;
-  webContents: {
-    send(channel: string, ...args: unknown[]): void;
-  };
-}
 
 // ============================================================================
 // TYPES
@@ -32,14 +21,13 @@ interface BrowserWindowLike {
 export interface ExecutionRequest {
   id: string;
   code: string;
-  language?: string;
+  language?: 'javascript' | 'typescript' | 'python';
   options: {
     timeout?: number;
     showUndefined?: boolean;
     showTopLevelResults?: boolean;
     loopProtection?: boolean;
     magicComments?: boolean;
-    memoryLimit?: number;
   };
 }
 
@@ -69,12 +57,9 @@ interface PendingExecution {
 // ============================================================================
 
 export class WorkerPoolManager {
-  // Code execution pool (for JS/TS - supports concurrent execution)
-  private codeWorkerPool: CodeWorkerPool | null = null;
-  private codeWorkerPoolInitPromise: Promise<void> | null = null;
-
-  // Python worker (single worker - Pyodide is memory-heavy)
+  private codeWorker: Worker | null = null;
   private pythonWorker: Worker | null = null;
+  private codeWorkerReady = false;
   private pythonWorkerReady = false;
 
   private pendingExecutions = new Map<string, PendingExecution>();
@@ -83,21 +68,24 @@ export class WorkerPoolManager {
     ReturnType<typeof setTimeout>
   >();
 
+  private codeWorkerInitPromise: Promise<void> | null = null;
+  private codeWorkerInitReject: ((error: Error) => void) | null = null;
   private pythonWorkerInitPromise: Promise<void> | null = null;
   private pythonWorkerInitReject: ((error: Error) => void) | null = null;
 
   // Interrupt buffer for Python execution cancellation
   private pythonInterruptBuffer: SharedArrayBuffer | null = null;
 
+  // Input buffers for JS synchronous prompt
+  private jsInputBuffer: SharedArrayBuffer | null = null;
+  private jsInputLock: SharedArrayBuffer | null = null;
+
   // Reference to main window for IPC
-  private mainWindow: BrowserWindowLike | null = null;
+  private mainWindow: BrowserWindow | null = null;
 
   // Worker paths
   private readonly distElectronPath: string;
   private nodeModulesPath: string;
-
-  // Reinitialization guards to prevent concurrent reinitializations
-  private isReinitializingPythonWorker = false;
 
   // Configuration
   private readonly FORCE_TERMINATION_TIMEOUT = 2000;
@@ -105,44 +93,36 @@ export class WorkerPoolManager {
   constructor(distElectronPath: string, nodeModulesPath: string) {
     this.distElectronPath = distElectronPath;
     this.nodeModulesPath = nodeModulesPath;
+
+    // Initialize shared buffers for JS input
+    // 10KB for input string
+    this.jsInputBuffer = new SharedArrayBuffer(10 * 1024);
+    // 4 bytes for lock (0 = wait, 1 = ready)
+    this.jsInputLock = new SharedArrayBuffer(4);
   }
 
   // ============================================================================
   // PUBLIC API
   // ============================================================================
 
-  setMainWindow(window: BrowserWindowLike | null): void {
+  setMainWindow(window: BrowserWindow | null): void {
     this.mainWindow = window;
-    // Forward main window to code worker pool
-    this.codeWorkerPool?.setMainWindow(window);
   }
 
-  setNodeModulesPath(newPath: string): void {
-    this.nodeModulesPath = newPath;
-    // Forward to code worker pool
-    this.codeWorkerPool?.setNodeModulesPath(newPath);
-  }
-
-  /**
-   * Clear require cache for a package in all code workers
-   */
-  clearCodeCache(packageName: string): void {
-    this.codeWorkerPool?.clearCache(packageName);
+  setNodeModulesPath(path: string): void {
+    this.nodeModulesPath = path;
   }
 
   isCodeWorkerReady(): boolean {
-    return this.codeWorkerPool?.isReady() ?? false;
+    return this.codeWorkerReady;
   }
 
   isPythonWorkerReady(): boolean {
     return this.pythonWorkerReady;
   }
 
-  /**
-   * Get pool statistics for monitoring
-   */
-  getCodeWorkerPoolStats() {
-    return this.codeWorkerPool?.getStats() ?? null;
+  getCodeWorker(): Worker | null {
+    return this.codeWorker;
   }
 
   getPythonWorker(): Worker | null {
@@ -153,62 +133,171 @@ export class WorkerPoolManager {
     return this.pythonInterruptBuffer;
   }
 
+  resolveJSInput(value: string): void {
+    if (!this.jsInputBuffer || !this.jsInputLock) return;
+
+    // Reset buffer
+    const buffer = new Uint8Array(this.jsInputBuffer);
+    buffer.fill(0);
+
+    // Write string to buffer
+    const encoder = new TextEncoder();
+    const encoded = encoder.encode(value);
+
+    // Check if it fits (leave 1 byte for null terminator if needed, though we track length implicitly or zero-fill)
+    if (encoded.length > buffer.length) {
+      // Truncate if too long
+      buffer.set(encoded.slice(0, buffer.length));
+    } else {
+      buffer.set(encoded);
+    }
+
+    // Set lock to 1 (ready)
+    const lock = new Int32Array(this.jsInputLock);
+    Atomics.store(lock, 0, 1);
+
+    // Notify worker
+    Atomics.notify(lock, 0);
+  }
+
   // ============================================================================
-  // CODE WORKER POOL MANAGEMENT
+  // CODE WORKER MANAGEMENT
   // ============================================================================
 
   async initializeCodeWorker(): Promise<void> {
-    if (this.codeWorkerPoolInitPromise) {
-      return this.codeWorkerPoolInitPromise;
+    if (this.codeWorkerInitPromise) {
+      return this.codeWorkerInitPromise;
     }
 
-    if (this.codeWorkerPool?.isReady()) {
-      return;
-    }
+    this.codeWorkerInitPromise = new Promise((resolve, reject) => {
+      this.codeWorkerInitReject = reject;
+      const workerPath = path.join(this.distElectronPath, 'codeExecutor.js');
 
-    this.codeWorkerPoolInitPromise = (async () => {
-      try {
-        log.debug('[WorkerPool] Initializing code worker pool');
+      this.codeWorker = new Worker(workerPath, {
+        workerData: {
+          nodeModulesPath: this.nodeModulesPath,
+          jsInputBuffer: this.jsInputBuffer,
+          jsInputLock: this.jsInputLock,
+        },
+      });
 
-        this.codeWorkerPool = new CodeWorkerPool(
-          this.distElectronPath,
-          this.nodeModulesPath,
-          {
-            minWorkers: 1,
-            maxWorkers: 4, // Reasonable concurrency limit
-            idleTimeoutMs: 30000,
-            taskTimeoutMs: 30000,
+      this.codeWorker.on(
+        'message',
+        (
+          message:
+            | WorkerResult
+            | { type: 'prompt-request' | 'alert-request'; message: string }
+        ) => {
+          log.debug('[WorkerPool] Received message from code worker:', message);
+          if (message.type === 'ready') {
+            log.debug('[WorkerPool] Code executor worker ready');
+            this.codeWorkerReady = true;
+            resolve();
+            this.codeWorkerInitPromise = null;
+            this.codeWorkerInitReject = null;
+            return;
           }
-        );
 
-        // Set main window if already available
-        if (this.mainWindow) {
-          this.codeWorkerPool.setMainWindow(this.mainWindow);
+          // Handle prompt/alert requests (JS synchronous input)
+          if (
+            message.type === 'prompt-request' ||
+            message.type === 'alert-request'
+          ) {
+            this.sendToRenderer('js-input-request', message);
+            return;
+          }
+
+          // Forward all messages to renderer
+          this.sendToRenderer('code-execution-result', message);
+
+          // Handle completion
+          if (message.type === 'complete' || message.type === 'error') {
+            this.clearPendingCancellation(message.id);
+            this.resolveExecution(message);
+          }
+        }
+      );
+
+      this.codeWorker.on('error', (error: unknown) => {
+        const err = error instanceof Error ? error : new Error(String(error));
+        log.error('[WorkerPool] Code worker error:', err);
+        this.codeWorkerReady = false;
+        this.rejectAllPending(err);
+
+        if (this.codeWorkerInitReject) {
+          this.codeWorkerInitReject(err);
+        }
+        this.codeWorkerInitPromise = null;
+        this.codeWorkerInitReject = null;
+      });
+
+      this.codeWorker.on('exit', (code) => {
+        log.debug(`[WorkerPool] Code worker exited with code ${code}`);
+        this.codeWorker = null;
+        this.codeWorkerReady = false;
+
+        const wasInitializing = !!this.codeWorkerInitPromise;
+        if (wasInitializing && this.codeWorkerInitReject) {
+          this.codeWorkerInitReject(
+            new Error(`Code worker exited with code ${code}`)
+          );
+          this.codeWorkerInitPromise = null;
+          this.codeWorkerInitReject = null;
+          return;
         }
 
-        await this.codeWorkerPool.initialize();
-        log.debug('[WorkerPool] Code worker pool ready');
-      } finally {
-        this.codeWorkerPoolInitPromise = null;
-      }
-    })();
+        // Reinitialize worker if it crashed after being ready
+        if (code !== 0) {
+          setTimeout(() => this.initializeCodeWorker(), 1000);
+        }
+      });
+    });
 
-    return this.codeWorkerPoolInitPromise;
+    return this.codeWorkerInitPromise;
   }
 
   async executeCode(
     request: ExecutionRequest,
     transformedCode: string
   ): Promise<unknown> {
-    if (!this.codeWorkerPool?.isReady()) {
+    if (!this.codeWorker || !this.codeWorkerReady) {
       await this.initializeCodeWorker();
     }
 
-    if (!this.codeWorkerPool) {
-      throw new Error('Code worker pool not initialized');
-    }
+    const { id, options } = request;
 
-    return this.codeWorkerPool.executeCode(request, transformedCode);
+    return new Promise((resolve, reject) => {
+      if (!this.codeWorker) {
+        reject(new Error('Code worker not initialized'));
+        return;
+      }
+
+      this.pendingExecutions.set(id, { resolve, reject });
+
+      this.codeWorker.postMessage({
+        type: 'execute',
+        id,
+        code: transformedCode,
+        options: {
+          timeout: options.timeout ?? 30000,
+          showUndefined: options.showUndefined ?? false,
+        },
+      });
+
+      // Safety timeout
+      const timeout = options.timeout ?? 30000;
+      setTimeout(() => {
+        if (this.pendingExecutions.has(id)) {
+          this.pendingExecutions.delete(id);
+          this.sendToRenderer('code-execution-result', {
+            type: 'error',
+            id,
+            data: { name: 'TimeoutError', message: 'Execution timeout' },
+          });
+          reject(new Error('Execution timeout'));
+        }
+      }, timeout + 5000);
+    });
   }
 
   // ============================================================================
@@ -269,13 +358,14 @@ export class WorkerPoolManager {
         }
       });
 
-      this.pythonWorker.on('error', (error: Error) => {
-        log.error('[WorkerPool] Python worker error:', error);
+      this.pythonWorker.on('error', (error: unknown) => {
+        const err = error instanceof Error ? error : new Error(String(error));
+        log.error('[WorkerPool] Python worker error:', err);
         this.pythonWorkerReady = false;
-        this.rejectAllPending(error);
+        this.rejectAllPending(err);
 
         if (this.pythonWorkerInitReject) {
-          this.pythonWorkerInitReject(error);
+          this.pythonWorkerInitReject(err);
         }
         this.pythonWorkerInitPromise = null;
         this.pythonWorkerInitReject = null;
@@ -296,16 +386,8 @@ export class WorkerPoolManager {
           return;
         }
 
-        // Prevent concurrent reinitializations
-        if (code !== 0 && !this.isReinitializingPythonWorker) {
-          this.isReinitializingPythonWorker = true;
-          setTimeout(async () => {
-            try {
-              await this.initializePythonWorker();
-            } finally {
-              this.isReinitializingPythonWorker = false;
-            }
-          }, 1000);
+        if (code !== 0) {
+          setTimeout(() => this.initializePythonWorker(), 1000);
         }
       });
     });
@@ -339,12 +421,10 @@ export class WorkerPoolManager {
       });
 
       // Safety timeout (longer for Python due to Pyodide loading)
-      // Store the timeout so we can clean it up when execution completes
       const timeout = options.timeout ?? 30000;
-      const safetyTimeout = setTimeout(() => {
+      setTimeout(() => {
         if (this.pendingExecutions.has(id)) {
           this.pendingExecutions.delete(id);
-          this.pendingCancellations.delete(`timeout-${id}`);
           this.sendToRenderer('code-execution-result', {
             type: 'error',
             id,
@@ -353,9 +433,6 @@ export class WorkerPoolManager {
           reject(new Error('Execution timeout'));
         }
       }, timeout + 10000);
-
-      // Store timeout for cleanup when execution completes
-      this.pendingCancellations.set(`timeout-${id}`, safetyTimeout);
     });
   }
 
@@ -364,12 +441,17 @@ export class WorkerPoolManager {
   // ============================================================================
 
   cancelExecution(id: string): void {
-    // Cancel in code worker pool
-    if (this.codeWorkerPool) {
-      this.codeWorkerPool.cancelExecution(id);
+    // Try cooperative cancellation first
+    if (this.codeWorker) {
+      this.codeWorker.postMessage({ type: 'cancel', id });
+
+      const forceTimeout = setTimeout(() => {
+        this.forceTerminateCodeWorker(id);
+      }, this.FORCE_TERMINATION_TIMEOUT);
+
+      this.pendingCancellations.set(`js-${id}`, forceTimeout);
     }
 
-    // Cancel in Python worker
     if (this.pythonWorker) {
       // Signal interrupt via SharedArrayBuffer first (SIGINT = 2)
       if (this.pythonInterruptBuffer) {
@@ -398,9 +480,9 @@ export class WorkerPoolManager {
   // ============================================================================
 
   async terminate(): Promise<void> {
-    if (this.codeWorkerPool) {
-      await this.codeWorkerPool.terminate();
-      this.codeWorkerPool = null;
+    if (this.codeWorker) {
+      await this.codeWorker.terminate();
+      this.codeWorker = null;
     }
     if (this.pythonWorker) {
       await this.pythonWorker.terminate();
@@ -416,7 +498,12 @@ export class WorkerPoolManager {
 
   private sendToRenderer(channel: string, data: unknown): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      log.debug(`[WorkerPool] Sending to renderer channel=${channel}`, data);
       this.mainWindow.webContents.send(channel, data);
+    } else {
+      log.warn(
+        `[WorkerPool] Cannot send to renderer (window destroyed or null)`
+      );
     }
   }
 
@@ -442,24 +529,46 @@ export class WorkerPoolManager {
   }
 
   private clearPendingCancellation(id: string): void {
-    // Clear Python force termination timeout
+    const jsKey = `js-${id}`;
     const pyKey = `py-${id}`;
+
+    const jsTimeout = this.pendingCancellations.get(jsKey);
+    if (jsTimeout) {
+      clearTimeout(jsTimeout);
+      this.pendingCancellations.delete(jsKey);
+    }
+
     const pyTimeout = this.pendingCancellations.get(pyKey);
     if (pyTimeout) {
       clearTimeout(pyTimeout);
       this.pendingCancellations.delete(pyKey);
     }
-
-    // Clear execution safety timeout (prevents memory leak)
-    const timeoutKey = `timeout-${id}`;
-    const execTimeout = this.pendingCancellations.get(timeoutKey);
-    if (execTimeout) {
-      clearTimeout(execTimeout);
-      this.pendingCancellations.delete(timeoutKey);
-    }
   }
 
-  // Note: forceTerminateCodeWorker is no longer needed as the pool handles this internally
+  private async forceTerminateCodeWorker(id: string): Promise<void> {
+    log.debug(`[WorkerPool] Force terminating code worker for execution ${id}`);
+
+    if (this.codeWorker) {
+      try {
+        await this.codeWorker.terminate();
+      } catch (e) {
+        log.error('[WorkerPool] Error during code worker termination:', e);
+      }
+      this.codeWorker = null;
+      this.codeWorkerReady = false;
+    }
+
+    this.pendingCancellations.delete(`js-${id}`);
+
+    this.sendToRenderer('code-execution-result', {
+      type: 'error',
+      id,
+      data: { name: 'CancelError', message: 'Execution forcibly terminated' },
+    });
+
+    log.debug('[WorkerPool] Recreating code worker after forced termination');
+    await this.initializeCodeWorker();
+  }
 
   private async forceTerminatePythonWorker(id: string): Promise<void> {
     log.debug(

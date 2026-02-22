@@ -1,5 +1,4 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
 
 export interface Theme {
   name: string;
@@ -13,7 +12,16 @@ export interface Theme {
   }>;
 }
 
-interface SettingsState {
+export interface SettingsState {
+  consoleFilters: {
+    log: boolean;
+    info: boolean;
+    warn: boolean;
+    error: boolean;
+  };
+  showTestPanel: boolean;
+  showConsole: boolean;
+  splitDirection: 'horizontal' | 'vertical';
   language: string;
   themeName: string;
   fontSize: number;
@@ -29,24 +37,12 @@ interface SettingsState {
   autoRunAfterInstall: boolean;
   autoInstallPackages: boolean;
   uiFontSize: number;
-  captureTheme: string;
-  captureIncludeOutput: boolean;
-  showTestPanel: boolean;
-  showConsole: boolean;
-  consoleFilters: {
-    log: boolean;
-    warn: boolean;
-    error: boolean;
-    info: boolean;
-  };
-  splitDirection: 'horizontal' | 'vertical';
+  fontLigatures: boolean;
+  workingDirectory: string;
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
   setFontSize: (size: number) => void;
-
   setUiFontSize: (size: number) => void;
-  setCaptureTheme: (theme: string) => void;
-  setCaptureIncludeOutput: (include: boolean) => void;
   setIsSettingsOpen: (isOpen: boolean) => void;
   toggleSettings: () => void;
   setShowTopLevelResults: (show: boolean) => void;
@@ -59,112 +55,108 @@ interface SettingsState {
   setNpmRcContent: (content: string) => void;
   setMagicComments: (enabled: boolean) => void;
   setExecutionEnvironment: (env: 'node' | 'browser') => void;
+  setFontLigatures: (enabled: boolean) => void;
+  setWorkingDirectory: (dir: string) => void;
   setAutoRunAfterInstall: (autoRun: boolean) => void;
   setAutoInstallPackages: (autoInstall: boolean) => void;
-  setShowTestPanel: (show: boolean) => void;
-  toggleTestPanel: () => void;
-  setShowConsole: (show: boolean) => void;
-  toggleConsole: () => void;
   setConsoleFilters: (
-    filters: Partial<SettingsState['consoleFilters']>
+    filters: Partial<{
+      log: boolean;
+      info: boolean;
+      warn: boolean;
+      error: boolean;
+    }>
   ) => void;
-  setSplitDirection: (direction: 'horizontal' | 'vertical') => void;
+  toggleTestPanel: () => void;
+  toggleConsole: () => void;
   toggleSplitDirection: () => void;
 }
 
-export const useSettingsStore = create<SettingsState>()(
-  persist(
-    (set) => ({
-      language: 'en',
-      themeName: 'onedark',
-      fontSize: 19,
-      isSettingsOpen: false,
-      showTopLevelResults: true,
-      alignResults: false,
-      showUndefined: false,
-      loopProtection: true,
-      internalLogLevel: 'none',
-      npmRcContent: 'registry=https://registry.npmjs.org/\nstrict-ssl=true',
-      magicComments: true,
-      executionEnvironment: 'node',
-      autoRunAfterInstall: true,
-      autoInstallPackages: true, // Default to auto-install
-      uiFontSize: 14,
-      captureTheme: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      captureIncludeOutput: true,
-      showTestPanel: false,
-      showConsole: false,
-      consoleFilters: {
-        log: true,
-        warn: true,
-        error: true,
-        info: true,
-      },
-      splitDirection: 'horizontal',
-      setLanguage: (language) => set({ language }),
-      setThemeName: (themeName) => set({ themeName }),
-      setFontSize: (fontSize) => set({ fontSize }),
-      setUiFontSize: (uiFontSize) => set({ uiFontSize }),
-      setCaptureTheme: (captureTheme) => set({ captureTheme }),
-      setCaptureIncludeOutput: (captureIncludeOutput) =>
-        set({ captureIncludeOutput }),
-      setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
-      toggleSettings: () =>
-        set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
-      setShowTopLevelResults: (showTopLevelResults) =>
-        set({ showTopLevelResults }),
-      setAlignResults: (alignResults) => set({ alignResults }),
-      setShowUndefined: (showUndefined) => set({ showUndefined }),
-      setLoopProtection: (loopProtection) => set({ loopProtection }),
-      setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
-      setNpmRcContent: (npmRcContent) => set({ npmRcContent }),
-      setMagicComments: (magicComments) => set({ magicComments }),
-      setExecutionEnvironment: (executionEnvironment) =>
-        set({ executionEnvironment }),
-      setAutoRunAfterInstall: (autoRunAfterInstall) =>
-        set({ autoRunAfterInstall }),
-      setAutoInstallPackages: (autoInstallPackages) =>
-        set({ autoInstallPackages }),
-      setShowTestPanel: (showTestPanel) => set({ showTestPanel }),
-      toggleTestPanel: () =>
-        set((state) => ({ showTestPanel: !state.showTestPanel })),
-      setShowConsole: (showConsole) => set({ showConsole }),
-      toggleConsole: () =>
-        set((state) => ({ showConsole: !state.showConsole })),
-      setConsoleFilters: (filters) =>
-        set((state) => ({
-          consoleFilters: { ...state.consoleFilters, ...filters },
-        })),
-      setSplitDirection: (splitDirection) => set({ splitDirection }),
-      toggleSplitDirection: () =>
-        set((state) => ({
-          splitDirection:
-            state.splitDirection === 'horizontal' ? 'vertical' : 'horizontal',
-        })),
-    }),
-    {
-      name: 'settings-storage',
-      partialize: (state) => ({
-        language: state.language,
-        themeName: state.themeName,
-        fontSize: state.fontSize,
-        showTopLevelResults: state.showTopLevelResults,
-        alignResults: state.alignResults,
-        showUndefined: state.showUndefined,
-        loopProtection: state.loopProtection,
-        internalLogLevel: state.internalLogLevel,
-        npmRcContent: state.npmRcContent,
-        magicComments: state.magicComments,
-        uiFontSize: state.uiFontSize,
-        executionEnvironment: state.executionEnvironment,
-        autoRunAfterInstall: state.autoRunAfterInstall,
-        autoInstallPackages: state.autoInstallPackages,
-        captureTheme: state.captureTheme,
-        captureIncludeOutput: state.captureIncludeOutput,
-        showConsole: state.showConsole,
-        consoleFilters: state.consoleFilters,
-        splitDirection: state.splitDirection,
-      }),
-    }
-  )
-);
+export const createSettingsSlice: import('zustand').StateCreator<SettingsState> = (set) => ({
+  consoleFilters: {
+    log: true,
+    info: true,
+    warn: true,
+    error: true,
+  },
+  showTestPanel: false,
+  showConsole: false,
+  splitDirection: 'horizontal',
+  language: 'en',
+  themeName: 'onedark',
+  fontSize: 19,
+  isSettingsOpen: false,
+  showTopLevelResults: true,
+  alignResults: false,
+  showUndefined: false,
+  loopProtection: true,
+  internalLogLevel: 'none',
+  npmRcContent: 'registry=https://registry.npmjs.org/\nstrict-ssl=true',
+  magicComments: true,
+  executionEnvironment: 'node',
+  autoRunAfterInstall: true,
+  autoInstallPackages: true, // Default to auto-install
+  uiFontSize: 14,
+  fontLigatures: true,
+  workingDirectory: '',
+  setLanguage: (language) => set({ language }),
+  setThemeName: (themeName) => set({ themeName }),
+  setFontSize: (fontSize) => set({ fontSize }),
+  setUiFontSize: (uiFontSize) => set({ uiFontSize }),
+  setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
+  toggleSettings: () =>
+    set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
+  setShowTopLevelResults: (showTopLevelResults) =>
+    set({ showTopLevelResults }),
+  setAlignResults: (alignResults) => set({ alignResults }),
+  setShowUndefined: (showUndefined) => set({ showUndefined }),
+  setLoopProtection: (loopProtection) => set({ loopProtection }),
+  setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
+  setNpmRcContent: (npmRcContent) => set({ npmRcContent }),
+  setMagicComments: (magicComments) => set({ magicComments }),
+  setExecutionEnvironment: (executionEnvironment) =>
+    set({ executionEnvironment }),
+  setFontLigatures: (fontLigatures: boolean) => set({ fontLigatures }),
+  setWorkingDirectory: (workingDirectory: string) => set({ workingDirectory }),
+  setAutoRunAfterInstall: (autoRunAfterInstall) =>
+    set({ autoRunAfterInstall }),
+  setAutoInstallPackages: (autoInstallPackages) =>
+    set({ autoInstallPackages }),
+  setConsoleFilters: (filters) =>
+    set((state) => ({
+      consoleFilters: { ...state.consoleFilters, ...filters },
+    })),
+  toggleTestPanel: () =>
+    set((state) => ({ showTestPanel: !state.showTestPanel })),
+  toggleConsole: () =>
+    set((state) => ({ showConsole: !state.showConsole })),
+  toggleSplitDirection: () =>
+    set((state) => ({
+      splitDirection:
+        state.splitDirection === 'horizontal' ? 'vertical' : 'horizontal',
+    })),
+});
+
+export const partializeSettings = (state: SettingsState) => ({
+  language: state.language,
+  themeName: state.themeName,
+  fontSize: state.fontSize,
+  showTopLevelResults: state.showTopLevelResults,
+  alignResults: state.alignResults,
+  showUndefined: state.showUndefined,
+  loopProtection: state.loopProtection,
+  internalLogLevel: state.internalLogLevel,
+  npmRcContent: state.npmRcContent,
+  magicComments: state.magicComments,
+  uiFontSize: state.uiFontSize,
+  fontLigatures: state.fontLigatures,
+  workingDirectory: state.workingDirectory,
+  executionEnvironment: state.executionEnvironment,
+  autoRunAfterInstall: state.autoRunAfterInstall,
+  autoInstallPackages: state.autoInstallPackages,
+  consoleFilters: state.consoleFilters,
+  showTestPanel: state.showTestPanel,
+  showConsole: state.showConsole,
+  splitDirection: state.splitDirection,
+});
+

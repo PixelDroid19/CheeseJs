@@ -40,6 +40,31 @@ export function findMatchingParen(code: string, startIndex: number): number {
 
   while (i < code.length && depth > 0) {
     const char = code[i];
+
+    // Check for comments first
+    if (char === '/') {
+      const nextChar = code[i + 1];
+      if (nextChar === '/') {
+        // Single line comment: skip until newline or end of string
+        i += 2;
+        while (i < code.length && code[i] !== '\n') {
+          i++;
+        }
+        continue;
+      } else if (nextChar === '*') {
+        // Block comment: skip until */
+        i += 2;
+        while (i < code.length - 1) {
+          if (code[i] === '*' && code[i + 1] === '/') {
+            i += 2;
+            break;
+          }
+          i++;
+        }
+        continue;
+      }
+    }
+
     if (char === '(') depth++;
     else if (char === ')') depth--;
 
@@ -63,13 +88,10 @@ export function findMatchingParen(code: string, startIndex: number): number {
 // ============================================================================
 
 /**
- * Transform console.log/warn/error/info/debug to debug() calls
+ * Transform
  * Uses a parser-based approach to handle nested parentheses
  */
-export function transformConsoleTodebug(
-  code: string,
-  debugFn: string = 'debug'
-): string {
+export function transformConsoleTodebug(code: string): string {
   const lines = code.split('\n');
   const result: string[] = [];
 
@@ -95,10 +117,15 @@ export function transformConsoleTodebug(
         const after = line.slice(closeParenPos + 1);
 
         let replacement;
-        if (args === '') {
-          replacement = `${debugFn}(${lineNumber})`;
+        // Check if args is effectively empty (only comments/whitespace)
+        const strippedArgs = args
+          .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+          .trim();
+
+        if (strippedArgs === '') {
+          replacement = `debug(${lineNumber})`;
         } else {
-          replacement = `${debugFn}(${lineNumber}, ${args})`;
+          replacement = `debug(${lineNumber}, ${args})`;
         }
 
         line = before + replacement + after;
@@ -162,9 +189,9 @@ if (${counterVar} % ${cancellationCheckInterval} === 0 && typeof __checkCancella
 // ============================================================================
 
 /**
- * Base patterns that should be skipped when wrapping top-level expressions
+ * Patterns that should be skipped when wrapping top-level expressions
  */
-const BASE_SKIP_PATTERNS = [
+const SKIP_PATTERNS = [
   'import ',
   'export ',
   'const ',
@@ -204,30 +231,26 @@ const BASE_SKIP_PATTERNS = [
   '[',
   '(',
   ')',
+  'debug(',
+  'await debug(',
   'yield ',
   '.',
   '//',
   '/*',
   '*',
-  'using ',
-  'await using ',
 ];
 
 /**
  * Check if a line should be skipped based on skip patterns
  */
-function shouldSkipLine(trimmed: string, debugFn: string = 'debug'): boolean {
+function shouldSkipLine(trimmed: string): boolean {
   // Skip empty lines
   if (!trimmed) return true;
 
-  // Check base skip patterns
-  for (const pattern of BASE_SKIP_PATTERNS) {
+  // Check skip patterns
+  for (const pattern of SKIP_PATTERNS) {
     if (trimmed.startsWith(pattern)) return true;
   }
-
-  // Check dynamic debug function patterns
-  if (trimmed.startsWith(`${debugFn}(`)) return true;
-  if (trimmed.startsWith(`await ${debugFn}(`)) return true;
 
   // Skip closing brackets with just semicolons
   if (/^[\])}]+;?$/.test(trimmed)) return true;
@@ -239,22 +262,110 @@ function shouldSkipLine(trimmed: string, debugFn: string = 'debug'): boolean {
 }
 
 /**
+ * Count brace depth change in a line (considering strings and template literals)
+ * Returns the net change in depth for the line
+ */
+function countBraceDepthChange(
+  line: string,
+  currentInsideTemplateLiteral: boolean
+): { depthChange: number; insideTemplateLiteral: boolean } {
+  let depthChange = 0;
+  let insideTemplateLiteral = currentInsideTemplateLiteral;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+
+    // Skip escaped characters
+    if (char === '\\' && i + 1 < line.length) {
+      i += 2;
+      continue;
+    }
+
+    // Handle template literals
+    if (char === '`') {
+      insideTemplateLiteral = !insideTemplateLiteral;
+      i++;
+      continue;
+    }
+
+    // Skip content inside template literals
+    if (insideTemplateLiteral) {
+      i++;
+      continue;
+    }
+
+    // Skip regular strings
+    if (char === '"' || char === "'") {
+      const quote = char;
+      i++;
+      while (i < line.length) {
+        if (line[i] === '\\' && i + 1 < line.length) {
+          i += 2;
+          continue;
+        }
+        if (line[i] === quote) {
+          break;
+        }
+        i++;
+      }
+      i++;
+      continue;
+    }
+
+    // Count braces
+    if (char === '{') {
+      depthChange++;
+    } else if (char === '}') {
+      depthChange--;
+    }
+
+    i++;
+  }
+
+  return { depthChange, insideTemplateLiteral };
+}
+
+/**
  * Wrap top-level expressions in debug calls
  */
-export function wrapTopLevelExpressions(
-  code: string,
-  debugFn: string = 'debug'
-): string {
+export function wrapTopLevelExpressions(code: string): string {
   const lines = code.split('\n');
   const result: string[] = [];
+  let insideTemplateLiteral = false;
+  let braceDepth = 0; // Track nesting level
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
     const lineNumber = i + 1;
 
+    // Track if we're inside a multi-line template literal
+    const wasInsideTemplateLiteral = insideTemplateLiteral;
+
+    // Calculate brace depth change for this line
+    const { depthChange, insideTemplateLiteral: newInsideTemplateLiteral } =
+      countBraceDepthChange(line, insideTemplateLiteral);
+    insideTemplateLiteral = newInsideTemplateLiteral;
+
+    // Update brace depth BEFORE processing (to handle lines that open a block)
+    const depthAtLineStart = braceDepth;
+    braceDepth += depthChange;
+
+    // Skip if we were inside a template literal at the start of this line
+    if (wasInsideTemplateLiteral) {
+      result.push(line);
+      continue;
+    }
+
+    // Skip if not at top level (inside a function, class, etc.)
+    if (depthAtLineStart > 0) {
+      result.push(line);
+      continue;
+    }
+
     // Skip lines based on patterns
-    if (shouldSkipLine(trimmed, debugFn)) {
+    if (shouldSkipLine(trimmed)) {
       result.push(line);
       continue;
     }
@@ -275,6 +386,18 @@ export function wrapTopLevelExpressions(
       continue;
     }
 
+    // Skip if this line starts a template literal that continues to the next line
+    if (insideTemplateLiteral) {
+      result.push(line);
+      continue;
+    }
+
+    // Skip if this line changes depth (opens or closes a block)
+    if (depthChange !== 0) {
+      result.push(line);
+      continue;
+    }
+
     // Wrap simple expressions that end with semicolon on a single line
     if (
       trimmed.endsWith(';') &&
@@ -283,7 +406,7 @@ export function wrapTopLevelExpressions(
     ) {
       const expr = trimmed.slice(0, -1);
       const indent = line.match(/^\s*/)?.[0] || '';
-      result.push(`${indent}${debugFn}(${lineNumber}, ${expr});`);
+      result.push(`${indent}debug(${lineNumber}, ${expr});`);
     } else {
       result.push(line);
     }
@@ -300,10 +423,7 @@ export function wrapTopLevelExpressions(
  * Apply magic comments (//?  or //?) to inject debug calls
  * This must run BEFORE TypeScript transpilation since TS removes comments
  */
-export function applyMagicComments(
-  code: string,
-  debugFn: string = 'debug'
-): string {
+export function applyMagicComments(code: string): string {
   const lines = code.split('\n');
   const result: string[] = [];
 
@@ -326,13 +446,13 @@ export function applyMagicComments(
         const [, keyword, varName, value] = varMatch;
         // Output: const x = value; debug(line, x);
         result.push(`${keyword} ${varName} = ${value};`);
-        result.push(`${debugFn}(${lineNumber}, ${varName});`);
+        result.push(`debug(${lineNumber}, ${varName});`);
       } else {
         // For expressions: expr //? -> debug(line, expr)
         const exprMatch = codePart.match(/^(.+?);?\s*$/);
         if (exprMatch) {
           const expr = exprMatch[1];
-          result.push(`${debugFn}(${lineNumber}, ${expr});`);
+          result.push(`debug(${lineNumber}, ${expr});`);
         } else {
           result.push(line);
         }
@@ -357,10 +477,9 @@ export function applyCodeTransforms(
   options: TransformOptions = {}
 ): string {
   let transformed = code;
-  const debugFn = options.debugFunctionName || 'debug';
 
   // Transform console calls to debug
-  transformed = transformConsoleTodebug(transformed, debugFn);
+  transformed = transformConsoleTodebug(transformed);
 
   // Apply loop protection if enabled
   if (options.loopProtection) {
@@ -369,21 +488,8 @@ export function applyCodeTransforms(
 
   // Apply expression wrapping if enabled
   if (options.showTopLevelResults !== false) {
-    transformed = wrapTopLevelExpressions(transformed, debugFn);
+    transformed = wrapTopLevelExpressions(transformed);
   }
 
   return transformed;
-}
-
-/**
- * Apply magic comments before transpilation
- * Exported separately since it needs to run BEFORE transpilation
- */
-export function applyMagicCommentsTransform(
-  code: string,
-  options: TransformOptions = {}
-): string {
-  if (!options.magicComments) return code;
-  const debugFn = options.debugFunctionName || 'debug';
-  return applyMagicComments(code, debugFn);
 }

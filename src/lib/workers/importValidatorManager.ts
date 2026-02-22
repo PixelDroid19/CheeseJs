@@ -206,7 +206,7 @@ class ImportValidatorManager {
         const packagePath = match[group];
 
         // Extract package name
-        let packageName = packagePath;
+        let packageName: string;
         if (packagePath.startsWith('.') || packagePath.startsWith('/')) {
           continue; // Skip relative imports
         }

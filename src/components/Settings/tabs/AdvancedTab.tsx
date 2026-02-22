@@ -1,9 +1,8 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { HelpCircle } from 'lucide-react';
-import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useSettingsStore } from '../../../store/storeHooks';
 import clsx from 'clsx';
-import { Toggle } from '../ui/Toggle';
 import { Tooltip } from '../ui/Tooltip';
 import { Select } from '../ui/Select';
 
@@ -46,94 +45,29 @@ const AdvancedRow = ({
 
 export function AdvancedTab() {
   const { t } = useTranslation();
-  const {
-    showTopLevelResults,
-    setShowTopLevelResults,
-    alignResults,
-    setAlignResults,
-    showUndefined,
-    setShowUndefined,
-    loopProtection,
-    setLoopProtection,
-    internalLogLevel,
-    setInternalLogLevel,
-    magicComments,
-    setMagicComments,
-    autoRunAfterInstall,
-    setAutoRunAfterInstall,
-    autoInstallPackages,
-    setAutoInstallPackages,
-  } = useSettingsStore();
+  const { internalLogLevel, setInternalLogLevel } = useSettingsStore();
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
       className="space-y-8"
     >
-      {/* Sección: Entorno de ejecución */}
+      {/* Section: Execution environment */}
       <div>
         <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
-          {t('settings.advanced.environment')}
+          {t('settings.advanced.logsConfig')}
         </h4>
 
         <div className="space-y-6">
-          <AdvancedRow
-            label={t('settings.advanced.loopProtection')}
-            helpContent={t('settings.advanced.loopProtectionTooltip')}
-          >
-            <Toggle checked={loopProtection} onChange={setLoopProtection} />
-          </AdvancedRow>
-
-          <AdvancedRow
-            label={t('settings.advanced.magicComments')}
-            helpContent={t('settings.advanced.magicCommentsTooltip')}
-          >
-            <Toggle checked={magicComments} onChange={setMagicComments} />
-          </AdvancedRow>
-        </div>
-      </div>
-
-      {/* Sección: Resultados */}
-      <div>
-        <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
-          {t('settings.advanced.results')}
-        </h4>
-
-        <div className="space-y-6">
-          <AdvancedRow
-            label={t('settings.advanced.showTopLevelResults')}
-            helpContent={t('settings.advanced.showTopLevelResultsTooltip')}
-          >
-            <Toggle
-              checked={showTopLevelResults}
-              onChange={setShowTopLevelResults}
-            />
-          </AdvancedRow>
-
-          <AdvancedRow
-            label={t('settings.advanced.alignResults')}
-            helpContent={t('settings.advanced.alignResultsTooltip')}
-          >
-            <Toggle checked={alignResults} onChange={setAlignResults} />
-          </AdvancedRow>
-
-          <AdvancedRow
-            label={t('settings.advanced.showUndefined')}
-            helpContent={t('settings.advanced.showUndefinedTooltip')}
-          >
-            <Toggle checked={showUndefined} onChange={setShowUndefined} />
-          </AdvancedRow>
-
           <AdvancedRow
             label={t('settings.advanced.internalLogLevel')}
             helpContent={t('settings.advanced.internalLogLevelTooltip')}
           >
             <Select
               value={internalLogLevel}
-              onChange={(e) =>
-                setInternalLogLevel(e.target.value as 'none' | 'info' | 'debug')
-              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onChange={(e) => setInternalLogLevel(e.target.value as any)}
               className="w-32"
             >
               <option value="none">None</option>
@@ -143,35 +77,6 @@ export function AdvancedTab() {
           </AdvancedRow>
         </div>
       </div>
-
-      {/* Sección: Paquetes NPM */}
-      <div>
-        <h4 className="text-sm font-semibold mb-6 text-muted-foreground">
-          {t('settings.categories.npm')}
-        </h4>
-
-        <div className="space-y-6">
-          <AdvancedRow
-            label={t('settings.advanced.autoInstallPackages')}
-            helpContent={t('settings.advanced.autoInstallPackagesTooltip')}
-          >
-            <Toggle
-              checked={autoInstallPackages}
-              onChange={setAutoInstallPackages}
-            />
-          </AdvancedRow>
-
-          <AdvancedRow
-            label={t('settings.advanced.autoRunAfterInstall')}
-            helpContent={t('settings.advanced.autoRunAfterInstallTooltip')}
-          >
-            <Toggle
-              checked={autoRunAfterInstall}
-              onChange={setAutoRunAfterInstall}
-            />
-          </AdvancedRow>
-        </div>
-      </div>
-    </motion.div>
+    </m.div>
   );
 }

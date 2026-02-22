@@ -1,8 +1,6 @@
 import { ipcMain } from 'electron';
 import type { WorkerPoolManager, ExecutionRequest } from '../WorkerPoolManager';
-import type { TransformOptions } from '../../transpiler/tsTranspiler';
-import { wasmLanguageRegistry } from '../../wasm-languages/WasmLanguageRegistry.js';
-import type { RegisteredWasmLanguage } from '../../wasm-languages/WasmLanguageRegistry.js';
+import type { TransformOptions } from '../../transpiler/codeTransforms';
 
 export interface ExecutionHandlersConfig {
   workerPool: WorkerPoolManager;
@@ -20,19 +18,17 @@ export function registerExecutionHandlers({
   ipcMain.handle(
     'execute-code',
     async (_event: unknown, request: ExecutionRequest) => {
+      console.log(
+        '[Main] execute-code handler called:',
+        request.id,
+        request.language
+      );
       try {
         const language = request.language || 'javascript';
 
         let result: unknown;
         if (language === 'python') {
           result = await workerPool.executePython(request);
-        } else if (wasmLanguageRegistry.hasLanguage(language)) {
-          result = await wasmLanguageRegistry.execute(language, request.code, {
-            timeout: request.options.timeout,
-            memoryLimit: request.options.memoryLimit,
-            captureStdout: true,
-            captureStderr: true,
-          });
         } else {
           // Transform code before execution
           const transformOptions: TransformOptions = {
@@ -72,40 +68,8 @@ export function registerExecutionHandlers({
     async (_event: unknown, language: string) => {
       if (language === 'python') {
         return { ready: workerPool.isPythonWorkerReady() };
-      } else if (wasmLanguageRegistry.hasLanguage(language)) {
-        const lang = wasmLanguageRegistry.getLanguage(language);
-        return { ready: lang?.isReady ?? false };
       }
       return { ready: workerPool.isCodeWorkerReady() };
-    }
-  );
-
-  ipcMain.handle('get-wasm-languages', async () => {
-    const languages: RegisteredWasmLanguage[] =
-      wasmLanguageRegistry.getReadyLanguages();
-    return {
-      success: true,
-      languages: languages.map((l) => ({
-        id: l.config.id,
-        name: l.config.name,
-        version: l.config.version,
-        extensions: l.config.extensions,
-        status: l.status,
-      })),
-    };
-  });
-
-  ipcMain.handle(
-    'get-wasm-monaco-config',
-    async (_event: unknown, languageId: string) => {
-      const lang = wasmLanguageRegistry.getLanguage(languageId);
-      if (!lang) {
-        return { success: false, error: `Language ${languageId} not found` };
-      }
-      return {
-        success: true,
-        config: lang.config.monacoConfig || {},
-      };
     }
   );
 
@@ -129,6 +93,14 @@ export function registerExecutionHandlers({
           requestId,
         });
       }
+    }
+  );
+
+  // Handle input response from renderer to JS worker
+  ipcMain.on(
+    'js-input-response',
+    (_event: unknown, { value }: { value: string }) => {
+      workerPool.resolveJSInput(value);
     }
   );
 }

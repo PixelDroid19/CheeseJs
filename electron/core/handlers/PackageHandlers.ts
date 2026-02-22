@@ -38,9 +38,10 @@ export function registerPackageHandlers({
       try {
         const result = await uninstallPackage(packageName);
 
-        // Clear the require cache in all code workers
-        if (result.success) {
-          workerPool.clearCodeCache(packageName);
+        // Clear the require cache in the worker
+        const codeWorker = workerPool.getCodeWorker();
+        if (result.success && codeWorker) {
+          codeWorker.postMessage({ type: 'clear-cache', packageName });
         }
 
         return result;

@@ -1,40 +1,55 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Play,
   Settings,
-  Loader2,
-  FlaskConical,
   Brush,
-  Columns,
-  Rows,
-  Terminal,
+  Loader2,
+  Database as DatabaseIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCodeRunner } from '../hooks/useCodeRunner';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useSettingsStore } from '../store/storeHooks';
 import { useRuntimeStatus } from '../hooks/useRuntimeStatus';
-import { useLanguageStore } from '../store/useLanguageStore';
+import { useLanguageStore } from '../store/storeHooks';
+import { useRagStore } from '../store/storeHooks';
+import { useCodeStore } from '../store/storeHooks';
+import { usePackagesStore } from '../store/storeHooks';
+import { usePythonPackagesStore } from '../store/storeHooks';
 import { SnippetsMenu } from './SnippetsMenu';
-import { CaptureControls } from './CaptureControls';
 import clsx from 'clsx';
 
 export default function FloatingToolbar() {
   const { t } = useTranslation();
   const { runCode } = useCodeRunner();
   const toggleSettings = useSettingsStore((state) => state.toggleSettings);
-  const toggleTestPanel = useSettingsStore((state) => state.toggleTestPanel);
-  const showTestPanel = useSettingsStore((state) => state.showTestPanel);
-  const toggleConsole = useSettingsStore((state) => state.toggleConsole);
-  const showConsole = useSettingsStore((state) => state.showConsole);
-  const splitDirection = useSettingsStore((state) => state.splitDirection);
-  const toggleSplitDirection = useSettingsStore(
-    (state) => state.toggleSplitDirection
-  );
   const currentLanguage = useLanguageStore((state) => state.currentLanguage);
-  const { isLoading, message, status } = useRuntimeStatus(
+  const setModalOpen = useRagStore((state) => state.setModalOpen);
+  const { isLoading: isRuntimeLoading, message: runtimeMessage } = useRuntimeStatus(
     currentLanguage === 'python' ? 'python' : 'javascript'
   );
+
+  const isExecuting = useCodeStore((state) => state.isExecuting);
+  const isPendingRun = useCodeStore((state) => state.isPendingRun);
+
+  const packages = usePackagesStore((state) => state.packages);
+  const pythonPackages = usePythonPackagesStore((state) => state.packages);
+  const isInstallingPackage =
+    packages.some((p) => p.installing) || pythonPackages.some((p) => p.installing);
+
+  const isBusy =
+    (isRuntimeLoading && currentLanguage === 'python') ||
+    isExecuting ||
+    isPendingRun ||
+    isInstallingPackage;
+
+  let busyMessage = '';
+  if (isInstallingPackage) {
+    busyMessage = 'Installing packages...';
+  } else if (isRuntimeLoading && currentLanguage === 'python') {
+    busyMessage = runtimeMessage || 'Loading Python...';
+  } else if (isExecuting || isPendingRun) {
+    busyMessage = 'Running code...';
+  }
 
   const handleLint = () => {
     window.dispatchEvent(new CustomEvent('trigger-format'));
@@ -42,7 +57,7 @@ export default function FloatingToolbar() {
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
-      <motion.div
+      <m.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
@@ -50,32 +65,20 @@ export default function FloatingToolbar() {
         role="toolbar"
         aria-label={t('toolbar.label', 'Main toolbar')}
       >
-        {/* Loading indicator for Python */}
+        {/* Loading indicator */}
         <AnimatePresence>
-          {isLoading && currentLanguage === 'python' && (
-            <motion.div
+          {isBusy && (
+            <m.div
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: 'auto' }}
               exit={{ opacity: 0, width: 0 }}
               className="flex items-center gap-2 px-3 text-xs text-muted-foreground"
             >
               <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-              <div className="flex flex-col gap-1">
-                <span className="whitespace-nowrap text-amber-500/80">
-                  {message || 'Loading Python...'}
-                </span>
-                {status.progress > 0 && status.progress < 100 && (
-                  <div className="w-24 bg-amber-500/20 rounded-full h-1">
-                    <motion.div
-                      className="bg-amber-500 h-1 rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${status.progress}%` }}
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
-                    />
-                  </div>
-                )}
-              </div>
-            </motion.div>
+              <span className="whitespace-nowrap text-amber-500/80">
+                {busyMessage}
+              </span>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -83,48 +86,10 @@ export default function FloatingToolbar() {
           icon={<Play className="w-5 h-5" />}
           onClick={() => runCode()}
           label={t('toolbar.run')}
-          disabled={isLoading && currentLanguage === 'python'}
+          disabled={isBusy}
+          testId="run-button"
         />
         <SnippetsMenu />
-
-        {/* Separator */}
-        <div className="w-px h-6 bg-border mx-1" />
-
-        <CaptureControls />
-
-        {/* Separator */}
-        <div className="w-px h-6 bg-border mx-1" />
-
-        <ToolbarButton
-          icon={<FlaskConical className="w-5 h-5" />}
-          onClick={toggleTestPanel}
-          label={t('toolbar.tests', 'Tests')}
-          isActive={showTestPanel}
-          className={showTestPanel ? 'active' : ''}
-        />
-
-        <ToolbarButton
-          icon={<Terminal className="w-5 h-5" />}
-          onClick={toggleConsole}
-          label={t('toolbar.console', 'Toggle Console')}
-          isActive={showConsole}
-          className={showConsole ? 'active' : ''}
-        />
-
-        <ToolbarButton
-          icon={
-            splitDirection === 'horizontal' ? (
-              <Rows className="w-5 h-5" />
-            ) : (
-              <Columns className="w-5 h-5" />
-            )
-          }
-          onClick={toggleSplitDirection}
-          label={t('toolbar.toggleLayout', 'Toggle Layout')}
-        />
-
-        <div className="w-px h-6 bg-border mx-1" />
-
         <ToolbarButton
           icon={<Brush className="w-5 h-5" />}
           onClick={handleLint}
@@ -134,8 +99,15 @@ export default function FloatingToolbar() {
           icon={<Settings className="w-5 h-5" />}
           onClick={toggleSettings}
           label={t('toolbar.settings')}
+          testId="settings-button"
         />
-      </motion.div>
+        <div className="w-px h-6 bg-border mx-1" />
+        <ToolbarButton
+          icon={<DatabaseIcon className="w-5 h-5" />}
+          onClick={() => setModalOpen(true)}
+          label="Knowledge Base"
+        />
+      </m.div>
     </div>
   );
 }
@@ -146,24 +118,24 @@ function ToolbarButton({
   label,
   isActive = false,
   disabled = false,
-  className,
+  testId,
 }: {
   icon: React.ReactNode;
   onClick: () => void;
   label: string;
   isActive?: boolean;
   disabled?: boolean;
-  className?: string;
+  testId?: string;
 }) {
   return (
-    <motion.button
+    <m.button
       whileHover={disabled ? {} : { scale: 1.1 }}
       whileTap={disabled ? {} : { scale: 0.95 }}
       onClick={onClick}
       disabled={disabled}
+      data-testid={testId}
       className={clsx(
         'p-3 rounded-full transition-colors relative group',
-        className,
         disabled
           ? 'text-muted-foreground/50 cursor-not-allowed'
           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -173,6 +145,6 @@ function ToolbarButton({
       aria-pressed={isActive}
     >
       {icon}
-    </motion.button>
+    </m.button>
   );
 }

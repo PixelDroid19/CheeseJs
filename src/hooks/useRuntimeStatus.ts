@@ -15,8 +15,7 @@ interface RuntimeStatus {
   ready: boolean;
   loading: boolean;
   message?: string;
-  progress: number; // 0-100
-  stage?: 'loading-wasm' | 'loading-micropip' | 'setting-up-env' | 'ready';
+  progress?: number;
 }
 
 interface RuntimeStatusState {
@@ -38,7 +37,6 @@ const defaultStatus = (lang: Language): RuntimeStatus => ({
   ready: lang !== 'python', // JS/TS are ready immediately
   loading: false, // Don't show loading by default
   message: undefined,
-  progress: 0,
 });
 
 export const useRuntimeStatusStore = create<RuntimeStatusState>((set, get) => ({
@@ -89,8 +87,6 @@ export function useRuntimeStatus(language?: Language) {
           store.updateStatus('python', {
             loading: false,
             ready: true,
-            progress: 100,
-            stage: 'ready',
             message: undefined,
           });
         }
@@ -106,34 +102,21 @@ export function useRuntimeStatus(language?: Language) {
     // Subscribe to runtime status events from main process
     const handleStatus = (result: { type: string; data?: unknown }) => {
       if (result.type === 'status') {
-        const data = result.data as
-          | {
-              stage?: string;
-              progress?: number;
-              message?: string;
-            }
-          | undefined;
+        const data = result.data as { message?: string } | undefined;
         const message = data?.message || 'Loading...';
 
-        // Check if Python is ready (by stage or message)
-        if (
-          data?.stage === 'ready' ||
-          message.toLowerCase().includes('ready')
-        ) {
+        // Check if Python is ready
+        if (message.toLowerCase().includes('ready')) {
           store.updateStatus('python', {
             loading: false,
             ready: true,
-            progress: 100,
-            stage: 'ready',
             message: undefined,
           });
         } else {
-          // Still loading - extract stage and progress
+          // Still loading
           store.updateStatus('python', {
             loading: true,
             ready: false,
-            progress: data?.progress ?? 0,
-            stage: data?.stage as RuntimeStatus['stage'],
             message,
           });
         }
@@ -141,9 +124,8 @@ export function useRuntimeStatus(language?: Language) {
     };
 
     // Subscribe to code runner results (includes status messages)
-    const unsubscribe = window.codeRunner?.onResult(
-      handleStatus as unknown as (result: unknown) => void
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unsubscribe = window.codeRunner?.onResult(handleStatus as any);
 
     return () => {
       unsubscribe?.();

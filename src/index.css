@@ -1,6 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
 @theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
@@ -40,6 +44,25 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 :root {
@@ -94,7 +117,7 @@
 /* Theme Configuration
   -------------------
   Themes are applied via the 'dark' class (for dark mode) and 'data-theme' attribute (for specific theme overrides).
-  
+
   To add a new theme:
   1. Define it in src/themes/index.ts
   2. If it's a dark theme, set type: 'dark' (this applies the .dark class)
@@ -135,8 +158,10 @@
 
 /* One Dark Theme Override */
 [data-theme='onedark'] {
-  --background: 220 13% 18%; /* #282c34 */
-  --foreground: 220 13% 71%; /* #abb2bf */
+  --background: 220 13% 18%;
+  /* #282c34 */
+  --foreground: 220 13% 71%;
+  /* #abb2bf */
 
   --card: 220 13% 18%;
   --card-foreground: 220 13% 71%;
@@ -144,517 +169,73 @@
   --popover: 220 13% 18%;
   --popover-foreground: 220 13% 71%;
 
-  --primary: 207 82% 66%; /* #61afef Blue */
+  --primary: 207 82% 66%;
+  /* #61afef Blue */
   --primary-foreground: 220 13% 18%;
 
-  --secondary: 286 60% 67%; /* #c678dd Purple */
+  --secondary: 286 60% 67%;
+  /* #c678dd Purple */
   --secondary-foreground: 220 13% 18%;
 
-  --muted: 219 14% 23%; /* #333842 */
+  --muted: 219 14% 23%;
+  /* #333842 */
   --muted-foreground: 220 13% 55%;
 
   --accent: 219 14% 23%;
   --accent-foreground: 220 13% 71%;
 
-  --destructive: 355 65% 65%; /* #e06c75 Red */
+  --destructive: 355 65% 65%;
+  /* #e06c75 Red */
   --destructive-foreground: 220 13% 18%;
 
-  --success: 95 38% 62%; /* #98c379 Green */
+  --success: 95 38% 62%;
+  /* #98c379 Green */
   --success-foreground: 220 13% 18%;
 
-  --warning: 29 54% 61%; /* #d19a66 Orange */
+  --warning: 29 54% 61%;
+  /* #d19a66 Orange */
   --warning-foreground: 220 13% 18%;
 
-  --info: 187 47% 55%; /* #56b6c2 Cyan */
+  --info: 187 47% 55%;
+  /* #56b6c2 Cyan */
   --info-foreground: 220 13% 18%;
 
-  --border: 220 13% 23%; /* #3e4451 */
+  --border: 220 13% 23%;
+  /* #3e4451 */
   --input: 220 13% 23%;
   --ring: 207 82% 66%;
 }
 
 /* Midnight Theme Override */
-
-/* Sketchy Theme Override */
-[data-theme='sketchy'] {
-  --background: 48 40% 96%; /* #faf8ef */
-  --foreground: 0 0% 17%; /* #2c2c2c */
-
-  --font-sketchy: 'Patrick Hand', cursive; /* New font variable */
-
-  --card: 48 40% 96%;
-  --card-foreground: 0 0% 17%;
-
-  --popover: 48 40% 96%;
-  --popover-foreground: 0 0% 17%;
-
-  --primary: 0 0% 17%;
-  --primary-foreground: 48 40% 96%;
-
-  --secondary: 0 0% 94%;
-  --secondary-foreground: 0 0% 17%;
-
-  --muted: 0 0% 94%;
-  --muted-foreground: 0 0% 40%;
-
-  --accent: 38 92% 50%; /* Amber highlight */
-  --accent-foreground: 0 0% 17%;
-
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 98%;
-
-  --border: 0 0% 17%; /* #2c2c2c */
-  --input: 0 0% 17%;
-  --ring: 0 0% 17%;
-
-  --radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-}
-
-/* Sketchy Utilities (scoped to sketchy theme) */
-[data-theme='sketchy'] .sketchy-box {
-  border: 2px solid hsl(var(--border));
-  border-radius: var(--radius);
-  transition: all 0.3s ease-in-out;
-  box-shadow: 2px 3px 0px 0px rgba(0, 0, 0, 0.1);
-  /* Graph paper effect */
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-color: hsl(var(--background)); /* Ensure base color is present */
-}
-
-[data-theme='sketchy'] .sketchy-text {
-  font-family: var(--font-sketchy);
-  font-weight: normal;
-  font-size: 1.1em;
-}
-
-[data-theme='sketchy'] button {
-  border: 2px solid hsl(var(--border));
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-  font-family: var(--font-sketchy);
-  font-weight: 500;
-  transition: transform 0.1s ease-in-out;
-}
-
-[data-theme='sketchy'] button:hover {
-  transform: scale(1.02) rotate(-1deg);
-}
-
-[data-theme='sketchy'] button:active {
-  transform: scale(0.98);
-}
-
-/* Specific override for the floating toolbar in sketchy theme */
-[data-theme='sketchy'] [role='toolbar'] {
-  border: 2px solid hsl(var(--border));
-  border-radius: 50px !important; /* Force pill shape for toolbar */
-  background-color: hsl(var(--background));
-  box-shadow: 3px 4px 0px 0px rgba(0, 0, 0, 0.1);
-  padding: 0.5rem; /* More breathing room */
-}
-
-[data-theme='sketchy'] [role='toolbar'] button {
-  border: 2px solid hsl(var(--border));
-  margin: 0 4px; /* Spacing between buttons */
-  width: 42px; /* Fixed size for consistency */
-  height: 42px;
-  border-radius: 12px 2px 10px 4px / 4px 10px 2px 12px !important; /* Squarish sketchy */
-  background-color: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-[data-theme='sketchy'] [role='toolbar'] button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  transform: rotate(-3deg) scale(1.1); /* Fun interaction */
-}
-
-/* Active state for toolbar buttons in sketchy mode */
-[data-theme='sketchy'] [role='toolbar'] button[aria-pressed='true'],
-[data-theme='sketchy'] [role='toolbar'] button.active {
-  background-color: #ffe0b2; /* Light orange/amber background */
-  color: hsl(var(--foreground));
-  border-color: hsl(var(--foreground));
-  transform: rotate(2deg); /* Active items tilt the other way */
-}
-
-/* Specific highlight for the camera button to match the mockup (yellow/orange fill) */
-[data-theme='sketchy'] [role='toolbar'] button[title='Capture Code Card'] {
-  background-color: #ffe0b2;
-  border-color: hsl(var(--foreground));
-  color: hsl(var(--foreground));
-}
-
-/* Separator styling for sketchy theme */
-[data-theme='sketchy'] [role='toolbar'] .bg-border {
-  background-color: hsl(var(--border));
-  width: 2px;
-  height: 24px;
-  border-radius: 2px;
-  transform: rotate(5deg); /* Tilted separators */
-  margin: 0 4px;
-}
-
-/* Ensure the camera button looks active when hovering or selected if needed, 
-   or just styled consistently with the others in the toolbar */
-[data-theme='sketchy'] [role='toolbar'] button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-[data-theme='sketchy'] input,
-[data-theme='sketchy'] select {
-  border: 2px solid hsl(var(--border));
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-  font-family: var(--font-sketchy);
-  padding: 0.5rem;
-}
-
-[data-theme='sketchy'] .monaco-editor {
-  /* Editor stays monospace for readability, but UI around it uses Patrick Hand */
-  font-family: 'Courier Prime', 'Courier New', monospace !important;
-  background-color: transparent !important;
-}
-
-[data-theme='sketchy'] .monaco-editor-background {
-  background-color: transparent !important;
-}
-
-/* Style the gutter (line numbers) to look like a notebook margin */
-[data-theme='sketchy'] .monaco-editor .margin {
-  background-color: transparent !important;
-  border-right: 2px solid hsl(var(--border)) !important;
-}
-
-/* Current line highlight - make it look like a highlighter pen */
-[data-theme='sketchy'] .monaco-editor .current-line {
-  border: none !important;
-  background-color: rgba(255, 230, 0, 0.15) !important; /* Yellow highlighter */
-  transform: rotate(-0.5deg) scaleX(1.02); /* Slight imperfection */
-}
-
-/* Selection - make it look like sketched shading */
-[data-theme='sketchy'] .monaco-editor .selected-text {
-  background-color: rgba(0, 0, 0, 0.1) !important;
-}
-
-/* Scrollbars - thin and sketchy */
-[data-theme='sketchy'] .monaco-scrollable-element > .scrollbar > .slider {
-  background: hsl(var(--foreground)) !important;
-  opacity: 0.3;
-  border-radius: 10px !important;
-  width: 6px !important;
-}
-
-[data-theme='sketchy'] .monaco-scrollable-element > .scrollbar > .slider:hover {
-  opacity: 0.6;
-}
-
-[data-theme='sketchy'] .monaco-scrollable-element > .scrollbar.vertical {
-  width: 10px !important;
-}
-
-/* Force UI elements in sketchy theme to use the sketchy font and ensure visibility */
-[data-theme='sketchy'] .titlebar,
-[data-theme='sketchy'] [role='toolbar'],
-[data-theme='sketchy'] .panel,
-[data-theme='sketchy'] .sidebar,
-[data-theme='sketchy'] .status-bar,
-[data-theme='sketchy'] .monaco-editor .margin-view-overlays,
-[data-theme='sketchy'] .settings-modal, /* Add settings modal targeting */
-[data-theme='sketchy'] .settings-modal button,
-[data-theme='sketchy'] .settings-modal input,
-[data-theme='sketchy'] .settings-modal select,
-[data-theme='sketchy'] .settings-modal label,
-[data-theme='sketchy'] .settings-modal h2,
-[data-theme='sketchy'] .settings-modal h3,
-[data-theme='sketchy'] .settings-modal h4,
-[data-theme='sketchy'] .settings-modal p,
-[data-theme='sketchy'] .settings-modal span,
-[data-theme='sketchy'] .settings-modal code {
-  font-family: var(--font-sketchy) !important;
-  color: hsl(var(--foreground)) !important; /* Force visibility of text */
-}
-
-/* Ensure buttons and icons are visible in sketchy mode */
-[data-theme='sketchy'] .settings-modal button svg,
-[data-theme='sketchy'] .settings-modal .lucide {
-  color: hsl(var(--foreground)) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .bg-white\/5,
-[data-theme='sketchy'] .settings-modal .bg-white\/10 {
-  background-color: rgba(0, 0, 0, 0.05) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .text-white\/30,
-[data-theme='sketchy'] .settings-modal .text-white\/40,
-[data-theme='sketchy'] .settings-modal .text-white\/50,
-[data-theme='sketchy'] .settings-modal .text-white\/60,
-[data-theme='sketchy'] .settings-modal .text-white\/70 {
-  color: rgba(0, 0, 0, 0.6) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .text-white {
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Override dark-theme specific backgrounds in PluginTab cards */
-[data-theme='sketchy'] .settings-modal .bg-\[\#1e2025\] {
-  background-color: transparent !important;
-  border-color: hsl(var(--border)) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .border-white\/10 {
-  border-color: rgba(0, 0, 0, 0.1) !important;
-}
-
-/* Marketplace specific fixes */
-[data-theme='sketchy'] .settings-modal .bg-card {
-  background-color: transparent !important;
-  border-color: hsl(var(--border)) !important;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important;
-}
-
-[data-theme='sketchy'] .settings-modal .bg-primary {
-  background-color: hsl(var(--foreground)) !important;
-  color: hsl(var(--background)) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .bg-primary\/10 {
-  background-color: rgba(0, 0, 0, 0.05) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .text-primary {
-  color: hsl(var(--foreground)) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .text-primary-foreground {
-  color: hsl(var(--background)) !important;
-}
-
-/* Fix for the black buttons in Marketplace cards */
-[data-theme='sketchy'] .settings-modal button.bg-primary {
-  border: 2px solid hsl(var(--border)) !important;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important;
-  padding: 0.5rem 1rem !important;
-  font-weight: bold !important;
-}
-
-[data-theme='sketchy'] .settings-modal .bg-secondary\/30 {
-  background-color: rgba(0, 0, 0, 0.05) !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-}
-
-[data-theme='sketchy'] .settings-modal .text-muted-foreground {
-  color: rgba(0, 0, 0, 0.5) !important;
-}
-
-/* Search input specifically for sketchy */
-[data-theme='sketchy'] .settings-modal input[type='text'] {
-  background-color: transparent !important;
-  border: 2px solid hsl(var(--border)) !important;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important;
-}
-
-[data-theme='sketchy'] .titlebar {
-  border-bottom: 2px solid hsl(var(--border));
-}
-
-/* Sketchy Toggles (Checkbox/Switch) */
-[data-theme='sketchy'] .settings-modal input[type='checkbox'] + div {
-  border: 2px solid hsl(var(--border)) !important;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important; /* Irregular pill */
-  background-color: transparent !important;
-  width: 2.8rem !important;
-  height: 1.4rem !important;
-  position: relative !important;
-}
-
-/* Toggle Thumb */
-[data-theme='sketchy'] .settings-modal input[type='checkbox'] + div + div {
-  display: none !important; /* Hide the old absolute thumb */
-}
-
-/* Create new thumb as pseudo-element of the track for better containment */
-[data-theme='sketchy'] .settings-modal input[type='checkbox'] + div::after {
-  content: '';
-  position: absolute;
-  background-color: hsl(var(--foreground));
-  border-radius: 50% 40% 60% 40% / 40% 60% 40% 60%;
-  border: 1px solid hsl(var(--border));
-  width: 1rem;
-  height: 1rem;
-  top: 50%;
-  left: 0.2rem;
-  transform: translateY(-50%);
-  transition: transform 0.2s ease-in-out;
-}
-
-/* Checked state for new thumb */
-[data-theme='sketchy']
-  .settings-modal
-  input[type='checkbox']:checked
-  + div::after {
-  transform: translate(1.4rem, -50%);
-}
-
-/* Checked state for toggle background (scribble fill) */
-[data-theme='sketchy'] .settings-modal input[type='checkbox']:checked + div {
-  background-image: repeating-linear-gradient(
-    45deg,
-    hsl(var(--foreground)),
-    hsl(var(--foreground)) 2px,
-    transparent 2px,
-    transparent 6px
-  ) !important;
-  background-color: transparent !important;
-  opacity: 0.6;
-}
-
-/* Sketchy Select Inputs */
-[data-theme='sketchy'] select {
-  border: 2px solid hsl(var(--border)) !important;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important;
-  background-color: transparent !important;
-  box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 0.1);
-  padding: 0.5rem 2rem 0.5rem 1rem !important;
-  appearance: none; /* Remove default arrow to style our own if needed, but for now just the box */
-  background-image:
-    linear-gradient(45deg, transparent 50%, hsl(var(--foreground)) 50%),
-    linear-gradient(135deg, hsl(var(--foreground)) 50%, transparent 50%);
-  background-position:
-    calc(100% - 20px) calc(1em + 2px),
-    calc(100% - 15px) calc(1em + 2px);
-  background-size:
-    5px 5px,
-    5px 5px;
-  background-repeat: no-repeat;
-  cursor: pointer;
-}
-
-[data-theme='sketchy'] select:focus {
-  outline: none;
-  box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 0.2);
-  transform: scale(1.01);
-}
-
-/* Sketchy Sliders (Range inputs) */
-[data-theme='sketchy'] input[type='range'] {
-  height: 6px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 10px;
-  background: transparent;
-}
-
-[data-theme='sketchy'] input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50% 45% 55% 40%; /* Irregular circle */
-  background: hsl(var(--foreground));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background)); /* Contrast border */
-  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.2);
-  margin-top: -6px; /* Center on track */
-}
-
-[data-theme='sketchy'] input[type='range']::-webkit-slider-runnable-track {
-  background: transparent;
-  border: none;
-}
-
-/* Sketchy Modal/Card Containers */
-[data-theme='sketchy'] .settings-modal,
-[data-theme='sketchy'] .dialog-content {
-  border: 3px solid hsl(var(--border));
-  border-radius: 2px 255px 5px 25px / 255px 5px 225px 5px; /* Boxy but hand-drawn */
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-color: hsl(var(--background));
-  box-shadow: 5px 5px 0px 0px rgba(0, 0, 0, 0.15);
-}
-
-[data-theme='sketchy'] .settings-modal button {
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; /* Irregular pill */
-  transition: transform 0.1s ease-in-out;
-}
-
-[data-theme='sketchy'] .settings-modal button:hover {
-  transform: scale(1.02) rotate(-1deg);
-}
-
-/* Sidebar/Nav items in Settings */
-[data-theme='sketchy'] .settings-sidebar-item {
-  border-bottom: 1px dashed hsl(var(--border));
-}
-
-/* Sidebar/Nav items in Settings */
-[data-theme='sketchy'] .settings-sidebar-item {
-  /* Override global button styles that are causing the "box" look to overflow */
-  width: 90% !important; /* Prevent touching edges */
-  margin: 4px auto !important; /* Center and add spacing */
-  border: 2px solid hsl(var(--border)) !important; /* Keep the box look but controlled */
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important;
-  background-color: transparent !important;
-  text-align: left; /* Ensure text aligns left inside the pill */
-  justify-content: flex-start; /* Flex alignment */
-}
-
-[data-theme='sketchy'] .settings-sidebar-item:hover {
-  background-color: rgba(0, 0, 0, 0.03) !important;
-  transform: scale(1.02) rotate(-0.5deg);
-}
-
-[data-theme='sketchy'] .settings-sidebar-item.active {
-  background-color: rgba(255, 230, 0, 0.2) !important; /* Highlighter yellow */
-  transform: scale(1.02) rotate(1deg);
-  border-color: hsl(var(--foreground)) !important;
-  color: hsl(var(--foreground)) !important;
-  font-weight: bold;
-}
-
-/* Titlebar specific for sketchy */
-[data-theme='sketchy'] .titlebar nav {
-  background-color: transparent !important;
-  border-bottom: none !important;
-}
-
-[data-theme='sketchy'] .titlebar button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-/* Add hatching effect for panels in sketchy mode */
-[data-theme='sketchy'] .panel,
-[data-theme='sketchy'] .sidebar {
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 10px,
-    rgba(0, 0, 0, 0.03) 10px,
-    rgba(0, 0, 0, 0.03) 12px
-  );
-}
-
-/* Specific styling for the Result/Output toolbar in sketchy mode */
-[data-theme='sketchy'] .result-toolbar {
-  background-color: transparent !important;
-  border-bottom: 2px dashed hsl(var(--border)) !important;
-  font-family: var(--font-sketchy) !important;
-}
-
-[data-theme='sketchy'] .result-toolbar button {
-  font-family: var(--font-sketchy) !important;
-  border: 1px solid hsl(var(--border));
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-}
-
-/* Ensure result container transparent so graph paper shows through */
-[data-theme='sketchy'] .result-container {
-  background-color: transparent !important;
+[data-theme='midnight'] {
+  --background: 222 47% 11%;
+  /* Slate 900 */
+  --foreground: 210 40% 98%;
+  /* Slate 50 - Brighter white */
+
+  --card: 217 33% 17%;
+  /* Slate 800 (adjusted) */
+  --card-foreground: 210 40% 98%;
+
+  --popover: 217 33% 17%;
+  --popover-foreground: 210 40% 98%;
+
+  --primary: 199 89% 48%;
+  /* Sky 400 */
+  --primary-foreground: 222 47% 11%;
+
+  --secondary: 215 25% 27%;
+  /* Slate 700 */
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 215 25% 27%;
+  --muted-foreground: 215 25% 75%;
+  /* Slate 300 - Much lighter for better contrast */
+
+  --accent: 215 25% 27%;
+  --accent-foreground: 210 40% 98%;
+
+  --border: 215 25% 27%;
+  --input: 215 25% 27%;
+  --ring: 199 89% 48%;
 }

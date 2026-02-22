@@ -1,22 +1,6 @@
-export interface NpmPackageInfo {
-  name: string;
-  version: string;
-  description?: string;
-  main?: string;
-  types?: string;
-  typings?: string;
-  author?: string | { name: string; email?: string; url?: string };
-  repository?: { type: string; url: string };
-  homepage?: string;
-  license?: string;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-  [key: string]: unknown;
-}
-
 // Cache for package information
-const packageInfoCache = new Map<string, NpmPackageInfo | { error: string }>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const packageInfoCache = new Map<string, any>();
 
 export const getCachedPackageInfo = (name: string) =>
   packageInfoCache.get(name);
@@ -24,11 +8,10 @@ export const getCachedPackageInfo = (name: string) =>
 export const clearPackageInfoCache = () => packageInfoCache.clear();
 
 // Fetch package info from npm registry
-export async function fetchPackageInfo(
-  packageName: string
-): Promise<NpmPackageInfo | { error: string } | null> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function fetchPackageInfo(packageName: string): Promise<any> {
   if (packageInfoCache.has(packageName)) {
-    return packageInfoCache.get(packageName) || null;
+    return packageInfoCache.get(packageName);
   }
 
   try {
@@ -36,7 +19,8 @@ export async function fetchPackageInfo(
       `https://registry.npmjs.org/${packageName}/latest`
     );
     if (response.ok) {
-      const data = (await response.json()) as NpmPackageInfo;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await response.json();
       packageInfoCache.set(packageName, data);
       return data;
     } else if (response.status === 404) {

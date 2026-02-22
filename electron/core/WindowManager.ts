@@ -6,7 +6,6 @@
  */
 
 import { BrowserWindow, ipcMain, Menu, nativeImage, app } from 'electron';
-
 import path from 'node:path';
 
 // ============================================================================
@@ -66,6 +65,19 @@ export class WindowManager {
       },
     });
 
+    // Enable SharedArrayBuffer support
+    this.mainWindow.webContents.session.webRequest.onHeadersReceived(
+      (details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            'Cross-Origin-Opener-Policy': ['same-origin'],
+            'Cross-Origin-Embedder-Policy': ['require-corp'],
+          },
+        });
+      }
+    );
+
     this.setupWindowEvents();
     this.setupWindowIPC();
     this.setupApplicationMenu();
@@ -104,6 +116,23 @@ export class WindowManager {
       this.mainWindow = null;
       this.callbacks.onWindowClosed?.();
     });
+
+    // Handle renderer process crashes (OOM, etc.)
+    this.mainWindow.webContents.on('render-process-gone', (_event, details) => {
+      console.error(
+        '[WindowManager] Render process gone:',
+        JSON.stringify(details, null, 2)
+      );
+      if (details.reason !== 'clean-exit') {
+        console.log('[WindowManager] Reloading window after crash...');
+        // We need to wait a bit before reloading to avoid crash loops if the issue is persistent
+        setTimeout(() => {
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.reload();
+          }
+        }, 1000);
+      }
+    });
   }
 
   private setupWindowIPC(): void {
@@ -134,7 +163,8 @@ export class WindowManager {
   }
 
   private setupApplicationMenu(): void {
-    const template: Electron.MenuItemConstructorOptions[] = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const template: any[] = [
       {
         label: 'File',
         submenu: [{ role: 'quit' }],

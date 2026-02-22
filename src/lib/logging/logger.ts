@@ -1,57 +1,36 @@
 /**
- * Centralized Logger
+ * Centralized Logger (Renderer Process)
  *
- * A unified logging system for CheeseJS that replaces console.* calls.
- * Provides structured logging with levels, namespaces, and optional persistence.
+ * Extends the shared BaseLogger with browser-specific output:
+ * - CSS-styled console output with emojis
+ * - IPC bridge to Electron main process
  *
- * Features:
- * - Log levels: DEBUG, INFO, WARN, ERROR
- * - Namespaces for categorization (e.g., [Editor], [Detection])
- * - In-memory buffer with configurable limit
- * - Production mode filtering
- * - Log export for debugging
- * - Optional IPC bridge to Electron main process
+ * @see shared/logger-base.ts for shared types and base class
  */
 
+import {
+  BaseLogger,
+  BaseNamespacedLogger,
+  type LogLevel,
+  type LogEntry,
+  type BaseLoggerConfig,
+} from '../../../shared/logger-base';
+
+// Re-export shared types for consumers
+export type { LogLevel, LogEntry };
+
 // ============================================================================
-// TYPES
+// CONFIG
 // ============================================================================
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-export interface LogEntry {
-  id: string;
-  timestamp: number;
-  level: LogLevel;
-  namespace: string;
-  message: string;
-  data?: unknown;
-  stack?: string;
-}
-
-export interface LoggerConfig {
-  /** Minimum level to log (default: 'debug' in dev, 'warn' in prod) */
-  minLevel: LogLevel;
-  /** Maximum entries to keep in memory (default: 500) */
-  maxEntries: number;
-  /** Whether to output to console (default: true in dev) */
-  consoleOutput: boolean;
+export interface LoggerConfig extends BaseLoggerConfig {
   /** Whether to include timestamps in console output */
   showTimestamp: boolean;
-  /** Whether to send logs to Electron main process via IPC */
-  ipcEnabled: boolean;
 }
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
 
 const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
   debug: '#6b7280', // gray
@@ -84,23 +63,9 @@ const DEFAULT_CONFIG: LoggerConfig = {
 // LOGGER CLASS
 // ============================================================================
 
-class Logger {
-  private entries: LogEntry[] = [];
-  private config: LoggerConfig = { ...DEFAULT_CONFIG };
-  private listeners: Set<(entry: LogEntry) => void> = new Set();
-
-  /**
-   * Configure the logger
-   */
-  configure(config: Partial<LoggerConfig>): void {
-    this.config = { ...this.config, ...config };
-  }
-
-  /**
-   * Get current configuration
-   */
-  getConfig(): LoggerConfig {
-    return { ...this.config };
+class Logger extends BaseLogger<LoggerConfig> {
+  constructor() {
+    super(DEFAULT_CONFIG);
   }
 
   /**
@@ -111,92 +76,9 @@ class Logger {
   }
 
   /**
-   * Log a debug message
+   * Output to browser console with CSS formatting
    */
-  debug(namespace: string, message: string, data?: unknown): void {
-    this.log('debug', namespace, message, data);
-  }
-
-  /**
-   * Log an info message
-   */
-  info(namespace: string, message: string, data?: unknown): void {
-    this.log('info', namespace, message, data);
-  }
-
-  /**
-   * Log a warning message
-   */
-  warn(namespace: string, message: string, data?: unknown): void {
-    this.log('warn', namespace, message, data);
-  }
-
-  /**
-   * Log an error message
-   */
-  error(namespace: string, message: string, data?: unknown): void {
-    this.log('error', namespace, message, data);
-  }
-
-  /**
-   * Core log method
-   */
-  private log(
-    level: LogLevel,
-    namespace: string,
-    message: string,
-    data?: unknown
-  ): void {
-    if (!this.shouldLog(level)) return;
-
-    const entry: LogEntry = {
-      id: this.generateId(),
-      timestamp: Date.now(),
-      level,
-      namespace,
-      message,
-      data,
-      stack: level === 'error' ? new Error().stack : undefined,
-    };
-
-    // Store in memory
-    this.entries.push(entry);
-    this.trimEntries();
-
-    // Output to console
-    if (this.config.consoleOutput) {
-      this.consoleOutput(entry);
-    }
-
-    // Send to IPC if enabled
-    if (
-      this.config.ipcEnabled &&
-      typeof window !== 'undefined' &&
-      (
-        window as unknown as {
-          electron?: {
-            ipcRenderer?: { send: (channel: string, data: unknown) => void };
-          };
-        }
-      ).electron?.ipcRenderer
-    ) {
-      (
-        window as unknown as {
-          electron: {
-            ipcRenderer: { send: (channel: string, data: unknown) => void };
-          };
-        }
-      ).electron.ipcRenderer.send('log-entry', entry);
-    }
-
-    // Notify listeners
-    this.notifyListeners(entry);
-  }
-
-  /**
-   * Output to console with formatting
-   */
-  private consoleOutput(entry: LogEntry): void {
+  protected outputEntry(entry: LogEntry): void {
     const { level, namespace, message, data, timestamp } = entry;
     const emoji = LOG_LEVEL_EMOJI[level];
     const color = LOG_LEVEL_COLORS[level];
@@ -219,8 +101,6 @@ class Logger {
 
     switch (level) {
       case 'debug':
-        // Use console.debug which can be filtered in DevTools
-
         console.debug(...args);
         break;
       case 'info':
@@ -236,165 +116,31 @@ class Logger {
   }
 
   /**
-   * Check if a level should be logged
+   * Send log entry to Electron main process via IPC
    */
-  private shouldLog(level: LogLevel): boolean {
-    return (
-      LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.config.minLevel]
-    );
-  }
-
-  /**
-   * Generate unique ID
-   */
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * Trim entries to max limit
-   */
-  private trimEntries(): void {
-    if (this.entries.length > this.config.maxEntries) {
-      this.entries = this.entries.slice(-this.config.maxEntries);
-    }
-  }
-
-  /**
-   * Notify all listeners
-   */
-  private notifyListeners(entry: LogEntry): void {
-    this.listeners.forEach((listener) => listener(entry));
-  }
-
-  // ===========================================================================
-  // QUERY METHODS
-  // ===========================================================================
-
-  /**
-   * Get all entries, optionally filtered
-   */
-  getEntries(filter?: {
-    level?: LogLevel;
-    namespace?: string;
-    since?: number;
-  }): LogEntry[] {
-    let result = [...this.entries];
-
-    if (filter?.level) {
-      const minPriority = LOG_LEVEL_PRIORITY[filter.level];
-      result = result.filter((e) => LOG_LEVEL_PRIORITY[e.level] >= minPriority);
-    }
-
-    if (filter?.namespace) {
-      result = result.filter((e) => e.namespace === filter.namespace);
-    }
-
-    if (filter?.since !== undefined) {
-      result = result.filter((e) => e.timestamp >= filter.since!);
-    }
-
-    return result;
-  }
-
-  /**
-   * Get recent entries
-   */
-  getRecent(count: number = 50): LogEntry[] {
-    return this.entries.slice(-count);
-  }
-
-  /**
-   * Get errors only
-   */
-  getErrors(): LogEntry[] {
-    return this.entries.filter((e) => e.level === 'error');
-  }
-
-  /**
-   * Get warnings and errors
-   */
-  getWarningsAndErrors(): LogEntry[] {
-    return this.entries.filter(
-      (e) => e.level === 'warn' || e.level === 'error'
-    );
-  }
-
-  // ===========================================================================
-  // SUBSCRIPTION
-  // ===========================================================================
-
-  /**
-   * Subscribe to new log entries
-   */
-  subscribe(listener: (entry: LogEntry) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  // ===========================================================================
-  // EXPORT & CLEAR
-  // ===========================================================================
-
-  /**
-   * Safe JSON stringify that handles circular references
-   */
-  private safeStringify(value: unknown, space?: number): string {
-    const cache = new Set();
-    return JSON.stringify(
-      value,
-      (_key, value) => {
-        if (typeof value === 'object' && value !== null) {
-          if (cache.has(value)) {
-            return '[Circular]';
-          }
-          cache.add(value);
+  protected sendToIpc(entry: LogEntry): void {
+    if (
+      typeof window !== 'undefined' &&
+      (
+        window as Window & {
+          electron?: {
+            ipcRenderer?: {
+              send: (channel: string, ...args: unknown[]) => void;
+            };
+          };
         }
-        return value;
-      },
-      space
-    );
-  }
-
-  /**
-   * Export all logs as JSON
-   */
-  export(): string {
-    return this.safeStringify(
-      {
-        config: this.config,
-        entries: this.entries,
-        exportedAt: new Date().toISOString(),
-      },
-      2
-    );
-  }
-
-  /**
-   * Export logs as formatted text
-   */
-  exportAsText(): string {
-    return this.entries
-      .map((e) => {
-        const time = new Date(e.timestamp).toISOString();
-        const data = e.data ? ` ${this.safeStringify(e.data)}` : '';
-        return `[${time}] ${e.level.toUpperCase()} [${e.namespace}] ${e.message}${data}`;
-      })
-      .join('\n');
-  }
-
-  /**
-   * Clear all entries
-   */
-  clear(): void {
-    this.entries = [];
-  }
-
-  /**
-   * Get entry count
-   */
-  get count(): number {
-    return this.entries.length;
+      ).electron?.ipcRenderer
+    ) {
+      (
+        window as Window & {
+          electron?: {
+            ipcRenderer?: {
+              send: (channel: string, ...args: unknown[]) => void;
+            };
+          };
+        }
+      ).electron!.ipcRenderer!.send('log-entry', entry);
+    }
   }
 }
 
@@ -405,26 +151,9 @@ class Logger {
 /**
  * A logger instance bound to a specific namespace
  */
-class NamespacedLogger {
-  constructor(
-    private logger: Logger,
-    private namespace: string
-  ) {}
-
-  debug(message: string, data?: unknown): void {
-    this.logger.debug(this.namespace, message, data);
-  }
-
-  info(message: string, data?: unknown): void {
-    this.logger.info(this.namespace, message, data);
-  }
-
-  warn(message: string, data?: unknown): void {
-    this.logger.warn(this.namespace, message, data);
-  }
-
-  error(message: string, data?: unknown): void {
-    this.logger.error(this.namespace, message, data);
+class NamespacedLogger extends BaseNamespacedLogger<LoggerConfig> {
+  constructor(logger: Logger, namespace: string) {
+    super(logger, namespace);
   }
 }
 

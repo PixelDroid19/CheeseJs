@@ -1,6 +1,6 @@
 name: Build/release
 
-on: 
+on:
   push:
     branches:
       - master
@@ -8,6 +8,10 @@ on:
       - 'feature/python-experimental-support'
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - master
+      - main
   workflow_dispatch:
     inputs:
       upload_artifacts:
@@ -17,8 +21,52 @@ on:
         type: boolean
 
 jobs:
+  # Quality checks job - runs on all pushes and PRs
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Security Audit
+        run: pnpm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Type Check
+        run: pnpm run type-check
+
+      - name: Test with Coverage
+        run: pnpm run test:coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # Build job - runs after quality checks pass
   release:
+    needs: quality
     runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     strategy:
       matrix:
@@ -34,7 +82,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -43,13 +91,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Test
-        run: pnpm run test -- --run
+        run: pnpm install --frozen-lockfile
 
       - name: Build Electron app
         run: pnpm build
