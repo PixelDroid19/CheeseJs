@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useCodeStore } from '../store/useCodeStore';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useCodeStore } from '../store/storeHooks';
+import { useSettingsStore } from '../store/storeHooks';
 import { themes } from '../themes';
 import Editor, { Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';

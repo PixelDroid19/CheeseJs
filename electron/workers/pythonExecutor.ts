@@ -12,6 +12,8 @@ import { parentPort } from 'worker_threads';
 import path from 'path';
 import { createRequire } from 'module';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
+import { config as dotenvConfig } from 'dotenv';
+import { expand as dotenvExpand } from 'dotenv-expand';
 
 const require = createRequire(import.meta.url);
 
@@ -80,6 +82,7 @@ type WorkerMessage =
 interface ExecuteOptions {
   timeout?: number;
   showUndefined?: boolean;
+  workingDirectory?: string;
 }
 
 interface ResultMessage {
@@ -966,6 +969,30 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
 
     // Transform code to handle magic comments and async input (P1-A)
     const transformedCode = await transformPythonCode(py, code);
+
+    // Load .env variables into Python's os.environ
+    if (options.workingDirectory) {
+      try {
+        const parsedEnv = dotenvConfig({ path: path.join(options.workingDirectory, '.env') });
+        if (parsedEnv.parsed) {
+          dotenvExpand(parsedEnv);
+          const envString = JSON.stringify(parsedEnv.parsed);
+          // Inject variables using JSON loads for safety
+          await py.runPythonAsync(`
+import os
+import json
+try:
+    _env_vars = json.loads('''${envString.replace(/'/g, "\\'")}''')
+    for k, v in _env_vars.items():
+        os.environ[k] = str(v)
+except Exception as e:
+    print(f"Failed to run environment initialization: {e}")
+`);
+        }
+      } catch (err) {
+        console.warn('Failed to parse .env from working directory:', err);
+      }
+    }
 
     // Create timeout promise
     const timeoutPromise = new Promise<never>((_, reject) => {

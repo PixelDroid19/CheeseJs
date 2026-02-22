@@ -2,7 +2,7 @@ import { m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { HelpCircle } from 'lucide-react';
 import clsx from 'clsx';
-import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useSettingsStore } from '../../../store/storeHooks';
 import { Toggle } from '../ui/Toggle';
 import { Tooltip } from '../ui/Tooltip';
 

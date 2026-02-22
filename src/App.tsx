@@ -1,9 +1,9 @@
 import { useEffect, lazy, Suspense } from 'react';
 import FloatingToolbar from './components/FloatingToolbar';
 import { Layout } from './components/Layout';
-import { useSettingsStore } from './store/useSettingsStore';
+import { useSettingsStore } from './store/storeHooks';
 import { useAppStore } from './store';
-import { usePackagesStore, type PackagesState } from './store/usePackagesStore';
+import { usePackagesStore, type PackagesState } from './store/storeHooks';
 
 // Error boundaries for crash recovery
 import { RecoverableErrorBoundary } from './components/RecoverableErrorBoundary';
@@ -19,7 +19,7 @@ import ResultDisplay from './components/Result';
 import { InputTooltip } from './components/InputTooltip';
 import { AIChat } from './components/AI/AIChat';
 import { KnowledgeBaseModal } from './components/KnowledgeBase/KnowledgeBaseModal';
-import { useRagStore } from './store/useRagStore';
+import { useRagStore } from './store/storeHooks';
 
 function App() {
   const { setMagicComments } = useSettingsStore();

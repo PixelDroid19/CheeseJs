@@ -2,7 +2,7 @@
 // Uses Monaco 0.55+ InlineCompletionsProvider API correctly
 import type * as Monaco from 'monaco-editor';
 import { aiService } from './aiService';
-import { useAISettingsStore } from '../../store/useAISettingsStore';
+import { useAISettingsStore } from '../../store/storeHooks';
 import type { PromptContext } from './prompts';
 import {
   AI_COMPLETION_DEBOUNCE_MS,

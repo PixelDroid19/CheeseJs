@@ -12,9 +12,9 @@ import {
   Copy,
   Plus,
 } from 'lucide-react';
-import { useSnippetsStore, Snippet } from '../../../store/useSnippetsStore';
-import { useCodeStore } from '../../../store/useCodeStore';
-import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useSnippetsStore, Snippet } from '../../../store/storeHooks';
+import { useCodeStore } from '../../../store/storeHooks';
+import { useSettingsStore } from '../../../store/storeHooks';
 import { SectionHeader } from '../ui/SectionHeader';
 import clsx from 'clsx';
 

@@ -11,6 +11,7 @@
  */
 
 import type * as Monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import { useAppStore } from './index';
 
 // Import from the new language detection module
 import {
@@ -311,10 +312,6 @@ export { useLanguageStore } from './storeHooks';
 export const selectCurrentLanguage = (state: LanguageState) =>
   state.currentLanguage;
 export const selectIsDetecting = (state: LanguageState) => state.isDetecting;
-export const selectIsModelLoaded = (state: LanguageState) =>
-  state.isModelLoaded;
-
-import { useAppStore } from './index';
 
 // ============================================================================
 // STANDALONE FUNCTIONS (for use outside React)

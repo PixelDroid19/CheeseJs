@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useEffect } from 'react';
-import { usePackagesStore } from '../store/usePackagesStore';
+import { usePackagesStore } from '../store/storeHooks';
 
 export function usePackageInstaller() {
   const addPackage = usePackagesStore((state) => state.addPackage);

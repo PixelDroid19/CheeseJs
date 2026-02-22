@@ -37,6 +37,8 @@ export interface SettingsState {
   autoRunAfterInstall: boolean;
   autoInstallPackages: boolean;
   uiFontSize: number;
+  fontLigatures: boolean;
+  workingDirectory: string;
   setLanguage: (lang: string) => void;
   setThemeName: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -53,6 +55,8 @@ export interface SettingsState {
   setNpmRcContent: (content: string) => void;
   setMagicComments: (enabled: boolean) => void;
   setExecutionEnvironment: (env: 'node' | 'browser') => void;
+  setFontLigatures: (enabled: boolean) => void;
+  setWorkingDirectory: (dir: string) => void;
   setAutoRunAfterInstall: (autoRun: boolean) => void;
   setAutoInstallPackages: (autoInstall: boolean) => void;
   setConsoleFilters: (
@@ -93,6 +97,8 @@ export const createSettingsSlice: import('zustand').StateCreator<SettingsState> 
   autoRunAfterInstall: true,
   autoInstallPackages: true, // Default to auto-install
   uiFontSize: 14,
+  fontLigatures: true,
+  workingDirectory: '',
   setLanguage: (language) => set({ language }),
   setThemeName: (themeName) => set({ themeName }),
   setFontSize: (fontSize) => set({ fontSize }),
@@ -110,6 +116,8 @@ export const createSettingsSlice: import('zustand').StateCreator<SettingsState> 
   setMagicComments: (magicComments) => set({ magicComments }),
   setExecutionEnvironment: (executionEnvironment) =>
     set({ executionEnvironment }),
+  setFontLigatures: (fontLigatures: boolean) => set({ fontLigatures }),
+  setWorkingDirectory: (workingDirectory: string) => set({ workingDirectory }),
   setAutoRunAfterInstall: (autoRunAfterInstall) =>
     set({ autoRunAfterInstall }),
   setAutoInstallPackages: (autoInstallPackages) =>
@@ -141,6 +149,8 @@ export const partializeSettings = (state: SettingsState) => ({
   npmRcContent: state.npmRcContent,
   magicComments: state.magicComments,
   uiFontSize: state.uiFontSize,
+  fontLigatures: state.fontLigatures,
+  workingDirectory: state.workingDirectory,
   executionEnvironment: state.executionEnvironment,
   autoRunAfterInstall: state.autoRunAfterInstall,
   autoInstallPackages: state.autoInstallPackages,
@@ -150,4 +160,3 @@ export const partializeSettings = (state: SettingsState) => ({
   splitDirection: state.splitDirection,
 });
 
-export { useSettingsStore } from './storeHooks';

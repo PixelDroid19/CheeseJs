@@ -1,5 +1,6 @@
 import {
-  createPackageStore,
+  createPackageSlice,
+  partializePackages,
   type BasePackageError,
   type BasePackageInfo,
   type BasePackagesState,
@@ -17,8 +18,9 @@ export type PackageError = BasePackageError;
 export type PackageInfo = BasePackageInfo;
 export type PackagesState = BasePackagesState<PackageInfo>;
 
-// Create the JS packages store using the shared factory
-export const usePackagesStore = createPackageStore<PackageInfo>();
+// Export the slice creator for use in the unified store
+export const createPackagesSlice = createPackageSlice<PackageInfo>();
+export { partializePackages };
 
 // ============================================================================
 // SELECTORS (re-exported for backwards compatibility)

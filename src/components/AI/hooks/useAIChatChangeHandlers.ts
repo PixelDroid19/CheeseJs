@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { PendingCodeChange } from '../../../store/useChatStore';
+import type { PendingCodeChange } from '../../../store/storeHooks';
 
 interface ChangeHandlersDeps {
   t: (key: string, fallback: string) => string;

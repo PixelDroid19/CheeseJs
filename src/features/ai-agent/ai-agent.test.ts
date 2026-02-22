@@ -26,7 +26,7 @@ vi.mock('./aiService', () => ({
   },
 }));
 
-vi.mock('../../store/useAISettingsStore', () => ({
+vi.mock('../../store/storeHooks', () => ({
   useAISettingsStore: {
     getState: vi.fn().mockReturnValue({
       enableInlineCompletion: true,

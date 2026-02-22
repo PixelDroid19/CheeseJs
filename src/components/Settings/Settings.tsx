@@ -13,7 +13,7 @@ import {
   FileCode,
   Bug,
 } from 'lucide-react';
-import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSettingsStore } from '../../store/storeHooks';
 import clsx from 'clsx';
 import { m, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';

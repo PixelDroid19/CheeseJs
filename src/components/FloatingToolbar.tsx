@@ -8,13 +8,13 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCodeRunner } from '../hooks/useCodeRunner';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useSettingsStore } from '../store/storeHooks';
 import { useRuntimeStatus } from '../hooks/useRuntimeStatus';
-import { useLanguageStore } from '../store/useLanguageStore';
-import { useRagStore } from '../store/useRagStore';
-import { useCodeStore } from '../store/useCodeStore';
-import { usePackagesStore } from '../store/usePackagesStore';
-import { usePythonPackagesStore } from '../store/usePythonPackagesStore';
+import { useLanguageStore } from '../store/storeHooks';
+import { useRagStore } from '../store/storeHooks';
+import { useCodeStore } from '../store/storeHooks';
+import { usePackagesStore } from '../store/storeHooks';
+import { usePythonPackagesStore } from '../store/storeHooks';
 import { SnippetsMenu } from './SnippetsMenu';
 import clsx from 'clsx';
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '../__test__/test-utils';
+import { render, screen, fireEvent, act } from '../__test__/test-utils';
 import ResultDisplay from './Result';
 
 // ── Mocks ──────────────────────────────────────────────────────────────
@@ -31,35 +31,16 @@ vi.mock('@monaco-editor/react', () => ({
 }));
 
 // Framer motion mock
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({
-      children,
-      ...props
-    }: React.PropsWithChildren<Record<string, unknown>>) => {
-      const filtered: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(props)) {
-        if (
-          ![
-            'initial',
-            'animate',
-            'exit',
-            'transition',
-            'whileHover',
-            'whileTap',
-            'layout',
-          ].includes(key)
-        ) {
-          filtered[key] = value;
-        }
-      }
-      return <div {...filtered}>{children}</div>;
+vi.mock('framer-motion', () => {
+  const component = (props: any) => <div {...props}>{props.children}</div>;
+  return {
+    m: {
+      div: component,
+      button: (props: any) => <button {...props}>{props.children}</button>,
     },
-  },
-  AnimatePresence: ({
-    children,
-  }: React.PropsWithChildren<{ mode?: string }>) => <>{children}</>,
-}));
+    AnimatePresence: ({ children }: any) => <>{children}</>,
+  };
+});
 
 // ConsoleInput mock
 vi.mock('./ConsoleInput', () => ({
@@ -89,20 +70,26 @@ const mockCodeStoreState = {
   code: '',
 };
 
-vi.mock('../store/useCodeStore', () => ({
-  useCodeStore: (selector: (s: typeof mockCodeStoreState) => unknown) =>
-    selector(mockCodeStoreState),
-}));
-
 const mockSettingsState = {
   themeName: 'test-theme',
   fontSize: 14,
   alignResults: false,
+  consoleFilters: {
+    log: true,
+    info: true,
+    warn: true,
+    error: true,
+  },
+  toggleConsoleFilter: vi.fn(),
 };
 
-vi.mock('../store/useSettingsStore', () => ({
-  useSettingsStore: () => mockSettingsState,
-}));
+// Create a reactive mock hook reference
+let currentSettings = mockSettingsState;
+const useSettingsStoreMock = vi.fn((selector) =>
+  selector ? selector(currentSettings) : currentSettings
+);
+
+
 
 const mockAddPackage = vi.fn();
 const mockSetPackageInstalling = vi.fn();
@@ -124,10 +111,6 @@ const mockPackagesState = {
   detectedMissingPackages: [] as string[],
 };
 
-vi.mock('../store/usePackagesStore', () => ({
-  usePackagesStore: () => mockPackagesState,
-}));
-
 const mockAddPythonPackage = vi.fn();
 const mockSetPythonPackageInstalling = vi.fn();
 const mockSetPythonPackageInstalled = vi.fn();
@@ -148,8 +131,23 @@ const mockPythonPackagesState = {
   detectedMissingPackages: [] as string[],
 };
 
-vi.mock('../store/usePythonPackagesStore', () => ({
-  usePythonPackagesStore: () => mockPythonPackagesState,
+vi.mock('../store/storeHooks', () => ({
+  useCodeStore: (selector: (s: any) => any) => selector(mockCodeStoreState),
+  useSettingsStore: (selector: (s: any) => any) => useSettingsStoreMock(selector),
+  usePackagesStore: (selector: (s: any) => any) =>
+    selector ? selector(mockPackagesState) : mockPackagesState,
+  usePythonPackagesStore: (selector: (s: any) => any) =>
+    selector ? selector(mockPythonPackagesState) : mockPythonPackagesState,
+  useLanguageStore: (selector: (s: any) => any) =>
+    selector({ currentLanguage: 'javascript' }),
+  useAppStore: {
+    getState: () => ({
+      language: {
+        isLanguageExecutable: (lang: string) =>
+          ['javascript', 'typescript', 'python'].includes(lang),
+      },
+    }),
+  },
 }));
 
 // Package metadata hooks
@@ -200,6 +198,10 @@ describe('ResultDisplay', () => {
     mockCodeStoreState.result = [];
     mockCodeStoreState.code = '';
     mockSettingsState.alignResults = false;
+    currentSettings = mockSettingsState;
+    useSettingsStoreMock.mockImplementation((selector) =>
+      selector ? selector(currentSettings) : currentSettings
+    );
     mockPackagesState.packages = [];
     mockPackagesState.detectedMissingPackages = [];
     mockPythonPackagesState.packages = [];
@@ -282,9 +284,15 @@ describe('ResultDisplay', () => {
       },
     ];
 
-    render(<ResultDisplay />);
+    const { rerender } = render(<ResultDisplay />);
     // Toggle off Log filter
-    fireEvent.click(screen.getByText('Log'));
+    act(() => {
+      currentSettings = {
+        ...currentSettings,
+        consoleFilters: { ...currentSettings.consoleFilters, log: false },
+      };
+    });
+    rerender(<ResultDisplay />);
 
     const editor = screen.getByTestId('monaco-editor');
     expect(editor.textContent).not.toContain('Log msg');
@@ -305,8 +313,14 @@ describe('ResultDisplay', () => {
       },
     ];
 
-    render(<ResultDisplay />);
-    fireEvent.click(screen.getByText('Error'));
+    const { rerender } = render(<ResultDisplay />);
+    act(() => {
+      currentSettings = {
+        ...currentSettings,
+        consoleFilters: { ...currentSettings.consoleFilters, error: false },
+      };
+    });
+    rerender(<ResultDisplay />);
 
     const editor = screen.getByTestId('monaco-editor');
     expect(editor.textContent).toContain('Log msg');

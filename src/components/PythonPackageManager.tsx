@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { usePythonPackagesStore } from '../store/usePythonPackagesStore';
+import { usePythonPackagesStore } from '../store/storeHooks';
 import { useTranslation } from 'react-i18next';
 import { PackageList } from './PackageList';
 

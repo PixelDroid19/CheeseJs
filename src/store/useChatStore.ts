@@ -20,6 +20,8 @@ export type AgentRunStatus =
   | 'error'
   | 'aborted';
 
+export type AgentPhase = AgentRunStatus;
+
 export interface PendingCodeChange {
   originalCode: string;
   newCode: string;
@@ -96,6 +98,7 @@ export interface ChatState {
     endedAt?: number;
     error?: string;
   }) => void;
+  setAgentPhase: (phase: AgentPhase, message?: string) => void;
   clearRunLifecycle: () => void;
 
   // Applied change history actions
@@ -302,6 +305,33 @@ export const createChatSlice: import('zustand').StateCreator<ChatState> = (set, 
         : null,
     })),
 
+  setAgentPhase: (phase, message) => {
+    const defaultMessages: Record<string, string> = {
+      thinking: 'Analyzing your request...',
+      generating: 'Generating code...',
+      applying: 'Preparing changes...',
+      completed: 'Finished!',
+    };
+
+    const finalMessage = message ?? defaultMessages[phase];
+
+    set((state) => ({
+      activeRun: state.activeRun
+        ? {
+          ...state.activeRun,
+          status: phase,
+          message: finalMessage ?? state.activeRun.message,
+        }
+        : {
+          id: Date.now(),
+          mode: 'agent',
+          status: phase,
+          startedAt: Date.now(),
+          message: finalMessage,
+        },
+    }));
+  },
+
   clearRunLifecycle: () => set({ activeRun: null }),
 
   pushAppliedChange: (change) =>
@@ -351,5 +381,3 @@ export const partializeChat = (state: ChatState) => ({
   appliedChanges: state.appliedChanges.slice(-20),
   redoChanges: state.redoChanges.slice(-20),
 });
-
-export { useChatStore } from './storeHooks';

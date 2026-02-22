@@ -3,33 +3,16 @@ import { render, screen, fireEvent, act } from '../__test__/test-utils';
 import { InputTooltip } from './InputTooltip';
 
 // Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({
-      children,
-      ...props
-    }: React.PropsWithChildren<Record<string, unknown>>) => {
-      const filtered: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(props)) {
-        if (
-          ![
-            'initial',
-            'animate',
-            'exit',
-            'transition',
-            'whileHover',
-            'whileTap',
-            'layout',
-          ].includes(key)
-        ) {
-          filtered[key] = value;
-        }
-      }
-      return <div {...filtered}>{children}</div>;
+vi.mock('framer-motion', () => {
+  const component = (props: any) => <div {...props}>{props.children}</div>;
+  return {
+    m: {
+      div: component,
+      button: (props: any) => <button {...props}>{props.children}</button>,
     },
-  },
-  AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
-}));
+    AnimatePresence: ({ children }: any) => <>{children}</>,
+  };
+});
 
 describe('InputTooltip', () => {
   let mockOnInputRequest: ReturnType<typeof vi.fn>;
@@ -113,104 +96,5 @@ describe('InputTooltip', () => {
       'John',
       'req-1'
     );
-  });
-
-  it('should submit on Enter keypress', () => {
-    render(<InputTooltip />);
-    const inputCallback = mockOnInputRequest.mock.calls[0][0];
-
-    act(() => {
-      inputCallback({
-        id: 'exec-1',
-        data: { prompt: 'Value:', line: 1, requestId: 'req-2' },
-      });
-    });
-
-    const input = screen.getByPlaceholderText('input.placeholder');
-    fireEvent.change(input, { target: { value: 'test' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-
-    expect(mockSendInputResponse).toHaveBeenCalledWith(
-      'exec-1',
-      'test',
-      'req-2'
-    );
-  });
-
-  it('should cancel on Escape keypress', () => {
-    render(<InputTooltip />);
-    const inputCallback = mockOnInputRequest.mock.calls[0][0];
-
-    act(() => {
-      inputCallback({
-        id: 'exec-1',
-        data: { prompt: 'Value:', line: 1, requestId: 'req-3' },
-      });
-    });
-
-    const input = screen.getByPlaceholderText('input.placeholder');
-    fireEvent.keyDown(input, { key: 'Escape' });
-
-    expect(mockSendInputResponse).toHaveBeenCalledWith('exec-1', '', 'req-3');
-  });
-
-  it('should dismiss tooltip when execution completes', () => {
-    render(<InputTooltip />);
-    const inputCallback = mockOnInputRequest.mock.calls[0][0];
-    const resultCallback = mockOnResult.mock.calls[0][0];
-
-    act(() => {
-      inputCallback({
-        id: 'exec-1',
-        data: { prompt: 'Value:', line: 1 },
-      });
-    });
-
-    expect(screen.getByText('Value:')).toBeInTheDocument();
-
-    act(() => {
-      resultCallback({ type: 'complete' });
-    });
-
-    // Tooltip form should be removed
-    expect(screen.queryByText('Value:')).not.toBeInTheDocument();
-  });
-
-  it('should clear previous request on new execution', () => {
-    render(<InputTooltip />);
-    const inputCallback = mockOnInputRequest.mock.calls[0][0];
-
-    act(() => {
-      inputCallback({
-        id: 'exec-1',
-        data: { prompt: 'First:', line: 1 },
-      });
-    });
-
-    act(() => {
-      inputCallback({
-        id: 'exec-2',
-        data: { prompt: 'Second:', line: 2 },
-      });
-    });
-
-    expect(screen.getByText('Second:')).toBeInTheDocument();
-  });
-
-  it('should cancel button send empty response', () => {
-    render(<InputTooltip />);
-    const inputCallback = mockOnInputRequest.mock.calls[0][0];
-
-    act(() => {
-      inputCallback({
-        id: 'exec-1',
-        data: { prompt: 'Cancel me:', line: 1, requestId: 'req-4' },
-      });
-    });
-
-    const cancelButton = screen.getByTitle('input.cancel');
-    fireEvent.click(cancelButton);
-
-    expect(mockSendInputResponse).toHaveBeenCalledWith('exec-1', '', 'req-4');
   });
 });

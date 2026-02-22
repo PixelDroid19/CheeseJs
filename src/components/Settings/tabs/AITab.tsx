@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
+import { motion as m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
   Eye,
@@ -12,7 +12,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useAISettingsStore } from '../../../store/useAISettingsStore';
+import { useAISettingsStore } from '../../../store/storeHooks';
 import { Select } from '../ui/Select';
 import { Toggle } from '../ui/Toggle';
 import { SectionHeader } from '../ui/SectionHeader';
@@ -27,7 +27,7 @@ import {
   validateLocalServerURL,
   type AIProvider,
 } from '../../../features/ai-agent';
-import type { AgentExecutionMode } from '../../../store/useAISettingsStore';
+import type { AgentExecutionMode } from '../../../store/storeHooks';
 
 interface LocalModel {
   id: string;
@@ -721,23 +721,23 @@ export function AITab() {
             <p className="text-xs text-muted-foreground mt-1">
               {toolPolicyPreset === 'standard'
                 ? t(
-                    'settings.ai.toolPolicyStandardHint',
-                    'Balanced defaults with approval prompts for mutating tools.'
-                  )
+                  'settings.ai.toolPolicyStandardHint',
+                  'Balanced defaults with approval prompts for mutating tools.'
+                )
                 : toolPolicyPreset === 'safe'
                   ? t(
-                      'settings.ai.toolPolicySafeHint',
-                      'Blocks write/runtime groups; useful for safer review sessions.'
-                    )
+                    'settings.ai.toolPolicySafeHint',
+                    'Blocks write/runtime groups; useful for safer review sessions.'
+                  )
                   : toolPolicyPreset === 'readonly'
                     ? t(
-                        'settings.ai.toolPolicyReadonlyHint',
-                        'Restricts the agent to read/analysis-oriented tooling.'
-                      )
+                      'settings.ai.toolPolicyReadonlyHint',
+                      'Restricts the agent to read/analysis-oriented tooling.'
+                    )
                     : t(
-                        'settings.ai.toolPolicyCustomHint',
-                        'Custom policy is active from internal overrides.'
-                      )}
+                      'settings.ai.toolPolicyCustomHint',
+                      'Custom policy is active from internal overrides.'
+                    )}
             </p>
           </div>
         </div>

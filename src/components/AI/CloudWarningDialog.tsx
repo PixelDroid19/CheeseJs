@@ -4,7 +4,7 @@
  */
 import { m, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Cloud, Shield, X } from 'lucide-react';
-import clsx from 'clsx';
+
 
 interface CloudWarningDialogProps {
   isOpen: boolean;

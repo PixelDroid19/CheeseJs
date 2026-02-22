@@ -8,6 +8,7 @@ export interface ExecutionOptions {
     showTopLevelResults?: boolean;
     loopProtection?: boolean;
     magicComments?: boolean;
+    workingDirectory?: string;
     language?: 'javascript' | 'typescript' | 'python';
 }
 

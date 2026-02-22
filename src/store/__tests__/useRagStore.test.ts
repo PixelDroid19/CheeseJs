@@ -1,5 +1,6 @@
+import { useAppStore } from '../index';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useRagStore } from '../useRagStore';
+import { useRagStore } from '../storeHooks';
 
 // Mock window.rag
 const mockGetDocuments = vi.fn();
@@ -36,9 +37,9 @@ describe('useRagStore', () => {
     const docs = [{ id: '1', title: 'Test Doc', type: 'file' }];
     mockGetDocuments.mockResolvedValue({ success: true, documents: docs });
 
-    await useRagStore.getState().loadDocuments();
+    await useAppStore.getState().rag.loadDocuments();
 
-    const state = useRagStore.getState();
+    const state = useAppStore.getState().rag;
     expect(state.documents).toEqual(docs);
     expect(state.isLoading).toBe(false);
     expect(state.activeDocumentIds).toEqual(['1']); // Should select all by default
@@ -47,9 +48,9 @@ describe('useRagStore', () => {
   it('should handle load documents error', async () => {
     mockGetDocuments.mockResolvedValue({ success: false, error: 'Failed' });
 
-    await useRagStore.getState().loadDocuments();
+    await useAppStore.getState().rag.loadDocuments();
 
-    const state = useRagStore.getState();
+    const state = useAppStore.getState().rag;
     expect(state.error).toBe('Failed');
     expect(state.isLoading).toBe(false);
   });
@@ -57,11 +58,11 @@ describe('useRagStore', () => {
   it('should toggle document selection', () => {
     useRagStore.setState({ activeDocumentIds: ['1', '2'] });
 
-    useRagStore.getState().toggleDocumentSelection('1');
-    expect(useRagStore.getState().activeDocumentIds).toEqual(['2']);
+    useAppStore.getState().rag.toggleDocumentSelection('1');
+    expect(useAppStore.getState().rag.activeDocumentIds).toEqual(['2']);
 
-    useRagStore.getState().toggleDocumentSelection('3');
-    expect(useRagStore.getState().activeDocumentIds).toEqual(['2', '3']);
+    useAppStore.getState().rag.toggleDocumentSelection('3');
+    expect(useAppStore.getState().rag.activeDocumentIds).toEqual(['2', '3']);
   });
 
   it('should handle progress events', () => {
@@ -69,7 +70,7 @@ describe('useRagStore', () => {
       .getState()
       .handleProgress({ id: '1', status: 'processing', message: 'Work' });
 
-    const state = useRagStore.getState();
+    const state = useAppStore.getState().rag;
     expect(state.processingStatus['1']).toEqual({
       status: 'processing',
       message: 'Work',

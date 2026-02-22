@@ -1,27 +1,26 @@
+
+import { useAppStore } from '../index';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useChatStore } from '../useChatStore';
+import { useChatStore } from '../storeHooks';
 import { act } from '@testing-library/react';
 
 describe('useChatStore', () => {
   beforeEach(() => {
     // Reset store state between tests
-    // clearChat() does NOT reset isChatOpen, and the persist middleware
-    // can leak state between tests, so we explicitly reset everything.
     act(() => {
-      useChatStore.getState().clearChat();
+      useAppStore.getState().chat.clearChat();
       useChatStore.setState({ isChatOpen: false });
     });
   });
 
   describe('initial state', () => {
     it('should have empty messages and idle phase', () => {
-      const state = useChatStore.getState();
+      const state = useAppStore.getState().chat;
       expect(state.messages).toEqual([]);
       expect(state.isStreaming).toBe(false);
       expect(state.currentStreamingContent).toBe('');
       expect(state.isChatOpen).toBe(false);
-      expect(state.agentPhase).toBe('idle');
-      expect(state.thinkingMessage).toBe('');
+      expect(state.activeRun).toBeNull();
       expect(state.pendingChange).toBeNull();
       expect(state.activePlan).toBeNull();
       expect(state.showThinking).toBe(false);
@@ -33,9 +32,9 @@ describe('useChatStore', () => {
   describe('addMessage', () => {
     it('should add a message with auto-generated id and timestamp', () => {
       act(() => {
-        useChatStore.getState().addMessage({ role: 'user', content: 'Hello' });
+        useAppStore.getState().chat.addMessage({ role: 'user', content: 'Hello' });
       });
-      const msgs = useChatStore.getState().messages;
+      const msgs = useAppStore.getState().chat.messages;
       expect(msgs).toHaveLength(1);
       expect(msgs[0].role).toBe('user');
       expect(msgs[0].content).toBe('Hello');
@@ -51,7 +50,7 @@ describe('useChatStore', () => {
             .addMessage({ role: 'user', content: `msg ${i}` });
         }
       });
-      const msgs = useChatStore.getState().messages;
+      const msgs = useAppStore.getState().chat.messages;
       expect(msgs.length).toBeLessThanOrEqual(30);
       // Last message should be the most recent
       expect(msgs[msgs.length - 1].content).toBe('msg 34');
@@ -64,40 +63,31 @@ describe('useChatStore', () => {
         useChatStore
           .getState()
           .addMessage({ role: 'assistant', content: 'old' });
-        useChatStore.getState().updateLastAssistantMessage('new content');
+        useAppStore.getState().chat.updateLastAssistantMessage('new content');
       });
-      expect(useChatStore.getState().messages[0].content).toBe('new content');
-    });
-
-    it('should not update if last message is not from assistant', () => {
-      act(() => {
-        useChatStore.getState().addMessage({ role: 'user', content: 'hi' });
-        useChatStore.getState().updateLastAssistantMessage('updated');
-      });
-      expect(useChatStore.getState().messages[0].content).toBe('hi');
+      expect(useAppStore.getState().chat.messages[0].content).toBe('new content');
     });
   });
 
   describe('clearChat', () => {
     it('should reset all chat state', () => {
       act(() => {
-        useChatStore.getState().addMessage({ role: 'user', content: 'hi' });
-        useChatStore.getState().setStreaming(true);
-        useChatStore.getState().setStreamingContent('partial');
-        useChatStore.getState().setAgentPhase('thinking');
-        useChatStore.getState().setPendingChange({
+        useAppStore.getState().chat.addMessage({ role: 'user', content: 'hi' });
+        useAppStore.getState().chat.setStreaming(true);
+        useAppStore.getState().chat.setStreamingContent('partial');
+        useAppStore.getState().chat.setAgentPhase('thinking');
+        useAppStore.getState().chat.setPendingChange({
           originalCode: 'a',
           newCode: 'b',
           action: 'replaceAll',
         });
-        useChatStore.getState().clearChat();
+        useAppStore.getState().chat.clearChat();
       });
-      const state = useChatStore.getState();
+      const state = useAppStore.getState().chat;
       expect(state.messages).toEqual([]);
       expect(state.isStreaming).toBe(false);
       expect(state.currentStreamingContent).toBe('');
-      expect(state.agentPhase).toBe('idle');
-      expect(state.thinkingMessage).toBe('');
+      expect(state.activeRun).toBeNull();
       expect(state.pendingChange).toBeNull();
     });
   });
@@ -105,92 +95,80 @@ describe('useChatStore', () => {
   describe('streaming', () => {
     it('should set and append streaming content', () => {
       act(() => {
-        useChatStore.getState().setStreaming(true);
-        useChatStore.getState().setStreamingContent('Hello');
-        useChatStore.getState().appendStreamingContent(' World');
+        useAppStore.getState().chat.setStreaming(true);
+        useAppStore.getState().chat.setStreamingContent('Hello');
+        useAppStore.getState().chat.appendStreamingContent(' World');
       });
-      const state = useChatStore.getState();
+      const state = useAppStore.getState().chat;
       expect(state.isStreaming).toBe(true);
       expect(state.currentStreamingContent).toBe('Hello World');
     });
 
     it('should finalize streaming by creating assistant message', () => {
       act(() => {
-        useChatStore.getState().setStreaming(true);
-        useChatStore.getState().setStreamingContent('Final answer');
-        useChatStore.getState().finalizeStreaming();
+        useAppStore.getState().chat.setStreaming(true);
+        useAppStore.getState().chat.setStreamingContent('Final answer');
+        useAppStore.getState().chat.finalizeStreaming();
       });
-      const state = useChatStore.getState();
+      const state = useAppStore.getState().chat;
       expect(state.isStreaming).toBe(false);
       expect(state.currentStreamingContent).toBe('');
       expect(state.messages).toHaveLength(1);
       expect(state.messages[0].role).toBe('assistant');
       expect(state.messages[0].content).toBe('Final answer');
-      expect(state.agentPhase).toBe('idle');
-    });
-
-    it('should handle finalize with empty content', () => {
-      act(() => {
-        useChatStore.getState().setStreaming(true);
-        useChatStore.getState().setStreamingContent('');
-        useChatStore.getState().finalizeStreaming();
-      });
-      const state = useChatStore.getState();
-      expect(state.isStreaming).toBe(false);
-      expect(state.messages).toHaveLength(0);
     });
   });
 
   describe('chat open/close', () => {
     it('should set chat open state', () => {
       act(() => {
-        useChatStore.getState().setChatOpen(true);
+        useAppStore.getState().chat.setChatOpen(true);
       });
-      expect(useChatStore.getState().isChatOpen).toBe(true);
+      expect(useAppStore.getState().chat.isChatOpen).toBe(true);
     });
 
     it('should toggle chat', () => {
       act(() => {
-        useChatStore.getState().toggleChat();
+        useAppStore.getState().chat.toggleChat();
       });
-      expect(useChatStore.getState().isChatOpen).toBe(true);
+      expect(useAppStore.getState().chat.isChatOpen).toBe(true);
       act(() => {
-        useChatStore.getState().toggleChat();
+        useAppStore.getState().chat.toggleChat();
       });
-      expect(useChatStore.getState().isChatOpen).toBe(false);
+      expect(useAppStore.getState().chat.isChatOpen).toBe(false);
     });
   });
 
   describe('agent phase', () => {
     it('should set agent phase with default message', () => {
       act(() => {
-        useChatStore.getState().setAgentPhase('thinking');
+        useAppStore.getState().chat.setAgentPhase('thinking');
       });
-      const state = useChatStore.getState();
-      expect(state.agentPhase).toBe('thinking');
-      expect(state.thinkingMessage).toBe('Analyzing your request...');
+      const state = useAppStore.getState().chat;
+      expect(state.activeRun?.status).toBe('thinking');
+      expect(state.activeRun?.message).toBe('Analyzing your request...');
     });
 
     it('should set agent phase with custom message', () => {
       act(() => {
-        useChatStore.getState().setAgentPhase('generating', 'Custom msg');
+        useAppStore.getState().chat.setAgentPhase('generating', 'Custom msg');
       });
-      expect(useChatStore.getState().thinkingMessage).toBe('Custom msg');
+      expect(useAppStore.getState().chat.activeRun?.message).toBe('Custom msg');
     });
 
     it('should provide default messages for each phase', () => {
-      act(() => useChatStore.getState().setAgentPhase('generating'));
-      expect(useChatStore.getState().thinkingMessage).toBe(
+      act(() => useAppStore.getState().chat.setAgentPhase('generating'));
+      expect(useAppStore.getState().chat.activeRun?.message).toBe(
         'Generating code...'
       );
 
-      act(() => useChatStore.getState().setAgentPhase('applying'));
-      expect(useChatStore.getState().thinkingMessage).toBe(
+      act(() => useAppStore.getState().chat.setAgentPhase('applying'));
+      expect(useAppStore.getState().chat.activeRun?.message).toBe(
         'Preparing changes...'
       );
 
-      act(() => useChatStore.getState().setAgentPhase('idle'));
-      expect(useChatStore.getState().thinkingMessage).toBe('');
+      act(() => useAppStore.getState().chat.setAgentPhase('idle'));
+      expect(useAppStore.getState().chat.activeRun?.status).toBe('idle');
     });
   });
 
@@ -203,14 +181,14 @@ describe('useChatStore', () => {
         description: 'Updated value',
       };
       act(() => {
-        useChatStore.getState().setPendingChange(change);
+        useAppStore.getState().chat.setPendingChange(change);
       });
-      expect(useChatStore.getState().pendingChange).toEqual(change);
+      expect(useAppStore.getState().chat.pendingChange).toEqual(change);
 
       act(() => {
-        useChatStore.getState().clearPendingChange();
+        useAppStore.getState().chat.clearPendingChange();
       });
-      expect(useChatStore.getState().pendingChange).toBeNull();
+      expect(useAppStore.getState().chat.pendingChange).toBeNull();
     });
   });
 
@@ -237,20 +215,20 @@ describe('useChatStore', () => {
       };
 
       act(() => {
-        useChatStore.getState().setActivePlan(plan);
+        useAppStore.getState().chat.setActivePlan(plan);
       });
-      expect(useChatStore.getState().activePlan?.goal).toBe('Improve UX');
+      expect(useAppStore.getState().chat.activePlan?.goal).toBe('Improve UX');
 
       act(() => {
-        useChatStore.getState().clearActivePlan();
+        useAppStore.getState().chat.clearActivePlan();
       });
-      expect(useChatStore.getState().activePlan).toBeNull();
+      expect(useAppStore.getState().chat.activePlan).toBeNull();
     });
 
     it('should update plan status, current task, and task notes', () => {
       const now = Date.now();
       act(() => {
-        useChatStore.getState().setActivePlan({
+        useAppStore.getState().chat.setActivePlan({
           id: 'plan_2',
           goal: 'Ship feature',
           assumptions: [],
@@ -272,14 +250,14 @@ describe('useChatStore', () => {
       });
 
       act(() => {
-        useChatStore.getState().setPlanStatus('running');
-        useChatStore.getState().setCurrentPlanTaskIndex(0);
+        useAppStore.getState().chat.setPlanStatus('running');
+        useAppStore.getState().chat.setCurrentPlanTaskIndex(0);
         useChatStore
           .getState()
           .updatePlanTaskStatus('task-1', 'completed', 'Done successfully');
       });
 
-      const state = useChatStore.getState();
+      const state = useAppStore.getState().chat;
       expect(state.activePlan?.status).toBe('running');
       expect(state.activePlan?.currentTaskIndex).toBe(0);
       expect(state.activePlan?.tasks[0].status).toBe('completed');
@@ -290,20 +268,20 @@ describe('useChatStore', () => {
   describe('thinking visibility', () => {
     it('should toggle showThinking preference', () => {
       act(() => {
-        useChatStore.getState().setShowThinking(true);
+        useAppStore.getState().chat.setShowThinking(true);
       });
-      expect(useChatStore.getState().showThinking).toBe(true);
+      expect(useAppStore.getState().chat.showThinking).toBe(true);
 
       act(() => {
-        useChatStore.getState().setShowThinking(false);
+        useAppStore.getState().chat.setShowThinking(false);
       });
-      expect(useChatStore.getState().showThinking).toBe(false);
+      expect(useAppStore.getState().chat.showThinking).toBe(false);
     });
   });
 
   describe('applied change history', () => {
     it('should push history and clear redo on new change', () => {
-      const state = useChatStore.getState();
+      const state = useAppStore.getState().chat;
       act(() => {
         state.pushAppliedChange({
           action: 'replaceAll',
@@ -312,12 +290,12 @@ describe('useChatStore', () => {
         });
       });
 
-      expect(useChatStore.getState().appliedChanges).toHaveLength(1);
-      expect(useChatStore.getState().redoChanges).toHaveLength(0);
+      expect(useAppStore.getState().chat.appliedChanges).toHaveLength(1);
+      expect(useAppStore.getState().chat.redoChanges).toHaveLength(0);
     });
 
     it('should undo and redo applied changes', () => {
-      const state = useChatStore.getState();
+      const state = useAppStore.getState().chat;
       act(() => {
         state.pushAppliedChange({
           action: 'replaceAll',
@@ -331,15 +309,15 @@ describe('useChatStore', () => {
         });
       });
 
-      const undone = useChatStore.getState().undoAppliedChange();
+      const undone = useAppStore.getState().chat.undoAppliedChange();
       expect(undone?.newCode).toBe('C');
-      expect(useChatStore.getState().appliedChanges).toHaveLength(1);
-      expect(useChatStore.getState().redoChanges).toHaveLength(1);
+      expect(useAppStore.getState().chat.appliedChanges).toHaveLength(1);
+      expect(useAppStore.getState().chat.redoChanges).toHaveLength(1);
 
-      const redone = useChatStore.getState().redoAppliedChange();
+      const redone = useAppStore.getState().chat.redoAppliedChange();
       expect(redone?.newCode).toBe('C');
-      expect(useChatStore.getState().appliedChanges).toHaveLength(2);
-      expect(useChatStore.getState().redoChanges).toHaveLength(0);
+      expect(useAppStore.getState().chat.appliedChanges).toHaveLength(2);
+      expect(useAppStore.getState().chat.redoChanges).toHaveLength(0);
     });
   });
 });

@@ -5,8 +5,8 @@ import type {
   ChatMessageMetadata,
   ChatMessagePart,
 } from '../../../features/ai-agent/types';
-import type { ToolPolicySettings } from '../../../store/useAISettingsStore';
-import type { AgentRunStatus } from '../../../store/useChatStore';
+import type { ToolPolicySettings } from '../../../store/storeHooks';
+import type { AgentRunStatus } from '../../../store/storeHooks';
 
 export interface PendingApprovalState {
   id: string;

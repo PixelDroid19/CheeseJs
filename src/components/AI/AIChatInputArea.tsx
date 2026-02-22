@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { AgentExecutionMode } from '../../store/useAISettingsStore';
+import type { AgentExecutionMode } from '../../store/storeHooks';
 import type { AgentProfile } from '../../features/ai-agent/agentProfiles';
 import type { ToolPolicyPreset } from '../../features/ai-agent/toolPolicy';
 import { AIComposerControls } from './AIComposerControls';
@@ -105,17 +105,22 @@ export function AIChatInputArea({
               <Square className="w-3.5 h-3.5" />
             ) : (
               <svg
-                className="w-3.5 h-3.5 translate-x-[-1px]"
-                fill="none"
-                stroke="currentColor"
+                className="w-4 h-4 translate-x-[2px] translate-y-[-1px]"
                 viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
+                <defs>
+                  <filter id="send-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.2" floodColor="currentColor" />
+                  </filter>
+                </defs>
+                {/* Left wing */}
+                <path d="M22 2L2 11L10.5 13L22 2Z" fill="currentColor" fillOpacity="0.6" filter="url(#send-shadow)" />
+                {/* Right wing */}
+                <path d="M22 2L10.5 13L13 21L22 2Z" fill="currentColor" fillOpacity="0.9" filter="url(#send-shadow)" />
+                {/* Inner shadow/fold */}
+                <path d="M10.5 13L13 21L12.2 14.5L10.5 13Z" fill="white" fillOpacity="0.2" />
               </svg>
             )}
           </button>

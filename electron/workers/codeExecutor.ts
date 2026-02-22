@@ -15,6 +15,8 @@ import util from 'util';
 import path from 'path';
 import Module from 'module';
 import { createRequire } from 'module';
+import { config as dotenvConfig } from 'dotenv';
+import { expand as dotenvExpand } from 'dotenv-expand';
 
 const require = createRequire(import.meta.url);
 
@@ -46,6 +48,7 @@ type WorkerMessage = ExecuteMessage | CancelMessage | ClearCacheMessage;
 interface ExecuteOptions {
   timeout?: number;
   showUndefined?: boolean;
+  workingDirectory?: string;
 }
 
 interface ResultMessage {
@@ -580,6 +583,23 @@ function createSandboxContext(
   context.globalThis = context;
   context.global = context;
   context.self = context;
+
+  // Dotenv loading feature when working directory is provided
+  let processEnv = { ...process.env };
+  if (options.workingDirectory) {
+    try {
+      const parsedEnv = dotenvConfig({ path: path.join(options.workingDirectory, '.env') });
+      if (parsedEnv.parsed) {
+        dotenvExpand(parsedEnv);
+        processEnv = { ...processEnv, ...parsedEnv.parsed };
+      }
+    } catch (err) {
+      console.warn('Failed to parse .env from working directory:', err);
+    }
+  }
+
+  // Provide a rudimentary process object for env access
+  context.process = { env: processEnv };
 
   return context;
 }

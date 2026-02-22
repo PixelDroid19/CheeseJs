@@ -1,5 +1,6 @@
 // AI Provider Factory using Vercel AI SDK 6
 // https://v6.ai-sdk.dev/providers/ai-sdk-providers
+/* global RequestInfo, RequestInit */
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -93,60 +94,62 @@ function createProxyBackedFetch(): typeof fetch {
         });
       }
 
-      return new Promise<Response>(async (resolve, reject) => {
-        try {
-          streamHandle = await window.aiProxy!.streamFetch(
-            payload,
-            (chunk) => {
-              if (!settled) {
-                settled = true;
-                resolve(
-                  new Response(stream, {
-                    status: 200,
-                    headers: {
-                      'content-type': 'text/event-stream',
-                    },
-                  })
-                );
-              }
-
-              streamController?.enqueue(textEncoder.encode(chunk));
-            },
-            () => {
-              if (!settled) {
-                settled = true;
-                resolve(
-                  new Response(stream, {
-                    status: 200,
-                    headers: {
-                      'content-type': 'text/event-stream',
-                    },
-                  })
-                );
-              }
-              streamController?.close();
-            },
-            (error) => {
-              const message =
-                typeof error?.body === 'string' && error.body.length > 0
-                  ? error.body
-                  : error?.statusText || 'Proxy stream request failed';
-
-              if (!settled) {
-                settled = true;
-                reject(new Error(message));
-              } else {
-                streamController?.error(new Error(message));
-              }
+      return new Promise<Response>((resolve, reject) => {
+        window.aiProxy!.streamFetch(
+          payload,
+          (chunk) => {
+            if (!settled) {
+              settled = true;
+              resolve(
+                new Response(stream, {
+                  status: 200,
+                  headers: {
+                    'content-type': 'text/event-stream',
+                  },
+                })
+              );
             }
-          );
-        } catch (error) {
-          reject(
-            error instanceof Error
-              ? error
-              : new Error('Proxy stream setup failed')
-          );
-        }
+
+            streamController?.enqueue(textEncoder.encode(chunk));
+          },
+          () => {
+            if (!settled) {
+              settled = true;
+              resolve(
+                new Response(stream, {
+                  status: 200,
+                  headers: {
+                    'content-type': 'text/event-stream',
+                  },
+                })
+              );
+            }
+            streamController?.close();
+          },
+          (error) => {
+            const message =
+              typeof error?.body === 'string' && error.body.length > 0
+                ? error.body
+                : error?.statusText || 'Proxy stream request failed';
+
+            if (!settled) {
+              settled = true;
+              reject(new Error(message));
+            } else {
+              streamController?.error(new Error(message));
+            }
+          }
+        )
+          .then((handle: any) => {
+            streamHandle = handle;
+          })
+          .catch((error: any) => {
+            reject(
+              error instanceof Error
+                ? error
+                : new Error('Proxy stream setup failed')
+            );
+          });
       });
     }
 

@@ -1,10 +1,11 @@
 import { m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useSettingsStore } from '../../../store/storeHooks';
 import { themeOptions } from '../../../themes';
 import { Select } from '../ui/Select';
 import { Slider } from '../ui/Slider';
 import { SectionHeader } from '../ui/SectionHeader';
+import { Toggle } from '../ui/Toggle';
 import clsx from 'clsx';
 
 export function AppearanceTab() {
@@ -16,6 +17,8 @@ export function AppearanceTab() {
     setFontSize,
     uiFontSize,
     setUiFontSize,
+    fontLigatures,
+    setFontLigatures,
   } = useSettingsStore();
 
   return (
@@ -66,6 +69,15 @@ export function AppearanceTab() {
               onChange={setUiFontSize}
               formatValue={(v) => `${v}px`}
               className="w-full"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Toggle
+              label={t('settings.fontLigatures', 'Font Ligatures')}
+              description={t('settings.fontLigaturesDesc', 'Enable typographical ligatures in the editor')}
+              checked={fontLigatures}
+              onChange={setFontLigatures}
             />
           </div>
         </div>

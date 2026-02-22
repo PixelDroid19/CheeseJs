@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
-import { useCodeStore } from '../store/useCodeStore';
-import { usePackagesStore } from '../store/usePackagesStore';
-import { usePythonPackagesStore } from '../store/usePythonPackagesStore';
+import { useCodeStore } from '../store/storeHooks';
+import { usePackagesStore } from '../store/storeHooks';
+import { usePythonPackagesStore } from '../store/storeHooks';
 import { Download, AlertCircle, Loader2, Package as PackageIcon, X } from 'lucide-react';
 import { AnimatePresence, m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';

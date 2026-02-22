@@ -1,5 +1,5 @@
+import { useAppStore } from '../index';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useSnippetsStore } from '../useSnippetsStore';
 import { act } from '@testing-library/react';
 
 // Mock crypto.randomUUID for deterministic IDs
@@ -13,26 +13,26 @@ describe('useSnippetsStore', () => {
     uuidCounter = 0;
     act(() => {
       // Clear all snippets
-      const state = useSnippetsStore.getState();
+      const state = useAppStore.getState().snippets;
       state.snippets.forEach((s) => state.removeSnippet(s.id));
     });
   });
 
   describe('initial state', () => {
     it('should start with empty snippets', () => {
-      expect(useSnippetsStore.getState().snippets).toEqual([]);
+      expect(useAppStore.getState().snippets.snippets).toEqual([]);
     });
   });
 
   describe('addSnippet', () => {
     it('should add a snippet with generated id', () => {
       act(() => {
-        useSnippetsStore.getState().addSnippet({
+        useAppStore.getState().snippets.addSnippet({
           name: 'Hello World',
           code: 'console.log("hello")',
         });
       });
-      const snippets = useSnippetsStore.getState().snippets;
+      const snippets = useAppStore.getState().snippets.snippets;
       expect(snippets).toHaveLength(1);
       expect(snippets[0]).toMatchObject({
         id: 'test-uuid-1',
@@ -43,71 +43,71 @@ describe('useSnippetsStore', () => {
 
     it('should add multiple snippets', () => {
       act(() => {
-        useSnippetsStore.getState().addSnippet({ name: 'A', code: 'a' });
-        useSnippetsStore.getState().addSnippet({ name: 'B', code: 'b' });
+        useAppStore.getState().snippets.addSnippet({ name: 'A', code: 'a' });
+        useAppStore.getState().snippets.addSnippet({ name: 'B', code: 'b' });
       });
-      expect(useSnippetsStore.getState().snippets).toHaveLength(2);
+      expect(useAppStore.getState().snippets.snippets).toHaveLength(2);
     });
   });
 
   describe('removeSnippet', () => {
     it('should remove a snippet by id', () => {
       act(() => {
-        useSnippetsStore.getState().addSnippet({ name: 'A', code: 'a' });
-        useSnippetsStore.getState().addSnippet({ name: 'B', code: 'b' });
+        useAppStore.getState().snippets.addSnippet({ name: 'A', code: 'a' });
+        useAppStore.getState().snippets.addSnippet({ name: 'B', code: 'b' });
       });
-      const idToRemove = useSnippetsStore.getState().snippets[0].id;
+      const idToRemove = useAppStore.getState().snippets.snippets[0].id;
       act(() => {
-        useSnippetsStore.getState().removeSnippet(idToRemove);
+        useAppStore.getState().snippets.removeSnippet(idToRemove);
       });
-      const snippets = useSnippetsStore.getState().snippets;
+      const snippets = useAppStore.getState().snippets.snippets;
       expect(snippets).toHaveLength(1);
       expect(snippets[0].name).toBe('B');
     });
 
     it('should do nothing for non-existent id', () => {
       act(() => {
-        useSnippetsStore.getState().addSnippet({ name: 'A', code: 'a' });
-        useSnippetsStore.getState().removeSnippet('nonexistent');
+        useAppStore.getState().snippets.addSnippet({ name: 'A', code: 'a' });
+        useAppStore.getState().snippets.removeSnippet('nonexistent');
       });
-      expect(useSnippetsStore.getState().snippets).toHaveLength(1);
+      expect(useAppStore.getState().snippets.snippets).toHaveLength(1);
     });
   });
 
   describe('updateSnippet', () => {
     it('should update snippet name', () => {
       act(() => {
-        useSnippetsStore.getState().addSnippet({ name: 'Old', code: 'code' });
+        useAppStore.getState().snippets.addSnippet({ name: 'Old', code: 'code' });
       });
-      const id = useSnippetsStore.getState().snippets[0].id;
+      const id = useAppStore.getState().snippets.snippets[0].id;
       act(() => {
-        useSnippetsStore.getState().updateSnippet(id, { name: 'New' });
+        useAppStore.getState().snippets.updateSnippet(id, { name: 'New' });
       });
-      expect(useSnippetsStore.getState().snippets[0].name).toBe('New');
-      expect(useSnippetsStore.getState().snippets[0].code).toBe('code');
+      expect(useAppStore.getState().snippets.snippets[0].name).toBe('New');
+      expect(useAppStore.getState().snippets.snippets[0].code).toBe('code');
     });
 
     it('should update snippet code', () => {
       act(() => {
-        useSnippetsStore.getState().addSnippet({ name: 'Test', code: 'old' });
+        useAppStore.getState().snippets.addSnippet({ name: 'Test', code: 'old' });
       });
-      const id = useSnippetsStore.getState().snippets[0].id;
+      const id = useAppStore.getState().snippets.snippets[0].id;
       act(() => {
-        useSnippetsStore.getState().updateSnippet(id, { code: 'new code' });
+        useAppStore.getState().snippets.updateSnippet(id, { code: 'new code' });
       });
-      expect(useSnippetsStore.getState().snippets[0].code).toBe('new code');
+      expect(useAppStore.getState().snippets.snippets[0].code).toBe('new code');
     });
 
     it('should not affect other snippets', () => {
       act(() => {
-        useSnippetsStore.getState().addSnippet({ name: 'A', code: 'a' });
-        useSnippetsStore.getState().addSnippet({ name: 'B', code: 'b' });
+        useAppStore.getState().snippets.addSnippet({ name: 'A', code: 'a' });
+        useAppStore.getState().snippets.addSnippet({ name: 'B', code: 'b' });
       });
-      const id = useSnippetsStore.getState().snippets[0].id;
+      const id = useAppStore.getState().snippets.snippets[0].id;
       act(() => {
-        useSnippetsStore.getState().updateSnippet(id, { name: 'Updated A' });
+        useAppStore.getState().snippets.updateSnippet(id, { name: 'Updated A' });
       });
-      expect(useSnippetsStore.getState().snippets[1].name).toBe('B');
+      expect(useAppStore.getState().snippets.snippets[1].name).toBe('B');
     });
   });
 });

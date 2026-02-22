@@ -1,11 +1,11 @@
 import { FOCUS_DELAY_MS } from '../../../constants';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useChatStore } from '../../../store/useChatStore';
-import { useAISettingsStore } from '../../../store/useAISettingsStore';
-import { useCodeStore } from '../../../store/useCodeStore';
-import { useLanguageStore } from '../../../store/useLanguageStore';
-import { useRagStore } from '../../../store/useRagStore';
+import { useChatStore } from '../../../store/storeHooks';
+import { useAISettingsStore } from '../../../store/storeHooks';
+import { useCodeStore } from '../../../store/storeHooks';
+import { useLanguageStore } from '../../../store/storeHooks';
+import { useRagStore } from '../../../store/storeHooks';
 import {
   type ToolInvocation,
   type AgentCallbacks,

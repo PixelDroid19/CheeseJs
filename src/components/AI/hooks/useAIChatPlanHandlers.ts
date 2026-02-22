@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useChatStore } from '../../../store/useChatStore';
+import { useChatStore } from '../../../store/storeHooks';
 import { extractExecutionPlanFromText } from '../../../features/ai-agent/codeAgent';
 
 interface PlanHandlersDeps {

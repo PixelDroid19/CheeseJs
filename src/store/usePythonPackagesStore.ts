@@ -1,5 +1,5 @@
 import {
-  createPackageStore,
+  createPackageSlice,
   type BasePackageError,
   type BasePackageInfo,
   type BasePackagesState,
@@ -10,5 +10,6 @@ export type PythonPackageError = BasePackageError;
 export type PythonPackageInfo = BasePackageInfo;
 export type PythonPackagesState = BasePackagesState<PythonPackageInfo>;
 
-// Create the Python packages store using the shared factory
-export const usePythonPackagesStore = createPackageStore<PythonPackageInfo>();
+// Export the slice creator for use in the unified store
+export const createPythonPackagesSlice = createPackageSlice<PythonPackageInfo>();
+

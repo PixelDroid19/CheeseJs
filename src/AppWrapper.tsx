@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { LazyMotion, domAnimation } from 'framer-motion';
-import { useSettingsStore } from './store/useSettingsStore';
+import { useSettingsStore } from './store/storeHooks';
 import { themesConfig } from './themes';
 import ErrorBoundary from './components/ErrorBoundary';
 import { TitleBar } from './components/TitleBar';

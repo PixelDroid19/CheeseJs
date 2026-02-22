@@ -1,36 +1,25 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback } from 'react';
 import LoadingIndicator from './LoadingIndicator';
 import Editor, { Monaco, loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
+import type { editor } from 'monaco-editor';
 
-import { useCodeStore, CodeState } from '../store/useCodeStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { useLanguageStore } from '../store/useLanguageStore';
-import { registerPackageCommands } from '../lib/monacoCommands';
-import { useDebouncedFunction } from '../hooks/useDebounce';
+import { useCodeStore, type CodeState } from '../store/storeHooks';
+import { useSettingsStore } from '../store/storeHooks';
+import { useLanguageStore } from '../store/storeHooks';
 import { useCodeRunner } from '../hooks/useCodeRunner';
-import {
-  registerMonacoProviders,
-  disposeMonacoProviders,
-} from '../lib/monacoProviders';
-import {
-  registerPythonMonacoProviders,
-  disposePythonMonacoProviders,
-} from '../lib/python/pythonMonacoProviders';
-import { setupTypeAcquisition } from '../lib/ata';
-import { registerPythonLanguage } from '../lib/python';
-import { editor } from 'monaco-editor';
-import {
-  configureMonaco,
-  setupMonacoEnvironment,
-} from '../utils/monaco-config';
+
+import { setupMonacoEnvironment } from '../utils/monaco-config';
 import { RecoverableErrorBoundary } from './RecoverableErrorBoundary';
 import { EditorFallback } from './ErrorFallbacks';
-import {
-  createInlineCompletionProvider,
-  registerAICodeActions,
-} from '../features/ai-agent';
 import { CODE_RUNNER_DEBOUNCE_MS } from '../constants';
+import { useDebouncedFunction } from '../hooks/useDebounce';
+
+import { useEditorFormat } from '../hooks/editor/useEditorFormat';
+import { useEditorCodeSync } from '../hooks/editor/useEditorCodeSync';
+import { useEditorModels } from '../hooks/editor/useEditorModels';
+import { useEditorChangeHandler } from '../hooks/editor/useEditorChangeHandler';
+import { useEditorLifecycle } from '../hooks/editor/useEditorLifecycle';
 
 // Setup Monaco workers before initialization
 setupMonacoEnvironment();
@@ -40,504 +29,102 @@ loader.config({ monaco });
 function CodeEditor() {
   const code = useCodeStore((state: CodeState) => state.code);
   const setCode = useCodeStore((state: CodeState) => state.setCode);
-  const { themeName, fontSize } = useSettingsStore();
+  const { themeName, fontSize, fontLigatures } = useSettingsStore();
 
-  // Use centralized language store
   const language = useLanguageStore((state) => state.currentLanguage);
-
-  // Keep Monaco model path stable to avoid model replacement/remount side effects
-  // when language changes (which can reset cursor/selection).
-  const monacoPath = 'inmemory://model/code.ts';
   const setLanguage = useLanguageStore((state) => state.setLanguage);
-  const detectLanguageAsync = useLanguageStore(
-    (state) => state.detectLanguageAsync
-  );
-  const setMonacoInstance = useLanguageStore(
-    (state) => state.setMonacoInstance
-  );
-  const applyLanguageToMonaco = useLanguageStore(
-    (state) => state.applyLanguageToMonaco
-  );
+  const detectLanguageAsync = useLanguageStore((state) => state.detectLanguageAsync);
+  const detectLanguageSync = useLanguageStore((state) => state.detectLanguage);
+  const setMonacoInstance = useLanguageStore((state) => state.setMonacoInstance);
+  const applyLanguageToMonaco = useLanguageStore((state) => state.applyLanguageToMonaco);
   const initializeModel = useLanguageStore((state) => state.initializeModel);
-  const incrementDetectionVersion = useLanguageStore(
-    (state) => state.incrementDetectionVersion
-  );
-  const getDetectionVersion = useLanguageStore(
-    (state) => state.getDetectionVersion
-  );
+  const incrementDetectionVersion = useLanguageStore((state) => state.incrementDetectionVersion);
+  const getDetectionVersion = useLanguageStore((state) => state.getDetectionVersion);
 
   const monacoRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoInstanceRef = useRef<Monaco | null>(null);
-  const ataDisposeRef = useRef<(() => void) | null>(null);
   const lastCursorPositionRef = useRef<monaco.IPosition | null>(null);
   const lastLocalCodeRef = useRef<string | null>(null);
-  const inlineCompletionDisposableRef = useRef<monaco.IDisposable | null>(null);
-  const aiCodeActionsDisposablesRef = useRef<monaco.IDisposable[]>([]);
 
   const { runCode } = useCodeRunner();
+  const debouncedRunner = useDebouncedFunction(runCode, CODE_RUNNER_DEBOUNCE_MS);
 
-  useEffect(() => {
-    const handleFormat = () => {
-      monacoRef.current?.getAction('editor.action.formatDocument')?.run();
-    };
-    window.addEventListener('trigger-format', handleFormat);
+  useEditorFormat(monacoRef);
+  useEditorCodeSync(monacoRef, code, lastLocalCodeRef);
 
-    return () => {
-      window.removeEventListener('trigger-format', handleFormat);
-      // Dispose Monaco providers on unmount
-      disposeMonacoProviders();
-      disposePythonMonacoProviders();
-      // Dispose ATA subscription
-      if (ataDisposeRef.current) {
-        ataDisposeRef.current();
-      }
-      // Dispose AI inline completion provider
-      if (inlineCompletionDisposableRef.current) {
-        inlineCompletionDisposableRef.current.dispose();
-      }
-      // Dispose AI code actions
-      aiCodeActionsDisposablesRef.current.forEach((d) => d.dispose());
-    };
-  }, []);
-
-  /**
-   * Safely cleanup old Monaco models to prevent memory leaks.
-   * Implements multiple safety checks to avoid disposing models that are still in use.
-   */
-  const cleanupModels = useCallback(
-    (editorInstance: editor.IStandaloneCodeEditor) => {
-      // Protected URIs that should never be disposed
-      const PROTECTED_URIS = [
-        'result-output.js',
-        'code.txt',
-        'ts:node-globals.d.ts',
-        'inmemory://model/', // Base model path
-      ];
-
-      const currentModel = editorInstance.getModel();
-      const currentUri = currentModel?.uri.toString();
-
-      if (!monacoInstanceRef.current) {
-        return;
-      }
-
-      const models = monacoInstanceRef.current.editor.getModels();
-      const modelsToDispose: editor.ITextModel[] = [];
-
-      // First pass: identify safe models to dispose
-      models.forEach((m: editor.ITextModel) => {
-        const uri = m.uri.toString();
-
-        // Skip if already disposed
-        if (m.isDisposed()) {
-          return;
-        }
-
-        // Skip current model
-        if (uri === currentUri) {
-          return;
-        }
-
-        // Skip protected URIs
-        if (
-          PROTECTED_URIS.some((protected_uri) => uri.includes(protected_uri))
-        ) {
-          return;
-        }
-
-        // Only dispose inmemory or file models
-        if (!uri.startsWith('inmemory') && !uri.startsWith('file:')) {
-          return;
-        }
-
-        // Additional safety: check if model has listeners
-        // Models with active listeners are likely still in use
-        try {
-          // Monaco doesn't expose listener count directly, but we can check
-          // if getValue throws (would indicate corrupted state)
-          m.getValue();
-          modelsToDispose.push(m);
-        } catch {
-          console.warn(
-            `[Editor] Skipping model ${uri} - may be in invalid state`
-          );
-        }
-      });
-
-      // Second pass: delayed disposal to give Monaco time to release references
-      if (modelsToDispose.length > 0) {
-        // Use setTimeout to defer disposal and avoid race conditions
-        setTimeout(() => {
-          modelsToDispose.forEach((m) => {
-            try {
-              if (!m.isDisposed()) {
-                m.dispose();
-              }
-            } catch (e) {
-              // Silently handle errors - model may have been disposed elsewhere
-              console.debug(
-                '[Editor] Error disposing model (may be expected):',
-                e
-              );
-            }
-          });
-        }, 100); // Small delay to allow Monaco to release references
-      }
-    },
-    []
+  const { cleanupModels } = useEditorModels(
+    monacoRef,
+    monacoInstanceRef,
+    language,
+    applyLanguageToMonaco
   );
 
-  useEffect(() => {
-    if (monacoRef.current) {
-      // Sync content if needed
-      const model = monacoRef.current.getModel();
-      const currentVal = model?.getValue();
-
-      if (model && currentVal !== code) {
-        // If the update matches what we just typed locally, ignore it
-        if (code === lastLocalCodeRef.current) {
-          return;
-        }
-
-        // If the editor has focus, we prioritize local state to prevent
-        // race conditions where the store lags behind fast typing.
-        // We assume any valid external update (like loading a snippet)
-        // will come from a UI interaction that momentarily takes focus away.
-        if (monacoRef.current.hasTextFocus()) {
-          return;
-        }
-
-        // If the code is different, update it
-        // Use executeEdits to preserve undo stack and potential cursor logic if possible
-        // But setValue is safer for full replacements
-        model.setValue(code);
-
-        // For external updates (like loading a snippet), move cursor to end of file
-        // instead of trying to restore previous position which might be invalid
-        const lineCount = model.getLineCount();
-        const maxCol = model.getLineMaxColumn(lineCount);
-        const pos = { lineNumber: lineCount, column: maxCol };
-
-        monacoRef.current.setPosition(pos);
-        monacoRef.current.revealPosition(pos);
-
-        // Delay focus to ensure UI is ready and prevent focus stealing
-        setTimeout(() => {
-          if (monacoRef.current) {
-            monacoRef.current.focus();
-          }
-        }, 250);
-      }
-
-      // ONLY cleanup models if language changed, not on every code change
-      // cleanupModels(monacoRef.current)
-    }
-  }, [code]); // Only sync external content updates, not language switches
-
-  // Effect to handle language changes and cleanup
-  useEffect(() => {
-    if (monacoRef.current && monacoInstanceRef.current) {
-      const model = monacoRef.current.getModel();
-      if (model && !model.isDisposed()) {
-        // Use centralized applyLanguageToMonaco
-        applyLanguageToMonaco(model);
-      }
-
-      // Cleanup old models when language changes
-      cleanupModels(monacoRef.current);
-    }
-  }, [language, applyLanguageToMonaco, cleanupModels]);
-
-  // Periodic cleanup of unused models (every 5 minutes)
-  useEffect(() => {
-    const interval = setInterval(
-      () => {
-        if (monacoRef.current) {
-          cleanupModels(monacoRef.current);
-        }
-      },
-      5 * 60 * 1000
-    );
-
-    return () => clearInterval(interval);
-  }, [cleanupModels]);
-
-  const handleEditorWillMount = useCallback(
-    (monaco: Monaco) => {
-      monacoInstanceRef.current = monaco;
-      configureMonaco(monaco);
-
-      // Register Monaco instance in centralized store
-      setMonacoInstance(monaco);
-
-      // Register Python language with syntax highlighting
-      registerPythonLanguage(monaco);
-
-      // Initialize ML model without blocking
-      initializeModel().catch((err) => {
-        console.warn(
-          '[Editor] Language detection model initialization failed:',
-          err
-        );
-        // Non-critical error, continue
-      });
-    },
-    [setMonacoInstance, initializeModel]
-  );
-
-  const handleEditorDidMount = useCallback(
-    (editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) => {
-      monacoRef.current = editorInstance;
-
-      // Initial language application
-      const model = editorInstance.getModel();
-      if (model) {
-        applyLanguageToMonaco(model);
-      }
-
-      // Expose monaco to window for E2E testing
-      // Always expose for Electron app (needed for Playwright E2E tests)
-      window.monaco = monaco as typeof import('monaco-editor');
-      window.editor = editorInstance;
-      window.useCodeStore = useCodeStore;
-
-      // Detect language from initial code using ML (async)
-      const initialCode = editorInstance.getValue();
-      if (initialCode && initialCode.trim().length > 10) {
-        detectLanguageAsync(initialCode)
-          .then((detected) => {
-            const model = editorInstance.getModel();
-            if (
-              model &&
-              !model.isDisposed() &&
-              detected.monacoId !== model.getLanguageId()
-            ) {
-              monaco.editor.setModelLanguage(model, detected.monacoId);
-              setLanguage(detected.monacoId);
-            }
-          })
-          .catch(console.error);
-      }
-
-      // Setup ATA
-      ataDisposeRef.current = setupTypeAcquisition(monaco);
-
-      // Register hover and code action providers
-      registerMonacoProviders(monaco, editorInstance);
-
-      // Register Python providers
-      registerPythonMonacoProviders(monaco, editorInstance);
-
-      // Cleanup old models immediately on mount
-      cleanupModels(editorInstance);
-
-      // Register custom commands for package management (idempotent - safe on remount)
-      registerPackageCommands(monaco, editorInstance, runCode);
-
-      // Track cursor position to ensure we always have the latest position
-      // even if the user didn't type (just moved cursor)
-      editorInstance.onDidChangeCursorPosition((e) => {
-        lastCursorPositionRef.current = e.position;
-      });
-
-      // Register AI inline completion provider
-      try {
-        const inlineProvider = createInlineCompletionProvider(
-          monaco as unknown as typeof import('monaco-editor')
-        );
-        // Register for all languages
-        inlineCompletionDisposableRef.current =
-          monaco.languages.registerInlineCompletionsProvider(
-            { pattern: '**' },
-            inlineProvider
-          );
-      } catch (err) {
-        console.warn(
-          '[Editor] Failed to register AI inline completion provider:',
-          err
-        );
-      }
-
-      // Register AI code actions (refactor, explain, document, fix)
-      try {
-        aiCodeActionsDisposablesRef.current = registerAICodeActions(
-          monaco as unknown as typeof import('monaco-editor'),
-          editorInstance
-        );
-      } catch (err) {
-        console.warn('[Editor] Failed to register AI code actions:', err);
-      }
-    },
-    [
-      runCode,
-      cleanupModels,
-      detectLanguageAsync,
-      setLanguage,
-      applyLanguageToMonaco,
-    ]
-  );
-
-  const debouncedRunner = useDebouncedFunction(
+  const { handleEditorWillMount: lifecycleWillMount, handleEditorDidMount: lifecycleDidMount } = useEditorLifecycle({
+    setMonacoInstance,
+    initializeModel,
+    applyLanguageToMonaco,
+    setLanguage,
+    detectLanguageAsync,
     runCode,
-    CODE_RUNNER_DEBOUNCE_MS
-  );
+    cleanupModels,
+  });
 
-  // Language detection - use refs to avoid stale closures in callbacks
-  const lastDetectedRef = useRef<string>('typescript');
-  const detectionInProgressRef = useRef<boolean>(false);
-  const detectLanguageSync = useLanguageStore((state) => state.detectLanguage);
+  const handleEditorWillMount = useCallback((monacoInstance: Monaco) => {
+    monacoInstanceRef.current = monacoInstance;
+    lifecycleWillMount(monacoInstance);
+  }, [lifecycleWillMount]);
 
-  // Refs for values that change frequently - prevents callback recreation
-  const languageRef = useRef(language);
-  languageRef.current = language;
+  const handleEditorDidMount = useCallback((editorInstance: editor.IStandaloneCodeEditor, monacoInstance: Monaco) => {
+    monacoRef.current = editorInstance;
+    editorInstance.onDidChangeCursorPosition((e) => {
+      lastCursorPositionRef.current = e.position;
+    });
+    lifecycleDidMount(editorInstance, monacoInstance);
+  }, [lifecycleDidMount]);
 
-  const setLanguageRef = useRef(setLanguage);
-  setLanguageRef.current = setLanguage;
+  const handler = useEditorChangeHandler({
+    monacoRef,
+    setCode,
+    lastLocalCodeRef,
+    lastCursorPositionRef,
+    debouncedRunner,
+    language,
+    setLanguage,
+    detectLanguageSync,
+    detectLanguageAsync,
+    incrementDetectionVersion,
+    getDetectionVersion
+  });
 
-  const detectLanguageAsyncRef = useRef(detectLanguageAsync);
-  detectLanguageAsyncRef.current = detectLanguageAsync;
-
-  const detectLanguageSyncRef = useRef(detectLanguageSync);
-  detectLanguageSyncRef.current = detectLanguageSync;
-
-  const incrementDetectionVersionRef = useRef(incrementDetectionVersion);
-  incrementDetectionVersionRef.current = incrementDetectionVersion;
-
-  const getDetectionVersionRef = useRef(getDetectionVersion);
-  getDetectionVersionRef.current = getDetectionVersion;
-
-  // ML detection with debounce - refines heuristic results for ambiguous cases
-  // Uses version tracking to prevent race conditions
-  const debouncedLanguageDetection = useDebouncedFunction(
-    async (value: string, versionAtStart: number) => {
-      if (detectionInProgressRef.current || !value || value.trim().length === 0)
-        return;
-
-      detectionInProgressRef.current = true;
-      try {
-        const detected = await detectLanguageAsyncRef.current(value);
-        const currentLang = languageRef.current;
-        const currentVersion = getDetectionVersionRef.current();
-
-        // Check if result is stale (version changed during async detection)
-        if (currentVersion !== versionAtStart) {
-          return;
-        }
-
-        // Also check for isStale flag from store
-        if ((detected as { isStale?: boolean }).isStale) {
-          return;
-        }
-
-        // Only update if ML has good confidence and differs from current
-        if (detected.monacoId !== currentLang && detected.confidence > 0.7) {
-          lastDetectedRef.current = detected.monacoId;
-          setLanguageRef.current(detected.monacoId);
-        }
-      } catch (error) {
-        console.error('[Editor] ML detection failed:', error);
-      } finally {
-        detectionInProgressRef.current = false;
-      }
-    },
-    250
-  ); // Slightly longer debounce - ML is for refinement
-
-  const handler = useCallback(
-    (value: string | undefined) => {
-      if (value !== undefined) {
-        if (monacoRef.current) {
-          lastCursorPositionRef.current = monacoRef.current.getPosition();
-        }
-        lastLocalCodeRef.current = value;
-        setCode(value);
-
-        // Increment version to invalidate any in-flight async detection
-        const newVersion = incrementDetectionVersionRef.current();
-
-        // Immediate heuristic detection for snappy feedback.
-        // Guard against language thrashing while actively typing in the editor.
-        try {
-          const quick = detectLanguageSyncRef.current(value);
-          const currentLang = languageRef.current;
-          const hasEditorFocus = monacoRef.current?.hasTextFocus() ?? false;
-
-          if (
-            quick &&
-            quick.monacoId !== currentLang &&
-            quick.confidence >= 0.9 &&
-            !hasEditorFocus
-          ) {
-            lastDetectedRef.current = quick.monacoId;
-            setLanguageRef.current(quick.monacoId);
-          }
-        } catch (e) {
-          console.warn('[Editor] Heuristic failed:', e);
-        }
-
-        // Queue ML detection for refinement (handles ambiguous cases)
-        // Pass current version so we can check for staleness when result arrives
-        debouncedLanguageDetection(value, newVersion);
-        debouncedRunner(value);
-      }
-    },
-    [debouncedRunner, debouncedLanguageDetection, setCode] // Minimal deps - uses refs
-  );
+  const monacoPath = 'inmemory://model/code.ts';
 
   return (
     <div className="h-full w-full">
       <Editor
-        // Dynamic path based on detected language for correct Monaco features
         path={monacoPath}
         defaultLanguage="typescript"
-        // Pass language prop to help Monaco - but we also set it manually
         language={language}
         theme={themeName}
         loading={<LoadingIndicator message="Initializing Editor..." />}
         options={{
           automaticLayout: true,
           dragAndDrop: true,
-          minimap: {
-            enabled: false, // Keeping disabled as per original, but user can change if requested
-          },
-          padding: {
-            top: 16,
-            bottom: 16,
-          },
-          scrollbar: {
-            vertical: 'auto',
-            horizontal: 'auto',
-          },
+          minimap: { enabled: false },
+          padding: { top: 16, bottom: 16 },
+          scrollbar: { vertical: 'auto', horizontal: 'auto' },
           fontSize,
           fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
-          fontLigatures: true,
+          fontLigatures: fontLigatures,
           wordWrap: 'on',
-          quickSuggestions: {
-            other: true,
-            comments: false,
-            strings: true,
-          },
+          quickSuggestions: { other: true, comments: false, strings: true },
           suggestOnTriggerCharacters: true,
           acceptSuggestionOnCommitCharacter: true,
           tabCompletion: 'on',
-          lightbulb: {
-            enabled: editor.ShowLightbulbIconMode.On,
-          },
-          hover: {
-            enabled: true,
-            delay: 300,
-            sticky: true,
-          },
-          parameterHints: {
-            enabled: true,
-          },
-          suggest: {
-            showWords: true,
-            showModules: true,
-            showFunctions: true,
-            showVariables: true,
-          },
-          contextmenu: true, // Enabled context menu
+          lightbulb: { enabled: monaco.editor.ShowLightbulbIconMode.On },
+          hover: { enabled: true, delay: 300, sticky: true },
+          parameterHints: { enabled: true },
+          suggest: { showWords: true, showModules: true, showFunctions: true, showVariables: true },
+          contextmenu: true,
           smoothScrolling: true,
           cursorBlinking: 'smooth',
           cursorSmoothCaretAnimation: 'on',

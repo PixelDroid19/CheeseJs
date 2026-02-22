@@ -16,7 +16,7 @@ import {
   Settings,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useRagStore } from '../../store/useRagStore';
+import { useRagStore } from '../../store/storeHooks';
 
 export function KnowledgeBaseModal() {
   const {

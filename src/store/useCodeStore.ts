@@ -90,5 +90,3 @@ export const createCodeSlice: import('zustand').StateCreator<CodeState> = (set, 
 });
 
 export const partializeCode = (state: CodeState) => ({ code: state.code });
-
-export { useCodeStore } from './storeHooks';

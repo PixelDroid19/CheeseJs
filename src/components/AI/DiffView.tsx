@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { COPY_FEEDBACK_DURATION_MS } from '../../constants';
-import type { PendingCodeChange } from '../../store/useChatStore';
+import type { PendingCodeChange } from '../../store/storeHooks';
 
 interface DiffViewProps {
   change: PendingCodeChange;

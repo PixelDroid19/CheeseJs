@@ -48,4 +48,3 @@ export const partializeHistory = (state: HistoryState) => ({
   maxItems: state.maxItems,
 });
 
-export { useHistoryStore } from './storeHooks';

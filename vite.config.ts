@@ -20,7 +20,11 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     tailwindcss(),
-    react(),
+    react({
+      babel: {
+        plugins: [['babel-plugin-react-compiler', { target: '19' }]],
+      },
+    }),
     electron([
       {
         // Main-Process entry file of the Electron App.

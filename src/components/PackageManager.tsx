@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { usePackagesStore } from '../store/usePackagesStore';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { usePackagesStore } from '../store/storeHooks';
+import { useSettingsStore } from '../store/storeHooks';
 import { usePackageInstaller } from '../hooks/usePackageInstaller';
 import { useTranslation } from 'react-i18next';
 import { HelpCircle } from 'lucide-react';

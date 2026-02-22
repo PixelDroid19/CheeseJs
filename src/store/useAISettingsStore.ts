@@ -1,5 +1,3 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type {
   AIProvider,
   CustomProviderConfig,
@@ -8,7 +6,6 @@ import { AI_PROVIDERS } from '../features/ai-agent/types';
 import type { AgentProfile } from '../features/ai-agent/agentProfiles';
 import {
   getToolPolicyPreset,
-  isToolPolicyPreset,
   type ToolPolicyGroup,
   type ToolPolicyPreset,
 } from '../features/ai-agent/toolPolicy';
@@ -30,7 +27,7 @@ export interface LocalServerConfig {
 
 export type AgentExecutionMode = 'agent' | 'plan';
 
-interface AISettingsState {
+export interface AISettingsState {
   // Provider and model selection
   provider: AIProvider;
   apiKeys: Record<AIProvider, string>;
@@ -97,181 +94,161 @@ const defaultCustomConfigs: Record<AIProvider, CustomProviderConfig> = {
   local: { baseURL: '', modelId: '' },
 };
 
-export const useAISettingsStore = create<AISettingsState>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      provider: 'local',
-      apiKeys: {
-        openai: '',
-        anthropic: '',
-        google: '',
-        local: '',
+export const createAISettingsSlice: import('zustand').StateCreator<AISettingsState> = (set, get) => ({
+  // Initial state
+  provider: 'local',
+  apiKeys: {
+    openai: '',
+    anthropic: '',
+    google: '',
+    local: '',
+  },
+  selectedModels: defaultModels,
+  customConfigs: defaultCustomConfigs,
+  enableInlineCompletion: true,
+  enableChat: true,
+  executionMode: 'agent',
+  agentProfile: 'build',
+  enableVerifierSubagent: true,
+  strictLocalMode: false,
+  toolPolicyPreset: 'standard',
+  toolPolicy: {
+    allow: [],
+    deny: [],
+    allowGroups: [],
+    denyGroups: [],
+  },
+  maxTokens: 2048,
+  temperature: 0.7,
+  localConfig: {
+    baseURL: 'http://127.0.0.1:1234/v1',
+    modelId: '',
+  },
+
+  // Actions
+  setProvider: (provider) => set({ provider }),
+
+  setApiKey: (provider, key) =>
+    set((state) => ({
+      apiKeys: { ...state.apiKeys, [provider]: key },
+    })),
+
+  setSelectedModel: (provider, model) =>
+    set((state) => ({
+      selectedModels: { ...state.selectedModels, [provider]: model },
+    })),
+
+  setCustomConfig: (provider, config) =>
+    set((state) => ({
+      customConfigs: {
+        ...state.customConfigs,
+        [provider]: { ...state.customConfigs[provider], ...config },
       },
-      selectedModels: defaultModels,
-      customConfigs: defaultCustomConfigs,
-      enableInlineCompletion: true,
-      enableChat: true,
-      executionMode: 'agent',
-      agentProfile: 'build',
-      enableVerifierSubagent: true,
-      strictLocalMode: false,
-      toolPolicyPreset: 'standard',
-      toolPolicy: {
-        allow: [],
-        deny: [],
-        allowGroups: [],
-        denyGroups: [],
-      },
-      maxTokens: 2048,
-      temperature: 0.7,
-      localConfig: {
-        baseURL: 'http://127.0.0.1:1234/v1',
-        modelId: '',
-      },
+    })),
 
-      // Actions
-      setProvider: (provider) => set({ provider }),
+  setEnableInlineCompletion: (enabled) =>
+    set({ enableInlineCompletion: enabled }),
 
-      setApiKey: (provider, key) =>
-        set((state) => ({
-          apiKeys: { ...state.apiKeys, [provider]: key },
-        })),
+  setEnableChat: (enabled) => set({ enableChat: enabled }),
 
-      setSelectedModel: (provider, model) =>
-        set((state) => ({
-          selectedModels: { ...state.selectedModels, [provider]: model },
-        })),
-
-      setCustomConfig: (provider, config) =>
-        set((state) => ({
-          customConfigs: {
-            ...state.customConfigs,
-            [provider]: { ...state.customConfigs[provider], ...config },
-          },
-        })),
-
-      setEnableInlineCompletion: (enabled) =>
-        set({ enableInlineCompletion: enabled }),
-
-      setEnableChat: (enabled) => set({ enableChat: enabled }),
-
-      setExecutionMode: (mode) =>
-        set({
-          executionMode: mode,
-          agentProfile: mode === 'plan' ? 'plan' : 'build',
-        }),
-
-      setAgentProfile: (profile) =>
-        set({
-          agentProfile: profile,
-          executionMode: profile === 'plan' ? 'plan' : 'agent',
-        }),
-
-      setEnableVerifierSubagent: (enabled) =>
-        set({ enableVerifierSubagent: enabled }),
-
-      setStrictLocalMode: (enabled) => set({ strictLocalMode: enabled }),
-
-      setToolPolicyPreset: (preset) =>
-        set({
-          toolPolicyPreset: preset,
-          toolPolicy: getToolPolicyPreset(preset),
-        }),
-
-      setToolPolicy: (policy) =>
-        set((state) => ({
-          toolPolicyPreset: 'custom' as ToolPolicyPreset,
-          toolPolicy: {
-            ...state.toolPolicy,
-            ...policy,
-          },
-        })),
-
-      setMaxTokens: (tokens) => set({ maxTokens: tokens }),
-
-      setTemperature: (temp) => set({ temperature: temp }),
-
-      setLocalConfig: (config) =>
-        set((state) => ({
-          localConfig: { ...state.localConfig, ...config },
-        })),
-
-      // Getters
-      getCurrentApiKey: () => {
-        const state = get();
-        if (state.provider === 'local') {
-          return state.localConfig.baseURL ? 'local' : '';
-        }
-        return state.apiKeys[state.provider] || '';
-      },
-
-      getCurrentModel: () => {
-        const state = get();
-        if (state.provider === 'local') {
-          return state.localConfig.modelId || 'custom';
-        }
-        // Check if custom model is set
-        const customConfig = state.customConfigs[state.provider];
-        if (customConfig?.modelId) {
-          return customConfig.modelId;
-        }
-        return state.selectedModels[state.provider] || '';
-      },
-
-      getCustomConfig: () => {
-        const state = get();
-        return state.customConfigs[state.provider] || {};
-      },
-
-      getLocalConfig: () => {
-        return get().localConfig;
-      },
-
-      isConfigured: () => {
-        const state = get();
-        if (state.provider === 'local') {
-          return Boolean(
-            state.localConfig.baseURL && state.localConfig.baseURL.length > 0
-          );
-        }
-        const apiKey = state.apiKeys[state.provider];
-        return Boolean(apiKey && apiKey.length > 0);
-      },
+  setExecutionMode: (mode) =>
+    set({
+      executionMode: mode,
+      agentProfile: mode === 'plan' ? 'plan' : 'build',
     }),
-    {
-      name: 'ai-settings-storage',
-      merge: (persistedState, currentState) => {
-        const typedPersisted = persistedState as Partial<AISettingsState>;
-        const presetValue = typedPersisted.toolPolicyPreset;
-        const normalizedPreset =
-          typeof presetValue === 'string' && isToolPolicyPreset(presetValue)
-            ? presetValue
-            : 'standard';
 
-        return {
-          ...currentState,
-          ...typedPersisted,
-          toolPolicyPreset: normalizedPreset,
-        } as AISettingsState;
+  setAgentProfile: (profile) =>
+    set({
+      agentProfile: profile,
+      executionMode: profile === 'plan' ? 'plan' : 'agent',
+    }),
+
+  setEnableVerifierSubagent: (enabled) =>
+    set({ enableVerifierSubagent: enabled }),
+
+  setStrictLocalMode: (enabled) => set({ strictLocalMode: enabled }),
+
+  setToolPolicyPreset: (preset) =>
+    set({
+      toolPolicyPreset: preset,
+      toolPolicy: getToolPolicyPreset(preset),
+    }),
+
+  setToolPolicy: (policy) =>
+    set((state) => ({
+      toolPolicyPreset: 'custom' as ToolPolicyPreset,
+      toolPolicy: {
+        ...state.toolPolicy,
+        ...policy,
       },
-      partialize: (state) => ({
-        provider: state.provider,
-        apiKeys: state.apiKeys,
-        selectedModels: state.selectedModels,
-        customConfigs: state.customConfigs,
-        enableInlineCompletion: state.enableInlineCompletion,
-        enableChat: state.enableChat,
-        executionMode: state.executionMode,
-        agentProfile: state.agentProfile,
-        enableVerifierSubagent: state.enableVerifierSubagent,
-        strictLocalMode: state.strictLocalMode,
-        toolPolicyPreset: state.toolPolicyPreset,
-        toolPolicy: state.toolPolicy,
-        maxTokens: state.maxTokens,
-        temperature: state.temperature,
-        localConfig: state.localConfig,
-      }),
+    })),
+
+  setMaxTokens: (tokens) => set({ maxTokens: tokens }),
+
+  setTemperature: (temp) => set({ temperature: temp }),
+
+  setLocalConfig: (config) =>
+    set((state) => ({
+      localConfig: { ...state.localConfig, ...config },
+    })),
+
+  // Getters
+  getCurrentApiKey: () => {
+    const state = get();
+    if (state.provider === 'local') {
+      return state.localConfig.baseURL ? 'local' : '';
     }
-  )
-);
+    return state.apiKeys[state.provider] || '';
+  },
+
+  getCurrentModel: () => {
+    const state = get();
+    if (state.provider === 'local') {
+      return state.localConfig.modelId || 'custom';
+    }
+    // Check if custom model is set
+    const customConfig = state.customConfigs[state.provider];
+    if (customConfig?.modelId) {
+      return customConfig.modelId;
+    }
+    return state.selectedModels[state.provider] || '';
+  },
+
+  getCustomConfig: () => {
+    const state = get();
+    return state.customConfigs[state.provider] || {};
+  },
+
+  getLocalConfig: () => {
+    return get().localConfig;
+  },
+
+  isConfigured: () => {
+    const state = get();
+    if (state.provider === 'local') {
+      return Boolean(
+        state.localConfig.baseURL && state.localConfig.baseURL.length > 0
+      );
+    }
+    const apiKey = state.apiKeys[state.provider];
+    return Boolean(apiKey && apiKey.length > 0);
+  },
+});
+
+export const partializeAISettings = (state: AISettingsState) => ({
+  provider: state.provider,
+  apiKeys: state.apiKeys,
+  selectedModels: state.selectedModels,
+  customConfigs: state.customConfigs,
+  enableInlineCompletion: state.enableInlineCompletion,
+  enableChat: state.enableChat,
+  executionMode: state.executionMode,
+  agentProfile: state.agentProfile,
+  enableVerifierSubagent: state.enableVerifierSubagent,
+  strictLocalMode: state.strictLocalMode,
+  toolPolicyPreset: state.toolPolicyPreset,
+  toolPolicy: state.toolPolicy,
+  maxTokens: state.maxTokens,
+  temperature: state.temperature,
+  localConfig: state.localConfig,
+});

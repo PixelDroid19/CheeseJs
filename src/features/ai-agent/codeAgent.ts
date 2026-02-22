@@ -301,9 +301,7 @@ export function createCodeAgent(
             abortSignal,
           });
 
-          let fullResponse = '';
           for await (const chunk of result.textStream) {
-            fullResponse += chunk;
             yield chunk;
           }
         })(),

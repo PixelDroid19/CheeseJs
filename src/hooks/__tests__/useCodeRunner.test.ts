@@ -10,27 +10,19 @@ const mockClearResult = vi.fn();
 const mockSetIsExecuting = vi.fn();
 const mockSetPromptRequest = vi.fn();
 
-vi.mock('../../store/useCodeStore', () => {
-  const store = (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({
-      code: 'console.log("hello")',
-      setCode: mockSetCode,
-      setResult: mockSetResult,
-      appendResult: mockAppendResult,
-      clearResult: mockClearResult,
-      setIsExecuting: mockSetIsExecuting,
-      setPromptRequest: mockSetPromptRequest,
-    });
-  return { useCodeStore: store };
-});
-
-vi.mock('../../store/useSettingsStore', () => ({
-  useSettingsStore: () => ({
-    showTopLevelResults: true,
-    loopProtection: false,
-    showUndefined: false,
-    magicComments: false,
-  }),
+vi.mock('../../store/index', () => ({
+  useAppStore: {
+    getState: () => ({
+      language: {
+        detectLanguage: mockDetectLanguage,
+        isExecutable: (lang: string) =>
+          ['javascript', 'typescript', 'python'].includes(lang),
+      },
+      history: {
+        addToHistory: mockAddToHistory,
+      },
+    }),
+  },
 }));
 
 const mockDetectLanguage = vi.fn().mockReturnValue({
@@ -39,29 +31,46 @@ const mockDetectLanguage = vi.fn().mockReturnValue({
   isExecutable: true,
 });
 
-vi.mock('../../store/useLanguageStore', () => ({
+const mockAddToHistory = vi.fn();
+
+vi.mock('../../store/storeHooks', () => ({
+  useCodeStore: Object.assign(
+    (selector: (s: any) => any) =>
+      selector({
+        code: 'console.log("hello")',
+        setCode: mockSetCode,
+        setResult: mockSetResult,
+        appendResult: mockAppendResult,
+        clearResult: mockClearResult,
+        setIsExecuting: mockSetIsExecuting,
+        setPromptRequest: mockSetPromptRequest,
+      }),
+    { getState: () => ({}) }
+  ),
+  useSettingsStore: () => ({
+    showTopLevelResults: true,
+    loopProtection: false,
+    showUndefined: false,
+    magicComments: false,
+    workingDirectory: undefined,
+  }),
   useLanguageStore: Object.assign(
-    (selector: (s: Record<string, unknown>) => unknown) =>
-      selector({ currentLanguage: 'javascript' }),
+    (selector: (s: any) => any) => selector({ currentLanguage: 'javascript' }),
     {
       getState: () => ({
         detectLanguage: mockDetectLanguage,
       }),
     }
   ),
-  isLanguageExecutable: (lang: string) =>
-    ['javascript', 'typescript', 'python'].includes(lang),
-  getLanguageDisplayName: (lang: string) =>
-    lang.charAt(0).toUpperCase() + lang.slice(1),
-}));
-
-const mockAddToHistory = vi.fn();
-vi.mock('../../store/useHistoryStore', () => ({
   useHistoryStore: Object.assign(() => ({}), {
     getState: () => ({
       addToHistory: mockAddToHistory,
     }),
   }),
+  isLanguageExecutable: (lang: string) =>
+    ['javascript', 'typescript', 'python'].includes(lang),
+  getLanguageDisplayName: (lang: string) =>
+    lang.charAt(0).toUpperCase() + lang.slice(1),
 }));
 
 // ── Mock lib modules ───────────────────────────────────────────────────

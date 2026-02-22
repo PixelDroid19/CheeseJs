@@ -1,12 +1,7 @@
-import { useCallback, useEffect } from 'react';
-import { useCodeStore, type CodeState } from '../store/useCodeStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import {
-  getLanguageDisplayName,
-} from '../store/useLanguageStore';
-import { useAppStore } from '../store';
-
+import { useCodeStore, type CodeState, useSettingsStore, getLanguageDisplayName } from '../store/storeHooks';
+import { useAppStore } from '../store/index';
 import { executionEngine } from '../lib/execution/ExecutionEngine';
+import { useEffect, useCallback } from 'react';
 
 export function useCodeRunner() {
   const code = useCodeStore((state: CodeState) => state.code);
@@ -21,7 +16,7 @@ export function useCodeRunner() {
     (state: CodeState) => state.setPromptRequest
   );
 
-  const { showTopLevelResults, loopProtection, showUndefined, magicComments } =
+  const { showTopLevelResults, loopProtection, showUndefined, magicComments, workingDirectory } =
     useSettingsStore();
 
   // Cancel execution on unmount
@@ -67,7 +62,7 @@ export function useCodeRunner() {
           setResult([
             {
               element: {
-                content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)}\n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang}\nSupported languages: javascript, typescript, python`,
+                content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python`,
               },
               type: 'error',
             },
@@ -88,6 +83,7 @@ export function useCodeRunner() {
             showTopLevelResults,
             loopProtection,
             magicComments,
+            workingDirectory,
           },
           {
             onOutput: (result) => {
@@ -131,6 +127,7 @@ export function useCodeRunner() {
       loopProtection,
       showUndefined,
       magicComments,
+      workingDirectory,
       setPromptRequest,
     ]
   );

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useCodeStore } from '../store/useCodeStore';
+import { useCodeStore } from '../store/storeHooks';
 import { Send, Terminal, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 

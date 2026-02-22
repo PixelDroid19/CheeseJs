@@ -5,7 +5,7 @@
 import { m } from 'framer-motion';
 import { Brain, Loader2, Sparkles, Pencil } from 'lucide-react';
 import clsx from 'clsx';
-import type { AgentPhase } from '../../store/useChatStore';
+import type { AgentPhase } from '../../store/storeHooks';
 
 interface AgentThinkingIndicatorProps {
   phase: AgentPhase;
@@ -28,6 +28,12 @@ const phaseConfig: Record<
     dotColor: 'bg-muted-foreground',
     defaultMessage: '',
   },
+  accepted: {
+    icon: Brain,
+    color: 'text-primary',
+    dotColor: 'bg-primary',
+    defaultMessage: 'Request accepted...',
+  },
   thinking: {
     icon: Brain,
     color: 'text-primary',
@@ -45,6 +51,24 @@ const phaseConfig: Record<
     color: 'text-primary',
     dotColor: 'bg-primary',
     defaultMessage: 'Preparing changes...',
+  },
+  completed: {
+    icon: Sparkles,
+    color: 'text-green-500',
+    dotColor: 'bg-green-500',
+    defaultMessage: 'Finished!',
+  },
+  error: {
+    icon: Brain,
+    color: 'text-red-500',
+    dotColor: 'bg-red-500',
+    defaultMessage: 'Something went wrong.',
+  },
+  aborted: {
+    icon: Brain,
+    color: 'text-muted-foreground',
+    dotColor: 'bg-muted-foreground',
+    defaultMessage: 'Operation aborted.',
   },
 };
 

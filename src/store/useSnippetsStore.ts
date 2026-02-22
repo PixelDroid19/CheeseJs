@@ -38,4 +38,3 @@ export const partializeSnippets = (state: SnippetsState) => ({
   snippets: state.snippets,
 });
 
-export { useSnippetsStore } from './storeHooks';

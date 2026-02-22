@@ -1,8 +1,8 @@
 // Monaco Code Action Provider for AI-powered refactoring
 import type * as Monaco from 'monaco-editor';
 import { aiService } from './aiService';
-import { useAISettingsStore } from '../../store/useAISettingsStore';
-import { useChatStore } from '../../store/useChatStore';
+import { useAISettingsStore } from '../../store/storeHooks';
+import { useChatStore } from '../../store/storeHooks';
 
 export interface AICodeAction {
   id: string;

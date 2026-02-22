@@ -3,7 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { ArrowDown, Bot, Loader2, Radio, Wrench } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ToolInvocation } from '../../features/ai-agent/codeAgent';
-import type { AgentRunStatus } from '../../store/useChatStore';
+import type { AgentRunStatus } from '../../store/storeHooks';
 import type { ChatMessage as ChatMessageType } from '../../features/ai-agent/types';
 import type { ExecutionPlan } from '../../features/ai-agent/types';
 import { AgentThinkingIndicator } from './AgentThinkingIndicator';

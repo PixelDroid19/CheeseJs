@@ -12,8 +12,8 @@ import {
   Save,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSnippetsStore, Snippet } from '../store/useSnippetsStore';
-import { useCodeStore } from '../store/useCodeStore';
+import { useSnippetsStore, Snippet } from '../store/storeHooks';
+import { useCodeStore } from '../store/storeHooks';
 import clsx from 'clsx';
 
 export function SnippetsMenu() {

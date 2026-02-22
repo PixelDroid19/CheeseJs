@@ -1,5 +1,5 @@
 import { Monaco } from '@monaco-editor/react';
-import { usePackagesStore } from '../store/usePackagesStore';
+import { usePackagesStore } from '../store/storeHooks';
 
 // Cache for fetched types to avoid redundant network requests
 const fetchedTypes = new Set<string>();

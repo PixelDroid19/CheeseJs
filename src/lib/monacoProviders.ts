@@ -7,7 +7,7 @@ import type {
   Position,
   CancellationToken,
 } from 'monaco-editor';
-import { usePackagesStore } from '../store/usePackagesStore';
+import { usePackagesStore } from '../store/storeHooks';
 import {
   fetchPackageInfo,
   getCachedPackageInfo,
