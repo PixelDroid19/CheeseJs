@@ -12,12 +12,49 @@ vi.mock('../hooks/useCodeRunner', () => ({
 }));
 
 vi.mock('../store/storeHooks', () => ({
-  useSettingsStore: vi.fn((selector) => selector ? selector({ toggleSettings: mockToggleSettings }) : { toggleSettings: mockToggleSettings }),
-  useLanguageStore: vi.fn((selector) => selector ? selector({ currentLanguage: 'javascript' }) : { currentLanguage: 'javascript' }),
-  useRagStore: vi.fn((selector) => selector ? selector({ setModalOpen: mockSetModalOpen }) : { setModalOpen: mockSetModalOpen }),
-  useCodeStore: vi.fn((selector) => selector ? selector({ isExecuting: false, isPendingRun: false }) : { isExecuting: false, isPendingRun: false }),
-  usePackagesStore: vi.fn((selector) => selector ? selector({ isInstalling: false, packages: [] }) : { isInstalling: false, packages: [] }),
-  usePythonPackagesStore: vi.fn((selector) => selector ? selector({ isInstalling: false, packages: [] }) : { isInstalling: false, packages: [] }),
+  useSettingsStore: vi.fn((selector) =>
+    selector
+      ? selector({ toggleSettings: mockToggleSettings })
+      : { toggleSettings: mockToggleSettings }
+  ),
+  useLanguageStore: vi.fn((selector) =>
+    selector
+      ? selector({ currentLanguage: 'javascript' })
+      : { currentLanguage: 'javascript' }
+  ),
+  useRagStore: vi.fn((selector) =>
+    selector
+      ? selector({ setModalOpen: mockSetModalOpen })
+      : { setModalOpen: mockSetModalOpen }
+  ),
+  useCodeStore: vi.fn((selector) =>
+    selector
+      ? selector({ isExecuting: false, isPendingRun: false })
+      : { isExecuting: false, isPendingRun: false }
+  ),
+  usePackagesStore: vi.fn((selector) =>
+    selector
+      ? selector({ isInstalling: false, packages: [] })
+      : { isInstalling: false, packages: [] }
+  ),
+  usePythonPackagesStore: vi.fn((selector) =>
+    selector
+      ? selector({ isInstalling: false, packages: [] })
+      : { isInstalling: false, packages: [] }
+  ),
+  useEditorTabsStore: vi.fn((selector) =>
+    selector
+      ? selector({
+          tabs: [],
+          activeTabId: 'test-tab',
+          getActiveTab: () => ({ isExecuting: false, isPendingRun: false }),
+        })
+      : {
+          tabs: [],
+          activeTabId: 'test-tab',
+          getActiveTab: () => ({ isExecuting: false, isPendingRun: false }),
+        }
+  ),
 }));
 
 vi.mock('../hooks/useRuntimeStatus', () => ({
@@ -30,13 +67,19 @@ vi.mock('./SnippetsMenu', () => ({
 
 // Mock framer-motion
 vi.mock('framer-motion', () => {
-  const component = (props: React.ComponentPropsWithoutRef<'div'>) => <div {...props}>{props.children}</div>;
+  const component = (props: React.ComponentPropsWithoutRef<'div'>) => (
+    <div {...props}>{props.children}</div>
+  );
   return {
     m: {
       div: component,
-      button: (props: React.ComponentPropsWithoutRef<'button'>) => <button {...props}>{props.children}</button>,
+      button: (props: React.ComponentPropsWithoutRef<'button'>) => (
+        <button {...props}>{props.children}</button>
+      ),
     },
-    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
   };
 });
 

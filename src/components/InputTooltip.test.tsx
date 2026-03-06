@@ -4,13 +4,19 @@ import { InputTooltip } from './InputTooltip';
 
 // Mock framer-motion
 vi.mock('framer-motion', () => {
-  const component = (props: React.ComponentPropsWithoutRef<'div'>) => <div {...props}>{props.children}</div>;
+  const component = (props: React.ComponentPropsWithoutRef<'div'>) => (
+    <div {...props}>{props.children}</div>
+  );
   return {
     m: {
       div: component,
-      button: (props: React.ComponentPropsWithoutRef<'button'>) => <button {...props}>{props.children}</button>,
+      button: (props: React.ComponentPropsWithoutRef<'button'>) => (
+        <button {...props}>{props.children}</button>
+      ),
     },
-    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
   };
 });
 
@@ -96,5 +102,55 @@ describe('InputTooltip', () => {
       'John',
       'req-1'
     );
+  });
+
+  it('should keep the current tooltip open when a different execution finishes', () => {
+    render(<InputTooltip />);
+    const inputCallback = mockOnInputRequest.mock.calls[0][0];
+    const resultCallback = mockOnResult.mock.calls[0][0];
+
+    act(() => {
+      inputCallback({
+        id: 'exec-1',
+        data: { prompt: 'Enter your name:', line: 5 },
+      });
+    });
+
+    act(() => {
+      resultCallback({
+        id: 'exec-2',
+        type: 'complete',
+      });
+    });
+
+    expect(screen.getByText('Enter your name:')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('input.placeholder')
+    ).toBeInTheDocument();
+  });
+
+  it('should dismiss the tooltip when the active execution finishes', () => {
+    render(<InputTooltip />);
+    const inputCallback = mockOnInputRequest.mock.calls[0][0];
+    const resultCallback = mockOnResult.mock.calls[0][0];
+
+    act(() => {
+      inputCallback({
+        id: 'exec-1',
+        data: { prompt: 'Enter your name:', line: 5 },
+      });
+    });
+
+    act(() => {
+      resultCallback({
+        id: 'exec-1',
+        type: 'complete',
+      });
+    });
+
+    expect(screen.queryByText('Enter your name:')).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText('input.placeholder')
+    ).not.toBeInTheDocument();
   });
 });

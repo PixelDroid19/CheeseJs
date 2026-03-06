@@ -29,6 +29,12 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const currentExecutionIdRef = useRef<string | null>(null);
 
+  const clearRequest = useCallback(() => {
+    setRequest(null);
+    setValue('');
+    currentExecutionIdRef.current = null;
+  }, []);
+
   // Subscribe to input requests AND execution results
   useEffect(() => {
     const unsubscribeInput = window.codeRunner?.onInputRequest((req) => {
@@ -38,8 +44,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
         currentExecutionIdRef.current !== req.id
       ) {
         // New execution started, clear old tooltip
-        setRequest(null);
-        setValue('');
+        clearRequest();
       }
 
       currentExecutionIdRef.current = req.id;
@@ -53,14 +58,13 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
     });
 
     // Subscribe to execution results to dismiss tooltip when execution ends
-    // Clear on ANY complete or error since only one execution is active at a time
     const unsubscribeResult = window.codeRunner?.onResult((result) => {
-      if (result.type === 'complete' || result.type === 'error') {
-        // Always clear the tooltip when any execution finishes
-        // This handles: same execution completing, cancellation, language switch
-        setRequest(null);
-        setValue('');
-        currentExecutionIdRef.current = null;
+      if (
+        currentExecutionIdRef.current &&
+        result.id === currentExecutionIdRef.current &&
+        (result.type === 'complete' || result.type === 'error')
+      ) {
+        clearRequest();
       }
     });
 
@@ -68,7 +72,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
       unsubscribeInput?.();
       unsubscribeResult?.();
     };
-  }, [t]);
+  }, [clearRequest, t]);
 
   // Focus input when request comes in
   useEffect(() => {
@@ -86,20 +90,18 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
           value,
           request.requestId
         );
-        setRequest(null);
-        setValue('');
+        clearRequest();
       }
     },
-    [request, value]
+    [clearRequest, request, value]
   );
 
   const handleCancel = useCallback(() => {
     if (request) {
       window.codeRunner?.sendInputResponse(request.id, '', request.requestId);
-      setRequest(null);
-      setValue('');
+      clearRequest();
     }
-  }, [request]);
+  }, [clearRequest, request]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -140,7 +142,7 @@ export function InputTooltip({ getLineTop }: InputTooltipProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.15 }}
-          className="fixed z-[100] rounded-lg shadow-2xl p-4 bg-card border border-border"
+          className="fixed z-100 rounded-lg border border-border bg-card p-4 shadow-2xl"
           style={{
             top: `${position.top}px`,
             left: `${position.left}px`,

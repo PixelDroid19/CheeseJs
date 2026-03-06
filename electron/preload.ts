@@ -391,6 +391,35 @@ contextBridge.exposeInMainWorld('pythonPackageManager', {
 });
 
 // ============================================================================
+// LSP CONFIG API
+// ============================================================================
+
+contextBridge.exposeInMainWorld('lspConfig', {
+  getConfig: async (): Promise<unknown> => {
+    return ipcRenderer.invoke('get-lsp-config');
+  },
+  saveConfig: async (
+    config: unknown
+  ): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('save-lsp-config', config);
+  },
+});
+
+contextBridge.exposeInMainWorld('lspBridge', {
+  start: (langId: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('lsp:start', langId),
+  stop: (langId: string): void => ipcRenderer.send('lsp:stop', langId),
+  sendMessage: (langId: string, message: string): void =>
+    ipcRenderer.send('lsp:message', { langId, data: message }),
+  onMessage: (callback: (msg: { langId: string; data: string }) => void) => {
+    const handler = (_event: unknown, msg: { langId: string; data: string }) =>
+      callback(msg);
+    ipcRenderer.on('lsp:message-reply', handler);
+    return () => ipcRenderer.removeListener('lsp:message-reply', handler);
+  },
+});
+
+// ============================================================================
 // AI PROXY API
 // ============================================================================
 

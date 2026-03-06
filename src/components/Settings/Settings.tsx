@@ -12,6 +12,7 @@ import {
   Wrench,
   FileCode,
   Bug,
+  Code2,
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/storeHooks';
 import clsx from 'clsx';
@@ -24,6 +25,7 @@ import { SnippetsTab } from './tabs/SnippetsTab';
 import { AITab } from './tabs/AITab';
 import { CompilationTab } from './tabs/CompilationTab';
 import { FormattingTab } from './tabs/FormattingTab';
+import { LspTab } from './tabs/LspTab';
 
 type Tab =
   | 'general'
@@ -34,6 +36,7 @@ type Tab =
   | 'npm'
   | 'pypi'
   | 'snippets'
+  | 'lsp'
   | 'advanced';
 
 export default function Settings() {
@@ -69,6 +72,11 @@ export default function Settings() {
       id: 'pypi',
       label: t('settings.categories.pypi', 'PyPI (Python)'),
       icon: Bug,
+    },
+    {
+      id: 'lsp',
+      label: t('settings.categories.lsp', 'Inteligencia de código'),
+      icon: Code2,
     },
     { id: 'advanced', label: t('settings.categories.advanced'), icon: Wrench },
   ];
@@ -166,6 +174,7 @@ export default function Settings() {
                   {activeTab === 'advanced' && <AdvancedTab />}
                   {activeTab === 'snippets' && <SnippetsTab />}
                   {activeTab === 'ai' && <AITab />}
+                  {activeTab === 'lsp' && <LspTab />}
                 </div>
               </div>
             </div>

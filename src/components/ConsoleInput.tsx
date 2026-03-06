@@ -5,9 +5,10 @@ import clsx from 'clsx';
 
 export function ConsoleInput() {
   const { tabs, activeTabId, setTabPromptRequest } = useEditorTabsStore();
-  const activeTab = tabs.find(t => t.id === activeTabId);
+  const activeTab = tabs.find((t) => t.id === activeTabId);
   const promptRequest = activeTab?.promptRequest || null;
   const promptType = activeTab?.promptType || 'text';
+  const promptExecutionId = activeTab?.promptExecutionId || null;
 
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,8 +33,9 @@ export function ConsoleInput() {
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (activeTabId) {
-      window.codeRunner.sendJSInputResponse(activeTabId, input);
+    const targetExecutionId = promptExecutionId || activeTabId;
+    if (targetExecutionId) {
+      window.codeRunner.sendJSInputResponse(targetExecutionId, input);
     }
     setInput('');
     if (activeTabId) setTabPromptRequest(activeTabId, null);
@@ -51,7 +53,7 @@ export function ConsoleInput() {
   return (
     <div
       className={clsx(
-        'shrink-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+        'shrink-0 border-t border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60',
         'p-3 pr-16 animate-in slide-in-from-bottom-2 duration-200'
       )}
     >
@@ -77,7 +79,7 @@ export function ConsoleInput() {
               <Terminal className="w-4 h-4 shrink-0 text-muted-foreground" />
             )}
             <span
-              className="break-words leading-tight"
+              className="wrap-break-word leading-tight"
               data-testid="prompt-message"
             >
               {promptRequest}

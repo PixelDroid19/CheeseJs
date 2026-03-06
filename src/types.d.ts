@@ -61,6 +61,20 @@ declare global {
     codeRunner: CodeRunner;
     packageManager: PackageManager;
     pythonPackageManager: PythonPackageManager;
+    lspConfig: {
+      getConfig: () => Promise<unknown>;
+      saveConfig: (
+        config: unknown
+      ) => Promise<{ success: boolean; error?: string }>;
+    };
+    lspBridge: {
+      start: (langId: string) => Promise<{ success: boolean; error?: string }>;
+      stop: (langId: string) => void;
+      sendMessage: (langId: string, message: string) => void;
+      onMessage: (
+        callback: (msg: { langId: string; data: string }) => void
+      ) => () => void;
+    };
     aiProxy: {
       fetch: (request: {
         url: string;
@@ -202,4 +216,4 @@ declare global {
 
 // Para hacer posible "import type" de un archivo .d.ts sin top-level export,
 // a veces es necesario un simple export:
-export { };
+export {};

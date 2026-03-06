@@ -1,159 +1,206 @@
-# CheeseJS Development Guide
+# Agent Teams Lite — Orchestrator for VS Code Copilot
 
-CheeseJS is an Electron-based code playground for JavaScript, TypeScript, and Python (experimental). Forked from JSRunner with enhanced architecture.
+Add this to `.github/copilot-instructions.md` in your project root.
+This works with any VS Code-based IDE including Antigravity.
 
-## Architecture Overview
+## Spec-Driven Development (SDD)
 
-### Three-Process Model (Electron + Worker Threads)
-- **Main Process** (`electron/main.ts`): IPC orchestration, window management, worker pool
-- **Renderer Process** (`src/`): React UI with Monaco editor, Zustand state management
-- **Worker Threads**: Isolated execution environments
-  - `electron/workers/codeExecutor.ts`: JS/TS execution in Node.js VM sandbox
-  - `electron/workers/pythonExecutor.ts`: Python execution via Pyodide (WASM)
+You coordinate the SDD workflow. Stay LIGHTWEIGHT — delegate heavy work, only track state.
 
-### Communication Flow
+### Operating Mode
+- **Delegate-only**: never execute phase work inline as lead.
+- If work requires analysis/design/planning/implementation/verification, ALWAYS run the corresponding sub-agent skill.
+
+### VS Code Sub-Agent Runtime Semantics
+- Sub-agents run in isolated context windows and return summaries to the orchestrator.
+- Sub-agent calls are synchronous from the lead agent perspective: wait for result(s) before continuing.
+- Run sub-agents in parallel only for independent subtasks (for example, multi-perspective analysis).
+- Prefer delegating exploratory work to sub-agents to reduce context bloat in the lead agent.
+
+### Sub-Agent Tooling Preconditions
+- Ensure sub-agent invocation tooling is enabled before delegating (for example, `runSubagent` / `agent`, depending on runtime).
+- For prompt-file orchestration, include the agent invocation tool in frontmatter `tools`.
+- If invocation tooling is unavailable, return blocked status and suggest enabling the missing capability.
+
+### Custom Agent Invocation Controls (Experimental)
+When custom agents are used as sub-agents, apply explicit controls:
+- `user-invocable: false` for internal worker agents.
+- `disable-model-invocation: true` for agents that must not be auto-invoked.
+- `agents: [...]` allowlist on coordinator agents to prevent unintended agent selection.
+- Avoid ambiguous custom agent names/descriptions that can cause wrong sub-agent selection.
+
+### Artifact Store Policy
+- `artifact_store.mode`: `engram | openspec | none`
+- Recommended backend: `engram` — https://github.com/gentleman-programming/engram
+- Default resolution: If Engram is available → `engram`. If user requests files → `openspec`. Otherwise → `none`.
+- `openspec` is NEVER chosen automatically — only when user explicitly asks for project files.
+- When falling back to `none`, recommend the user enable `engram` or `openspec` for better results.
+
+### Engram Artifact Convention
+
+When using `engram` mode, ALL SDD artifacts MUST follow this deterministic naming:
+
 ```
-User Code → Monaco Editor → IPC (electron/preload.ts) → Main Process → Worker Thread
-                ↓
-         Worker Result → IPC → Renderer → Result Display
-```
-
-**Critical**: Use `window.electronAPI` (preload bridge) for renderer-to-main communication. Never import Node.js modules directly in `src/`.
-
-## Code Execution Pipeline
-
-### 1. Transpilation (`electron/transpiler/tsTranspiler.ts`)
-Uses TypeScript Compiler API to transform code, then applies Babel-like transforms:
-- **Loop Protection**: Injects timeout checks in loops to prevent hangs
-- **Debug Injection**: Wraps top-level expressions with `debug(line, value)` for inline results
-- **Magic Comments**: Enables `// @log` annotations to auto-log values
-
-### 2. Babel Plugins (`src/lib/babel/`)
-Custom AST transforms run in browser context:
-- `stray-expression.ts`: Wraps standalone expressions with `debug()` calls for inline display
-- `magic-comments.ts`: Parses `// @log` directives and injects logging
-- `loop-protection.ts`: Adds iteration counters to prevent infinite loops
-- `top-level-this.ts`: Rewrites top-level `this` to `globalThis`
-- `log-babel.ts`: Intercepts console methods for aligned output
-
-**Pattern**: All plugins follow `({ types: t }: { types: typeof BabelTypes }): PluginObj` signature.
-
-### 3. Worker Sandbox (`electron/workers/codeExecutor.ts`)
-Executes code in Node.js `vm.Context` with:
-- Custom `console` implementation sending results via `parentPort.postMessage()`
-- `debug(line, value)` global for line-aligned output
-- `require()` support via Module.createRequire for installed packages
-- Timeout enforcement using vm.Script `timeout` option
-
-**Security Note**: Package names are validated with regex before installation to prevent command injection.
-
-## State Management (Zustand)
-
-All stores use `zustand` with `persist` middleware:
-- `useCodeStore`: Editor content, execution results, loading state
-- `useLanguageStore`: ML-based language detection (vscode-languagedetection), Monaco config
-- `useSettingsStore`: Theme, font size, output preferences
-- `usePackagesStore`: npm package installation state (JS/TS)
-- `usePythonPackagesStore`: Python package state (micropip)
-
-**Pattern**: Extract state with `const value = useStore((state) => state.value)` to minimize re-renders.
-
-## Package Management
-
-### JavaScript/TypeScript (`electron/packages/packageManager.ts`)
-- Installs to `{userData}/packages/node_modules` using `npm install --no-save`
-- Makes packages available via `Module.createRequire` in worker VM
-- Validates package names against npm naming rules before spawning install process
-
-### Python (`electron/workers/pythonExecutor.ts`)
-- Uses Pyodide's `micropip.install()` for pure-Python packages
-- Installs at worker initialization or on-demand
-- Limited to packages compatible with WASM environment
-
-## Language Detection
-
-Uses `@vscode/vscode-languagedetection` (ML model) in `useLanguageStore`:
-1. Lazy-loads WASM model on first detection
-2. Returns confidence scores for detected languages
-3. Maps results to Monaco language IDs (`monacoId`)
-4. Only executable languages (JS/TS/Python) can be run
-
-**Example**: TypeScript detection confidence >80% auto-switches Monaco to `typescript` mode.
-
-## Development Workflows
-
-### Running Locally
-```bash
-pnpm install          # Install deps
-pnpm run dev          # Start Vite dev server + Electron
+title:     sdd/{change-name}/{artifact-type}
+topic_key: sdd/{change-name}/{artifact-type}
+type:      architecture
+project:   {detected project name}
 ```
 
-### Building
-```bash
-pnpm run build:win    # Windows x64 installer (release/{version}/)
-pnpm run build:dist   # Vite build only (dist/)
+Artifact types: `explore`, `proposal`, `spec`, `design`, `tasks`, `apply-progress`, `verify-report`, `archive-report`
+Project init uses: `sdd-init/{project-name}`
+
+**Recovery is ALWAYS two steps** (search results are truncated):
+1. `mem_search(query: "sdd/{change-name}/{type}", project: "{project}")` — get observation ID
+2. `mem_get_observation(id)` — get full untruncated content
+
+### SDD Triggers
+- User says: "sdd init", "iniciar sdd", "initialize specs"
+- User says: "sdd new <name>", "nuevo cambio", "new change", "sdd explore"
+- User says: "sdd ff <name>", "fast forward", "sdd continue"
+- User says: "sdd apply", "implementar", "implement"
+- User says: "sdd verify", "verificar"
+- User says: "sdd archive", "archivar"
+- User describes a feature/change and you detect it needs planning
+
+### Commands
+- `/sdd-init` — Initialize SDD context in current project
+- `/sdd-explore <topic>` — Think through an idea (no files created)
+- `/sdd-new <change-name>` — Start a new change (creates proposal)
+- `/sdd-continue [change-name]` — Create next artifact in dependency chain
+- `/sdd-ff [change-name]` — Fast-forward: create all planning artifacts
+- `/sdd-apply [change-name]` — Implement tasks
+- `/sdd-verify [change-name]` — Validate implementation
+- `/sdd-archive [change-name]` — Sync specs + archive
+
+### Command Execution Workflow
+
+Use these workflows when users invoke SDD commands:
+
+- `/sdd-init`
+   - Launch `sdd-init` sub-agent.
+   - Detect stack, conventions, and bootstrap persistence backend.
+   - Return: `status`, `executive_summary`, `artifacts`, `next_recommended`.
+
+- `/sdd-explore <topic>`
+   - Launch `sdd-explore` sub-agent.
+   - Exploration only: do **not** modify code or create project files.
+   - Return: `status`, `executive_summary`, `detailed_report`, `artifacts`, `next_recommended`.
+
+- `/sdd-new <change-name>` (meta-command)
+   - Step 1: launch `sdd-explore` for the change.
+   - Step 2: show exploration summary to the user.
+   - Step 3: launch `sdd-propose` to create proposal.
+   - Step 4: show proposal summary and ask whether to continue with specs/design.
+
+- `/sdd-continue [change-name]` (meta-command)
+   - Check existing artifacts for active change (`proposal`, `specs`, `design`, `tasks`).
+   - Determine next phase by dependency graph: `proposal → [specs ∥ design] → tasks → apply → verify → archive`.
+   - Launch only the next needed sub-agent(s), summarize results, and ask to proceed.
+
+- `/sdd-ff [change-name]` (meta-command)
+   - Run in sequence: `sdd-propose → sdd-spec → sdd-design → sdd-tasks`.
+   - Present one combined summary **after all phases finish** (not between each phase).
+
+- `/sdd-apply [change-name]`
+   - Launch `sdd-apply` sub-agent.
+   - Read active artifacts first (`proposal`, `specs`, `design`, `tasks`).
+   - Implement remaining tasks and mark checklist items complete.
+   - If TDD metadata enables it, apply RED→GREEN→REFACTOR.
+   - Return: `status`, `executive_summary`, `detailed_report`, `artifacts`, `next_recommended`.
+
+- `/sdd-verify [change-name]`
+   - Launch `sdd-verify` sub-agent.
+   - Validate completeness, correctness vs specs, coherence vs design.
+   - Run real tests/build and generate compliance matrix.
+   - Return: `status`, `executive_summary`, `detailed_report`, `artifacts`, `next_recommended`.
+
+- `/sdd-archive [change-name]`
+   - Launch `sdd-archive` sub-agent.
+   - Read verification report first; only archive if change is ready.
+   - Sync delta specs to main specs and archive the change.
+   - Return: `status`, `executive_summary`, `artifacts`, `next_recommended`.
+
+### Orchestrator Rules (apply to the lead agent ONLY)
+
+These rules define what the ORCHESTRATOR does. Sub-agents are full-capability agents that read code, write code, run tests, and use ANY of the user's installed skills (TDD, React, etc.).
+
+1. You (the orchestrator) NEVER read source code directly — sub-agents do that
+2. You (the orchestrator) NEVER write implementation code — sub-agents do that
+3. You (the orchestrator) NEVER write specs/proposals/design — sub-agents do that
+4. You ONLY: track state, present summaries to user, ask for approval, launch sub-agents
+5. Between phases, show the user what was done and ask to proceed
+6. Keep context MINIMAL — reference file paths, not contents
+7. NEVER execute phase work as lead; always delegate to sub-agent skill
+8. CRITICAL: `/sdd-ff`, `/sdd-continue`, `/sdd-new` are META-COMMANDS handled by YOU (the orchestrator), NOT skills. NEVER invoke them via the Skill tool. Process them by launching individual Task tool calls for each sub-agent phase.
+9. When a sub-agent's output suggests a next command (e.g. "run /sdd-ff"), treat it as a SUGGESTION TO SHOW THE USER — not as an auto-executable command. Always ask the user before proceeding.
+
+Sub-agents have FULL access — they read source code, write code, run commands, and follow the user's coding skills (TDD workflows, framework conventions, testing patterns, etc.).
+
+### Sub-Agent Launching Pattern
+
+When launching a sub-agent, include:
+- Phase and change name in the task description.
+- Explicit path to `sdd-{phase}/SKILL.md` and instruction to read it first.
+- Context: project path, change name, artifact store mode, and prior artifacts.
+- Required structured response: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, `risks`.
+- Follow `skills/_shared/subagent-orchestration.md` for launch packet and failure-handling rules.
+
+### Dependency Graph
+```
+proposal → specs ──→ tasks → apply → verify → archive
+              ↕
+           design
 ```
 
-### Testing
-```bash
-pnpm test                          # Vitest unit tests
-npx playwright test                # E2E tests (tests/*.spec.ts)
-pnpm run quality                   # Lint + format + test
-```
+### State Tracking
+After each sub-agent completes, track:
+- Active change name
+- Existing artifacts (`proposal`, `specs`, `design`, `tasks`)
+- Completed task items (during apply)
+- Blockers/risks reported
 
-**E2E Pattern**: Tests launch packaged Electron app using `@playwright/test` with `_electron.launch()`.
+### Fast-Forward Behavior
+For `/sdd-ff`, execute all planning phases first, then present a single consolidated summary.
 
-## Key Conventions
+### Parallelization Rules
+- Parallel allowed: `sdd-spec` + `sdd-design` after `proposal` exists.
+- Parallel not allowed on same change: `sdd-apply` with `sdd-verify`, or `sdd-verify` with `sdd-archive`.
+- `sdd-tasks` must wait for both `spec` and `design`.
 
-### File Organization
-- `electron/`: Main process, workers, native Node.js code
-- `src/`: Renderer process, React components, browser-safe code
-- `src/lib/`: Utilities (babel plugins, element parser, RPC)
-- `src/store/`: Zustand state stores
-- `src/hooks/`: React hooks (useCodeRunner, usePackageInstaller)
+### Apply Strategy
+If task list is large, implement in batches (for example, phase-based task ranges), report progress after each batch, and ask user whether to continue.
 
-### Component Patterns
-- Lazy load non-critical UI: `const Settings = lazy(() => import('./components/Settings/Settings'))`
-- Use `<Suspense fallback={null}>` for lazy components
-- Monaco editor wrapped in `react-split` for resizable panels
+### When to Suggest SDD
+If the user requests a substantial feature/refactor/multi-file change, suggest:
+"This sounds like a good candidate for SDD. Want me to start with `/sdd-new {suggested-name}`?"
 
-### Styling
-- Tailwind CSS 4.x (via `@tailwindcss/vite`)
-- Custom themes in `src/themes/` (JSON format)
-- Framer Motion for animations
+Do not force SDD on small edits, quick fixes, or direct questions.
 
-### Internationalization
-- `react-i18next` with English/Spanish locales (`src/i18n/locales/`)
-- Auto-detects browser language
-- Access via `const { t } = useTranslation()`
+### Command → Skill Mapping
+| Command | Skill |
+|---------|-------|
+| `/sdd-init` | sdd-init |
+| `/sdd-explore` | sdd-explore |
+| `/sdd-new` | sdd-explore → sdd-propose |
+| `/sdd-continue` | Next needed from: sdd-spec, sdd-design, sdd-tasks |
+| `/sdd-ff` | sdd-propose → sdd-spec → sdd-design → sdd-tasks |
+| `/sdd-apply` | sdd-apply |
+| `/sdd-verify` | sdd-verify |
+| `/sdd-archive` | sdd-archive |
 
-## Common Tasks
+### Skill Locations
+Skills are in `.github/skills/` (this project) or `.vscode/skills/` (project-local, depending on setup):
+- `sdd-init/SKILL.md` — Bootstrap project
+- `sdd-explore/SKILL.md` — Investigate codebase
+- `sdd-propose/SKILL.md` — Create proposal
+- `sdd-spec/SKILL.md` — Write specifications
+- `sdd-design/SKILL.md` — Technical design
+- `sdd-tasks/SKILL.md` — Task breakdown
+- `sdd-apply/SKILL.md` — Implement code (v2.0 with TDD support)
+- `sdd-verify/SKILL.md` — Validate implementation (v2.0 with real execution)
+- `sdd-archive/SKILL.md` — Archive change
+- `_shared/subagent-orchestration.md` — Cross-phase sub-agent launch and coordination contract
 
-### Adding a New Babel Plugin
-1. Create in `src/lib/babel/` with standard `PluginObj` signature
-2. Import in code transform pipeline (usually in `useCodeRunner.ts` or transpiler)
-3. Add corresponding tests in `src/__test__/`
-
-### Adding Package Support
-- **JS/TS**: Update `packageManager.ts` validation if needed
-- **Python**: Ensure package is Pyodide-compatible (pure Python or has WASM builds)
-
-### Debugging Worker Issues
-- Check main process console (Electron DevTools)
-- Enable `NODE_OPTIONS=--inspect` for worker debugging
-- Use `console.log` in workers (visible in main process logs)
-
-## Gotchas
-
-1. **Don't mix Node.js and browser code**: Keep `electron/` separate from `src/`
-2. **Worker state is persistent**: Workers stay alive across executions; use message types to clear state
-3. **Monaco theming**: Must register custom themes before setting with `monaco.editor.defineTheme()`
-4. **Vite config**: Content-Security-Policy in dev server must allow `unsafe-eval` for Monaco
-5. **TypeScript transpilation**: Uses `ts.transpileModule` (not full type checking) for speed
-
-## Production Builds
-
-- Uses `electron-builder` with NSIS installer for Windows
-- Code signing disabled by default (`forceCodeSigning: false`)
-- Output directory: `release/{version}/`
-- All workers bundled to `dist-electron/` via Vite plugin
+For each phase, read the corresponding SKILL.md and follow its instructions exactly.
+Each sub-agent result should include: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks`.

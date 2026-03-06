@@ -1,9 +1,12 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { fileURLToPath } from 'node:url';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -20,11 +23,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     tailwindcss(),
-    react({
-      babel: {
-        plugins: [['babel-plugin-react-compiler', { target: '19' }]],
-      },
-    }),
+    react(),
     electron([
       {
         // Main-Process entry file of the Electron App.
@@ -36,16 +35,13 @@ export default defineConfig(({ mode }) => ({
                 'typescript',
                 '@swc/core',
                 '@swc/core-win32-x64-msvc',
+                /^@libsql\//,
+                'libsql',
                 '@lancedb/lancedb',
                 'pdf-parse',
                 'mammoth',
                 'onnxruntime-node',
                 '@xenova/transformers',
-                '@libsql/client',
-                '@libsql/win32-x64-msvc',
-                '@mastra/core',
-                '@mastra/libsql',
-                '@mastra/rag',
               ],
               output: {
                 format: 'es',

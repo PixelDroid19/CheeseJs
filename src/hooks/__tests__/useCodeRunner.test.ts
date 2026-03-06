@@ -9,6 +9,11 @@ const mockAppendResult = vi.fn();
 const mockClearResult = vi.fn();
 const mockSetIsExecuting = vi.fn();
 const mockSetPromptRequest = vi.fn();
+const mockSetTabPromptRequest = vi.fn();
+const mockSetTabExecuting = vi.fn();
+const mockSetTabResults = vi.fn();
+const mockClearTabResults = vi.fn();
+const mockAppendTabResult = vi.fn();
 
 vi.mock('../../store/index', () => ({
   useAppStore: {
@@ -33,6 +38,55 @@ const mockDetectLanguage = vi.fn().mockReturnValue({
 
 const mockAddToHistory = vi.fn();
 
+const buildEditorTabsState = () => ({
+  activeTabId: 'test-tab',
+  tabs: [{ id: 'test-tab', code: 'console.log("hello")' }],
+  setTabPromptRequest: (
+    id: string,
+    message: string | null,
+    type: 'text' | 'alert' = 'text',
+    executionId: string | null = null
+  ) => {
+    mockSetTabPromptRequest(id, message, type, executionId);
+    mockSetPromptRequest(message);
+  },
+  setTabExecuting: (id: string, isExecuting: boolean) => {
+    mockSetTabExecuting(id, isExecuting);
+    mockSetIsExecuting(isExecuting);
+  },
+  setTabResults: (
+    id: string,
+    results: Array<{
+      element: {
+        content: string;
+      };
+      type: 'error' | 'execution';
+    }>
+  ) => {
+    mockSetTabResults(id, results);
+    mockSetResult(results);
+  },
+  clearTabResults: (id: string) => {
+    mockClearTabResults(id);
+    mockClearResult();
+  },
+  appendTabResult: (
+    id: string,
+    result: {
+      element: {
+        content: string;
+        jsType?: string;
+        consoleType?: 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir';
+      };
+      type: 'execution' | 'error';
+      lineNumber?: number;
+    }
+  ) => {
+    mockAppendTabResult(id, result);
+    mockAppendResult(result);
+  },
+});
+
 vi.mock('../../store/storeHooks', () => ({
   useCodeStore: Object.assign(
     (selector: (s: any) => any) =>
@@ -46,6 +100,15 @@ vi.mock('../../store/storeHooks', () => ({
         setPromptRequest: mockSetPromptRequest,
       }),
     { getState: () => ({}) }
+  ),
+  useEditorTabsStore: Object.assign(
+    (selector?: (s: any) => any) => {
+      const state = buildEditorTabsState();
+      return selector ? selector(state) : state;
+    },
+    {
+      getState: () => buildEditorTabsState(),
+    }
   ),
   useSettingsStore: () => ({
     showTopLevelResults: true,
@@ -194,7 +257,6 @@ describe('useCodeRunner', () => {
 
     expect(mockWaitForReady).toHaveBeenCalledWith('javascript');
   });
-
   it('should subscribe to results before executing code', async () => {
     const { result } = renderHook(() => useCodeRunner());
 
@@ -417,6 +479,38 @@ describe('useCodeRunner', () => {
     );
   });
 
+  it('should not cancel an execution that already completed', async () => {
+    let resultCallback: (data: Record<string, unknown>) => void;
+    mockOnResult.mockImplementation(
+      (cb: (data: Record<string, unknown>) => void) => {
+        resultCallback = cb;
+        return vi.fn();
+      }
+    );
+
+    const { result } = renderHook(() => useCodeRunner());
+
+    act(() => {
+      result.current.runCode('const firstRun = 1');
+    });
+    await flushDebounce();
+
+    const firstExecutionId = mockExecute.mock.calls[0][0];
+
+    act(() => {
+      resultCallback!({ type: 'complete', id: firstExecutionId });
+    });
+
+    mockCancel.mockClear();
+
+    act(() => {
+      result.current.runCode('const secondRun = 2');
+    });
+    await flushDebounce();
+
+    expect(mockCancel).not.toHaveBeenCalled();
+  });
+
   it('should ignore results from different execution IDs', async () => {
     let resultCallback: (data: Record<string, unknown>) => void;
     mockOnResult.mockImplementation(
@@ -484,14 +578,14 @@ describe('useCodeRunner', () => {
     });
     await flushDebounce();
 
-    expect(mockSetResult).toHaveBeenCalledWith([
+    expect(mockAppendResult).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'error',
         element: expect.objectContaining({
           content: expect.stringContaining('Code runner not available'),
         }),
-      }),
-    ]);
+      })
+    );
   });
 
   it('should handle worker initialization failure', async () => {
@@ -504,14 +598,14 @@ describe('useCodeRunner', () => {
     });
     await flushDebounce();
 
-    expect(mockSetResult).toHaveBeenCalledWith([
+    expect(mockAppendResult).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'error',
         element: expect.objectContaining({
           content: expect.stringContaining('failed to initialize'),
         }),
-      }),
-    ]);
+      })
+    );
   });
 
   it('should handle execute response failure with timeout', async () => {
@@ -607,12 +701,44 @@ describe('useCodeRunner', () => {
     });
     await flushDebounce();
 
-    expect(mockSetCode).toHaveBeenCalledWith('new code here');
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.any(String),
+      'new code here',
+      expect.objectContaining({ language: 'javascript' })
+    );
   });
 
   it('should subscribe to JS input requests on mount', () => {
     renderHook(() => useCodeRunner());
     expect(mockOnJSInputRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('should route JS input requests across separate hook instances', async () => {
+    renderHook(() => useCodeRunner());
+    const { result } = renderHook(() => useCodeRunner());
+
+    act(() => {
+      result.current.runCode('prompt("name")');
+    });
+    await flushDebounce();
+
+    const executionId = mockExecute.mock.calls[0][0];
+    const firstHookInputListener = mockOnJSInputRequest.mock.calls[0][0];
+
+    act(() => {
+      firstHookInputListener({
+        id: executionId,
+        message: 'What is your name?',
+        type: 'prompt-request',
+      });
+    });
+
+    expect(mockSetTabPromptRequest).toHaveBeenCalledWith(
+      'test-tab',
+      'What is your name?',
+      'text',
+      executionId
+    );
   });
 
   it('should handle error result type', async () => {

@@ -32,13 +32,19 @@ vi.mock('@monaco-editor/react', () => ({
 
 // Framer motion mock
 vi.mock('framer-motion', () => {
-  const component = (props: React.ComponentPropsWithoutRef<'div'>) => <div {...props}>{props.children}</div>;
+  const component = (props: React.ComponentPropsWithoutRef<'div'>) => (
+    <div {...props}>{props.children}</div>
+  );
   return {
     m: {
       div: component,
-      button: (props: React.ComponentPropsWithoutRef<'button'>) => <button {...props}>{props.children}</button>,
+      button: (props: React.ComponentPropsWithoutRef<'button'>) => (
+        <button {...props}>{props.children}</button>
+      ),
     },
-    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
   };
 });
 
@@ -89,8 +95,6 @@ const useSettingsStoreMock = vi.fn((selector) =>
   selector ? selector(currentSettings) : currentSettings
 );
 
-
-
 const mockAddPackage = vi.fn();
 const mockSetPackageInstalling = vi.fn();
 const mockSetPackageInstalled = vi.fn();
@@ -131,15 +135,56 @@ const mockPythonPackagesState = {
   detectedMissingPackages: [] as string[],
 };
 
+type MockEditorTabsState = {
+  activeTabId: string;
+  tabs: Array<{
+    id: string;
+    code: string;
+    result: typeof mockCodeStoreState.result;
+  }>;
+};
+
 vi.mock('../store/storeHooks', () => ({
-  useCodeStore: (selector: (s: typeof mockCodeStoreState) => unknown) => selector(mockCodeStoreState),
-  useSettingsStore: (selector: (s: typeof mockSettingsState) => unknown) => useSettingsStoreMock(selector),
+  useCodeStore: (selector: (s: typeof mockCodeStoreState) => unknown) =>
+    selector ? selector(mockCodeStoreState) : mockCodeStoreState,
+  useSettingsStore: (selector: (s: typeof mockSettingsState) => unknown) =>
+    useSettingsStoreMock(selector),
   usePackagesStore: (selector: (s: typeof mockPackagesState) => unknown) =>
     selector ? selector(mockPackagesState) : mockPackagesState,
-  usePythonPackagesStore: (selector: (s: typeof mockPythonPackagesState) => unknown) =>
-    selector ? selector(mockPythonPackagesState) : mockPythonPackagesState,
+  usePythonPackagesStore: (
+    selector: (s: typeof mockPythonPackagesState) => unknown
+  ) => (selector ? selector(mockPythonPackagesState) : mockPythonPackagesState),
   useLanguageStore: (selector: (s: { currentLanguage: string }) => unknown) =>
-    selector({ currentLanguage: 'javascript' }),
+    selector
+      ? selector({ currentLanguage: 'javascript' })
+      : { currentLanguage: 'javascript' },
+  useEditorTabsStore: Object.assign(
+    (selector?: (s: MockEditorTabsState) => unknown) => {
+      const state: MockEditorTabsState = {
+        activeTabId: 'test-tab',
+        tabs: [
+          {
+            id: 'test-tab',
+            code: mockCodeStoreState.code,
+            result: mockCodeStoreState.result,
+          },
+        ],
+      };
+      return selector ? selector(state) : state;
+    },
+    {
+      getState: () => ({
+        activeTabId: 'test-tab',
+        tabs: [
+          {
+            id: 'test-tab',
+            code: mockCodeStoreState.code,
+            result: mockCodeStoreState.result,
+          },
+        ],
+      }),
+    }
+  ),
   useAppStore: {
     getState: () => ({
       language: {

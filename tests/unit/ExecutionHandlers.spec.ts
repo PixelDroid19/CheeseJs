@@ -21,6 +21,7 @@ const mockWorkerPool = {
   isPythonWorkerReady: vi.fn(),
   getPythonWorker: vi.fn(),
   resolveJSInput: vi.fn(),
+  resolvePythonInput: vi.fn(),
 } as unknown as WorkerPoolManager;
 
 // Mock transformCode
@@ -216,7 +217,7 @@ describe('ExecutionHandlers', () => {
   it('should return error when transpilation throws a non-Error', async () => {
     const handler = registerAndGetHandler('execute-code');
     mockTransformCode.mockImplementationOnce(() => {
-      throw 'string error'; // eslint-disable-line no-throw-literal
+      throw 'string error';
     });
 
     const result = await handler(
@@ -311,13 +312,11 @@ describe('ExecutionHandlers', () => {
 
       handler({}, { id: 'exec-1', value: 'user input', requestId: 'req-1' });
 
-      expect(mockWorkerPool.getPythonWorker).toHaveBeenCalled();
-      expect(mockPostMessage).toHaveBeenCalledWith({
-        type: 'input-response',
-        id: 'exec-1',
-        value: 'user input',
-        requestId: 'req-1',
-      });
+      expect(mockWorkerPool.resolvePythonInput).toHaveBeenCalledWith(
+        'exec-1',
+        'user input',
+        'req-1'
+      );
     });
 
     it('should not crash when Python worker is unavailable', () => {
@@ -329,7 +328,11 @@ describe('ExecutionHandlers', () => {
         handler({}, { id: 'exec-1', value: 'input' });
       }).not.toThrow();
 
-      expect(mockPostMessage).not.toHaveBeenCalled();
+      expect(mockWorkerPool.resolvePythonInput).toHaveBeenCalledWith(
+        'exec-1',
+        'input',
+        undefined
+      );
     });
   });
 
@@ -337,9 +340,12 @@ describe('ExecutionHandlers', () => {
     it('should resolve JS input with provided value', () => {
       const handler = registerAndGetHandler('js-input-response', 'on');
 
-      handler({}, { value: 'hello' });
+      handler({}, { id: 'exec-1', value: 'hello' });
 
-      expect(mockWorkerPool.resolveJSInput).toHaveBeenCalledWith('hello');
+      expect(mockWorkerPool.resolveJSInput).toHaveBeenCalledWith(
+        'exec-1',
+        'hello'
+      );
     });
   });
 });

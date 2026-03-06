@@ -12,6 +12,7 @@ import { registerExecutionHandlers } from './handlers/ExecutionHandlers';
 import { registerPackageHandlers } from './handlers/PackageHandlers';
 import { registerPythonHandlers } from './handlers/PythonHandlers';
 import { registerFilesystemHandlers } from './handlers/FilesystemHandlers';
+import { registerLspHandlers } from './handlers/LspHandlers';
 
 // ============================================================================
 // TYPES
@@ -34,4 +35,5 @@ export function registerIPCHandlers(config: IPCHandlersConfig): void {
   registerPackageHandlers({ workerPool });
   registerPythonHandlers({ workerPool });
   registerFilesystemHandlers();
+  registerLspHandlers();
 }

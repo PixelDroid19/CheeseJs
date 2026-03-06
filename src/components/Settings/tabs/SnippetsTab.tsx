@@ -31,11 +31,20 @@ export function SnippetsTab() {
   const [editedCode, setEditedCode] = useState('');
   const [isEditingCode, setIsEditingCode] = useState(false);
 
-  const handleSaveCurrent = () => {
-    addSnippet({
-      name: `Snippet ${new Date().toLocaleString()}`,
-      code: code,
-    });
+  const [isCreating, setIsCreating] = useState(false);
+  const [newSnippetName, setNewSnippetName] = useState('');
+  const [newSnippetCode, setNewSnippetCode] = useState('');
+
+  const handleSaveNew = () => {
+    if (newSnippetName.trim() && newSnippetCode.trim()) {
+      addSnippet({
+        name: newSnippetName.trim(),
+        code: newSnippetCode,
+      });
+      setIsCreating(false);
+      setNewSnippetName('');
+      setNewSnippetCode('');
+    }
   };
 
   const handleLoad = (snippet: Snippet) => {
@@ -110,15 +119,87 @@ export function SnippetsTab() {
         </p>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
         <button
-          onClick={handleSaveCurrent}
-          className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md transition-colors text-sm font-medium"
+          onClick={() => {
+            setIsCreating(true);
+            setNewSnippetName('');
+            setNewSnippetCode('');
+          }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-secondary/80 hover:bg-secondary text-secondary-foreground rounded-xl transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 text-sm font-medium border border-border/50"
+        >
+          <Plus size={16} />
+          {t('settings.snippets.createNew', 'Create New')}
+        </button>
+        <button
+          onClick={() => {
+            setIsCreating(true);
+            setNewSnippetName(`Snippet ${new Date().toLocaleString()}`);
+            setNewSnippetCode(code || '');
+          }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary/90 hover:bg-primary text-primary-foreground rounded-xl transition-all shadow-md shadow-primary/20 hover:shadow-lg hover:-translate-y-0.5 text-sm font-medium"
         >
           <Save size={16} />
           {t('settings.snippets.saveCurrent', 'Save Current Code')}
         </button>
       </div>
+
+      <AnimatePresence>
+        {isCreating && (
+          <m.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="p-5 rounded-2xl border border-border/40 bg-card/40 backdrop-blur-md space-y-5 shadow-lg relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+              <h3 className="text-sm font-semibold relative flex items-center gap-2">
+                <Plus size={16} className="text-primary" />
+                Create New Snippet
+              </h3>
+              <div className="relative">
+                <label className="block text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-semibold">
+                  Name
+                </label>
+                <input
+                  value={newSnippetName}
+                  onChange={(e) => setNewSnippetName(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border bg-black/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 border-border/50 transition-all shadow-inner placeholder:text-muted-foreground/50"
+                  placeholder="My Awesome Snippet"
+                  autoFocus
+                />
+              </div>
+              <div className="flex-1 flex flex-col relative">
+                <label className="block text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-semibold">
+                  Code
+                </label>
+                <textarea
+                  value={newSnippetCode}
+                  onChange={(e) => setNewSnippetCode(e.target.value)}
+                  className="w-full h-32 p-4 text-[13px] leading-relaxed font-mono rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y bg-black/20 text-foreground border-border/50 transition-all shadow-inner placeholder:text-muted-foreground/50"
+                  placeholder="Paste or type code here..."
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2 relative">
+                <button
+                  onClick={() => setIsCreating(false)}
+                  className="px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveNew}
+                  disabled={!newSnippetName.trim() || !newSnippetCode.trim()}
+                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium bg-primary/90 hover:bg-primary text-primary-foreground rounded-xl transition-all shadow-md shadow-primary/20 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                >
+                  <Save size={14} /> Save Snippet
+                </button>
+              </div>
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
 
       <div
         className={clsx(
@@ -141,16 +222,20 @@ export function SnippetsTab() {
             <div
               key={snippet.id}
               className={clsx(
-                'rounded-md border transition-all duration-200 overflow-hidden',
-                'border-border',
+                'rounded-xl border transition-all duration-300 overflow-hidden shadow-sm hover:shadow-md',
+                expandedId === snippet.id
+                  ? 'border-primary/30 ring-1 ring-primary/10'
+                  : 'border-border/60 hover:border-border',
                 'bg-card'
               )}
             >
               {/* Header */}
               <div
                 className={clsx(
-                  'flex items-center justify-between p-3 cursor-pointer select-none',
-                  'hover:bg-muted/50'
+                  'flex items-center justify-between p-3.5 cursor-pointer select-none transition-colors',
+                  expandedId === snippet.id
+                    ? 'bg-primary/5'
+                    : 'hover:bg-muted/30'
                 )}
                 onClick={() => toggleExpand(snippet.id)}
               >
@@ -218,16 +303,16 @@ export function SnippetsTab() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleAppend(snippet);
                     }}
                     className={clsx(
-                      'p-2 rounded-md transition-colors',
+                      'p-2 rounded-lg transition-all',
                       'text-muted-foreground',
-                      'hover:bg-success/10 hover:text-success'
+                      'hover:bg-success/10 hover:text-success hover:scale-105'
                     )}
                     title={t('settings.snippets.append', 'Append to Editor')}
                   >
@@ -239,9 +324,9 @@ export function SnippetsTab() {
                       handleLoad(snippet);
                     }}
                     className={clsx(
-                      'p-2 rounded-md transition-colors',
+                      'p-2 rounded-lg transition-all',
                       'text-foreground',
-                      'hover:bg-info/10 hover:text-info'
+                      'hover:bg-info/10 hover:text-info hover:scale-105'
                     )}
                     title={t(
                       'settings.snippets.load',
@@ -250,15 +335,16 @@ export function SnippetsTab() {
                   >
                     <Play className="w-4 h-4" />
                   </button>
+                  <div className="w-px h-4 bg-border mx-1" />
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       removeSnippet(snippet.id);
                     }}
                     className={clsx(
-                      'p-2 rounded-md transition-colors',
+                      'p-2 rounded-lg transition-all',
                       'text-muted-foreground',
-                      'hover:bg-destructive/10 hover:text-destructive'
+                      'hover:bg-destructive/10 hover:text-destructive hover:scale-105'
                     )}
                     title={t('settings.snippets.delete', 'Delete')}
                   >
@@ -276,12 +362,17 @@ export function SnippetsTab() {
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className={clsx('p-3 border-t', 'border-border')}>
-                      <div className="flex justify-between items-center mb-2">
+                    <div
+                      className={clsx(
+                        'p-4 border-t',
+                        'border-border/40 bg-zinc-950'
+                      )}
+                    >
+                      <div className="flex justify-between items-center mb-3">
                         <span
                           className={clsx(
-                            'text-xs font-mono opacity-70',
-                            'text-muted-foreground'
+                            'text-[11px] font-mono tracking-wider uppercase',
+                            'text-zinc-500'
                           )}
                         >
                           {snippet.code.length} chars
@@ -291,7 +382,7 @@ export function SnippetsTab() {
                             <>
                               <button
                                 onClick={() => saveCode(snippet.id)}
-                                className="flex items-center gap-1 text-xs text-green-500 hover:text-green-600"
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-black bg-blue-400 hover:bg-blue-300 rounded-lg transition-colors"
                               >
                                 <Save size={12} /> Save
                               </button>
@@ -300,7 +391,7 @@ export function SnippetsTab() {
                                   setIsEditingCode(false);
                                   setEditedCode(snippet.code);
                                 }}
-                                className="flex items-center gap-1 text-xs text-destructive hover:text-destructive/90"
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
                               >
                                 <X size={12} /> Cancel
                               </button>
@@ -313,8 +404,7 @@ export function SnippetsTab() {
                                   setEditedCode(snippet.code);
                                 }}
                                 className={clsx(
-                                  'flex items-center gap-1 text-xs hover:text-blue-500',
-                                  'text-muted-foreground'
+                                  'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10'
                                 )}
                               >
                                 <Edit2 size={12} /> Edit Code
@@ -322,8 +412,7 @@ export function SnippetsTab() {
                               <button
                                 onClick={() => handleCopy(snippet.code)}
                                 className={clsx(
-                                  'flex items-center gap-1 text-xs hover:text-blue-500',
-                                  'text-muted-foreground'
+                                  'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10'
                                 )}
                               >
                                 <Copy size={12} /> Copy
@@ -338,19 +427,20 @@ export function SnippetsTab() {
                           value={editedCode}
                           onChange={(e) => setEditedCode(e.target.value)}
                           className={clsx(
-                            'w-full h-32 p-2 text-xs font-mono rounded border focus:outline-none focus:ring-1 focus:ring-ring resize-y',
-                            'bg-background',
-                            'text-foreground',
-                            'border-border'
+                            'w-full h-48 p-4 text-[13px] leading-relaxed font-mono rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-y transition-all shadow-inner',
+                            'bg-zinc-900',
+                            'text-zinc-100',
+                            'border-zinc-800'
                           )}
+                          spellCheck={false}
                         />
                       ) : (
                         <pre
                           className={clsx(
-                            'w-full p-2 text-xs font-mono rounded border overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto',
-                            'bg-muted',
-                            'border-border',
-                            'text-foreground'
+                            'w-full p-4 text-[13px] leading-relaxed font-mono rounded-xl border overflow-x-auto whitespace-pre-wrap max-h-60 overflow-y-auto selection:bg-blue-500/30',
+                            'bg-zinc-900 shadow-inner',
+                            'border-zinc-800',
+                            'text-zinc-300'
                           )}
                         >
                           {snippet.code}

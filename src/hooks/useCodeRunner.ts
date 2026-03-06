@@ -1,13 +1,50 @@
-import { useEditorTabsStore, useSettingsStore, getLanguageDisplayName } from '../store/storeHooks';
+import {
+  useEditorTabsStore,
+  useSettingsStore,
+  getLanguageDisplayName,
+} from '../store/storeHooks';
 import { useAppStore } from '../store/index';
 import { executionEngine } from '../lib/execution/ExecutionEngine';
 import { useEffect, useCallback } from 'react';
 
+let executionCounter = 0;
+const executionToTabMap = new Map<string, string>();
+
+function createExecutionId(tabId: string): string {
+  executionCounter += 1;
+  return `exec-${Date.now()}-${executionCounter}-${tabId}`;
+}
+
+function getMappedTabId(executionId: string): string | null {
+  return executionToTabMap.get(executionId) ?? null;
+}
+
+function setMappedTabId(executionId: string, tabId: string): void {
+  executionToTabMap.set(executionId, tabId);
+}
+
+function clearMappedExecution(executionId: string): void {
+  executionToTabMap.delete(executionId);
+}
+
+function clearMappedExecutionsForTab(tabId: string): void {
+  for (const [executionId, mappedTabId] of executionToTabMap.entries()) {
+    if (mappedTabId === tabId) {
+      executionToTabMap.delete(executionId);
+    }
+  }
+}
+
 export function useCodeRunner() {
   const { setTabPromptRequest } = useEditorTabsStore();
 
-  const { showTopLevelResults, loopProtection, showUndefined, magicComments, workingDirectory } =
-    useSettingsStore();
+  const {
+    showTopLevelResults,
+    loopProtection,
+    showUndefined,
+    magicComments,
+    workingDirectory,
+  } = useSettingsStore();
 
   // Remove global cancel on unmount to allow background tab execution
   useEffect(() => {
@@ -21,11 +58,20 @@ export function useCodeRunner() {
     if (!window.codeRunner?.onJSInputRequest) return;
 
     const unsubscribe = window.codeRunner.onJSInputRequest((request) => {
-      if (request.id) {
+      const mappedTabId = getMappedTabId(request.id);
+      const fallbackTabId = useEditorTabsStore
+        .getState()
+        .tabs.some((tab) => tab.id === request.id)
+        ? request.id
+        : null;
+      const targetTabId = mappedTabId ?? fallbackTabId;
+
+      if (targetTabId) {
         setTabPromptRequest(
-          request.id,
+          targetTabId,
           request.message,
-          request.type === 'alert-request' ? 'alert' : 'text'
+          request.type === 'alert-request' ? 'alert' : 'text',
+          request.id
         );
       }
     });
@@ -40,79 +86,102 @@ export function useCodeRunner() {
       const callerTabId = useEditorTabsStore.getState().activeTabId;
       if (!callerTabId) return;
 
-      const debounceTimer = setTimeout(async () => {
-        const { tabs, setTabPromptRequest, setTabExecuting, setTabResults, clearTabResults } = useEditorTabsStore.getState();
-        const callerTab = tabs.find(t => t.id === callerTabId);
+      const {
+        tabs,
+        setTabPromptRequest,
+        setTabExecuting,
+        setTabResults,
+        clearTabResults,
+      } = useEditorTabsStore.getState();
+      const callerTab = tabs.find((t) => t.id === callerTabId);
 
-        const sourceCode = codeToRun ?? callerTab?.code ?? '';
+      const sourceCode = codeToRun ?? callerTab?.code ?? '';
 
-        // Cancel previous execution for this tab ONLY
-        executionEngine.cancel(callerTabId);
-        setTabPromptRequest(callerTabId, null);
+      // Cancel previous execution for this tab ONLY
+      executionEngine.cancel(callerTabId);
+      setTabPromptRequest(callerTabId, null);
 
-        // Detect language
-        const detectLanguage = useAppStore.getState().language.detectLanguage;
-        const detected = detectLanguage(sourceCode);
-        const currentLang = detected.monacoId;
+      // Remove stale mappings for this tab
+      clearMappedExecutionsForTab(callerTabId);
 
-        if (!useAppStore.getState().language.isExecutable(currentLang)) {
-          setTabExecuting(callerTabId, false);
-          setTabResults(callerTabId, [
-            {
-              element: {
-                content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python`,
-              },
-              type: 'error',
-            },
-          ]);
-          return;
-        }
+      // Detect language
+      const detectLanguage = useAppStore.getState().language.detectLanguage;
+      const detected = detectLanguage(sourceCode);
+      const currentLang = detected.monacoId;
 
-        clearTabResults(callerTabId);
-        setTabExecuting(callerTabId, true);
-
-        const execLanguage = currentLang === 'python' ? 'python' : currentLang === 'typescript' ? 'typescript' : 'javascript';
-
-        await executionEngine.run(
-          callerTabId,
-          sourceCode,
-          execLanguage,
+      if (!useAppStore.getState().language.isExecutable(currentLang)) {
+        setTabExecuting(callerTabId, false);
+        setTabResults(callerTabId, [
           {
-            showUndefined,
-            showTopLevelResults,
-            loopProtection,
-            magicComments,
-            workingDirectory,
+            element: {
+              content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python`,
+            },
+            type: 'error',
           },
-          {
-            onOutput: (result) => {
-              useEditorTabsStore.getState().appendTabResult(callerTabId, {
-                lineNumber: result.lineNumber,
-                element: {
-                  content: result.content,
-                  jsType: result.jsType,
-                  consoleType: result.consoleType as 'log' | 'warn' | 'error' | 'info' | 'table' | 'dir',
-                },
-                type: result.type,
-              });
-            },
-            onError: (errorMsg) => {
-              useEditorTabsStore.getState().appendTabResult(callerTabId, {
-                element: { content: errorMsg },
-                type: 'error',
-              });
-            },
-            onComplete: (historyData) => {
-              useAppStore.getState().history.addToHistory(historyData);
-              useEditorTabsStore.getState().setTabExecuting(callerTabId, false);
-              useEditorTabsStore.getState().setTabPromptRequest(callerTabId, null);
-            }
-          }
-        );
+        ]);
+        return;
+      }
 
-      }, 0); // No deferral wait needed.
+      clearTabResults(callerTabId);
+      setTabExecuting(callerTabId, true);
 
-      return () => clearTimeout(debounceTimer);
+      const execLanguage =
+        currentLang === 'python'
+          ? 'python'
+          : currentLang === 'typescript'
+            ? 'typescript'
+            : 'javascript';
+      const executionId = createExecutionId(callerTabId);
+      setMappedTabId(executionId, callerTabId);
+
+      await executionEngine.run(
+        callerTabId,
+        executionId,
+        sourceCode,
+        execLanguage,
+        {
+          showUndefined,
+          showTopLevelResults,
+          loopProtection,
+          magicComments,
+          workingDirectory,
+        },
+        {
+          onOutput: (result) => {
+            useEditorTabsStore.getState().appendTabResult(callerTabId, {
+              lineNumber: result.lineNumber,
+              element: {
+                content: result.content,
+                jsType: result.jsType,
+                consoleType: result.consoleType as
+                  | 'log'
+                  | 'warn'
+                  | 'error'
+                  | 'info'
+                  | 'table'
+                  | 'dir',
+              },
+              type: result.type,
+            });
+          },
+          onError: (errorMsg) => {
+            useEditorTabsStore.getState().appendTabResult(callerTabId, {
+              element: { content: errorMsg },
+              type: 'error',
+            });
+            clearMappedExecution(executionId);
+            useEditorTabsStore.getState().setTabExecuting(callerTabId, false);
+          },
+          onComplete: (historyData) => {
+            useAppStore.getState().history.addToHistory(historyData);
+            useEditorTabsStore.getState().setTabExecuting(callerTabId, false);
+            useEditorTabsStore
+              .getState()
+              .setTabPromptRequest(callerTabId, null);
+            clearMappedExecution(executionId);
+          },
+        }
+      );
     },
     [
       showTopLevelResults,

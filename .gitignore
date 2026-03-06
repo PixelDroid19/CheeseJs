@@ -20,6 +20,11 @@ test-results
 
 # Editor directories and files
 .vscode/*
+.github/agents
+.github/hooks
+.github/instructions
+.github/prompts
+.github/skills
 !.vscode/extensions.json
 .github/copilot-instructions.md
 .idea

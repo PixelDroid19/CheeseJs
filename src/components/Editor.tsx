@@ -21,6 +21,7 @@ import { useEditorCodeSync } from '../hooks/editor/useEditorCodeSync';
 import { useEditorModels } from '../hooks/editor/useEditorModels';
 import { useEditorChangeHandler } from '../hooks/editor/useEditorChangeHandler';
 import { useEditorLifecycle } from '../hooks/editor/useEditorLifecycle';
+import { useLspIntegration } from '../hooks/editor/useLspIntegration';
 
 // Setup Monaco workers before initialization
 setupMonacoEnvironment();
@@ -28,9 +29,13 @@ setupMonacoEnvironment();
 loader.config({ monaco });
 
 function CodeEditor() {
-  const { tabs, activeTabId, updateTabCode, updateTabLanguage } = useEditorTabsStore();
-  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
-  const setCode = useCallback((code: string) => updateTabCode(activeTab.id, code), [activeTab.id, updateTabCode]);
+  const { tabs, activeTabId, updateTabCode, updateTabLanguage } =
+    useEditorTabsStore();
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const setCode = useCallback(
+    (code: string) => updateTabCode(activeTab.id, code),
+    [activeTab.id, updateTabCode]
+  );
   const code = activeTab.code;
   const { themeName, fontSize, fontLigatures } = useSettingsStore();
 
@@ -38,18 +43,31 @@ function CodeEditor() {
   const language = activeTab.language;
 
   // We need to keep a bridge between EditorTabs Language and the global Monaco Language Detector
-  const detectLanguageAsync = useLanguageStore((state) => state.detectLanguageAsync);
+  const detectLanguageAsync = useLanguageStore(
+    (state) => state.detectLanguageAsync
+  );
   const detectLanguageSync = useLanguageStore((state) => state.detectLanguage);
 
-  const setLanguage = useCallback((lang: string) => {
-    updateTabLanguage(activeTab.id, lang);
-    useLanguageStore.getState().setLanguage(lang);
-  }, [activeTab.id, updateTabLanguage]);
-  const setMonacoInstance = useLanguageStore((state) => state.setMonacoInstance);
-  const applyLanguageToMonaco = useLanguageStore((state) => state.applyLanguageToMonaco);
+  const setLanguage = useCallback(
+    (lang: string) => {
+      updateTabLanguage(activeTab.id, lang);
+      useLanguageStore.getState().setLanguage(lang);
+    },
+    [activeTab.id, updateTabLanguage]
+  );
+  const setMonacoInstance = useLanguageStore(
+    (state) => state.setMonacoInstance
+  );
+  const applyLanguageToMonaco = useLanguageStore(
+    (state) => state.applyLanguageToMonaco
+  );
   const initializeModel = useLanguageStore((state) => state.initializeModel);
-  const incrementDetectionVersion = useLanguageStore((state) => state.incrementDetectionVersion);
-  const getDetectionVersion = useLanguageStore((state) => state.getDetectionVersion);
+  const incrementDetectionVersion = useLanguageStore(
+    (state) => state.incrementDetectionVersion
+  );
+  const getDetectionVersion = useLanguageStore(
+    (state) => state.getDetectionVersion
+  );
 
   const monacoRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoInstanceRef = useRef<Monaco | null>(null);
@@ -57,10 +75,14 @@ function CodeEditor() {
   const lastLocalCodeRef = useRef<string | null>(null);
 
   const { runCode } = useCodeRunner();
-  const debouncedRunner = useDebouncedFunction(runCode, CODE_RUNNER_DEBOUNCE_MS);
+  const debouncedRunner = useDebouncedFunction(
+    runCode,
+    CODE_RUNNER_DEBOUNCE_MS
+  );
 
   useEditorFormat(monacoRef);
   useEditorCodeSync(monacoRef, code, lastLocalCodeRef);
+  useLspIntegration(language);
 
   const { cleanupModels } = useEditorModels(
     monacoRef,
@@ -69,7 +91,10 @@ function CodeEditor() {
     applyLanguageToMonaco
   );
 
-  const { handleEditorWillMount: lifecycleWillMount, handleEditorDidMount: lifecycleDidMount } = useEditorLifecycle({
+  const {
+    handleEditorWillMount: lifecycleWillMount,
+    handleEditorDidMount: lifecycleDidMount,
+  } = useEditorLifecycle({
     setMonacoInstance,
     initializeModel,
     applyLanguageToMonaco,
@@ -79,18 +104,47 @@ function CodeEditor() {
     cleanupModels,
   });
 
-  const handleEditorWillMount = useCallback((monacoInstance: Monaco) => {
-    monacoInstanceRef.current = monacoInstance;
-    lifecycleWillMount(monacoInstance);
-  }, [lifecycleWillMount]);
+  const handleEditorWillMount = useCallback(
+    (monacoInstance: Monaco) => {
+      monacoInstanceRef.current = monacoInstance;
 
-  const handleEditorDidMount = useCallback((editorInstance: editor.IStandaloneCodeEditor, monacoInstance: Monaco) => {
-    monacoRef.current = editorInstance;
-    editorInstance.onDidChangeCursorPosition((e) => {
-      lastCursorPositionRef.current = e.position;
-    });
-    lifecycleDidMount(editorInstance, monacoInstance);
-  }, [lifecycleDidMount]);
+      // Globally disable built-in Monaco TypeScript/JavaScript validation
+      // so the LSP system is the exclusive provider of intelligence
+      const ts = monacoInstance.languages.typescript;
+      if (ts && ts.typescriptDefaults && ts.javascriptDefaults) {
+        ts.typescriptDefaults.setDiagnosticsOptions({
+          noSemanticValidation: true,
+          noSyntaxValidation: true,
+        });
+        ts.javascriptDefaults.setDiagnosticsOptions({
+          noSemanticValidation: true,
+          noSyntaxValidation: true,
+        });
+        ts.typescriptDefaults.setCompilerOptions({
+          ...ts.typescriptDefaults.getCompilerOptions(),
+          lib: [],
+        });
+        ts.javascriptDefaults.setCompilerOptions({
+          ...ts.javascriptDefaults.getCompilerOptions(),
+          lib: [],
+        });
+      }
+
+      lifecycleWillMount(monacoInstance);
+    },
+    [lifecycleWillMount]
+  );
+
+  const handleEditorDidMount = useCallback(
+    (editorInstance: editor.IStandaloneCodeEditor, monacoInstance: Monaco) => {
+      monacoRef.current = editorInstance;
+      editorInstance.onDidChangeCursorPosition((e) => {
+        lastCursorPositionRef.current = e.position;
+      });
+      lifecycleDidMount(editorInstance, monacoInstance);
+    },
+    [lifecycleDidMount]
+  );
 
   const handler = useEditorChangeHandler({
     monacoRef,
@@ -103,7 +157,7 @@ function CodeEditor() {
     detectLanguageSync,
     detectLanguageAsync,
     incrementDetectionVersion,
-    getDetectionVersion
+    getDetectionVersion,
   });
 
   const monacoPath = `inmemory://model/${activeTab.id}.ts`;
@@ -144,7 +198,12 @@ function CodeEditor() {
               lightbulb: { enabled: monaco.editor.ShowLightbulbIconMode.On },
               hover: { enabled: true, delay: 300, sticky: true },
               parameterHints: { enabled: true },
-              suggest: { showWords: true, showModules: true, showFunctions: true, showVariables: true },
+              suggest: {
+                showWords: true,
+                showModules: true,
+                showFunctions: true,
+                showVariables: true,
+              },
               contextmenu: true,
               smoothScrolling: true,
               cursorBlinking: 'smooth',
