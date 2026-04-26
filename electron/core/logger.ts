@@ -2,7 +2,7 @@
  * Electron Main Process Logger
  *
  * Centralized logging for the Electron main process using electron-log.
- * Extends BaseLogger from shared/logger-base.ts to avoid code duplication.
+ * Extends BaseLogger from @cheesejs/core/logging/logger-base to avoid duplication.
  *
  * Features:
  * - Log levels: DEBUG, INFO, WARN, ERROR
@@ -19,7 +19,7 @@ import {
   type LogLevel,
   type LogEntry,
   type BaseLoggerConfig,
-} from '../../shared/logger-base.js';
+} from '../../packages/core/src/logging/logger-base.js';
 
 // Minimal interface to avoid direct Electron dependency in type checking
 interface BrowserWindowLike {

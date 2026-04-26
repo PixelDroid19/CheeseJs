@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { domReady, createLoading } from './utils/index.js';
+import type {
+  LspBridgeApi,
+  LspBridgeMessage,
+  LspConfig,
+  LspConfigApi,
+} from '../packages/core/src/contracts/lsp.js';
 
 const { appendLoading, removeLoading } = createLoading();
 
@@ -87,10 +93,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   unmaximizeApp: () => ipcRenderer.send('unmaximize'),
   minimizeApp: () => ipcRenderer.send('minimize'),
   showContextMenu: () => ipcRenderer.send('show-context-menu'),
-  onToggleMagicComments: (callback: () => void) =>
-    ipcRenderer.on('toggle-magic-comments', () => callback()),
+  onToggleMagicComments: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('toggle-magic-comments', listener);
+    return () => ipcRenderer.off('toggle-magic-comments', listener);
+  },
 
-  // Filesystem operations for AI agent (SECURITY: executeCommand removed)
+  // Filesystem operations (SECURITY: executeCommand removed)
   readFile: (
     path: string,
     options?: { startLine?: number; endLine?: number }
@@ -103,71 +112,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('fs:searchInFiles', pattern, directory),
   deleteFile: (path: string) => ipcRenderer.invoke('fs:deleteFile', path),
   getWorkspacePath: () => ipcRenderer.invoke('fs:getWorkspacePath'),
-});
-
-import {
-  RagDocument,
-  RagConfig,
-  SearchOptions,
-  SubStep,
-  PipelineOptions,
-} from './rag/types';
-
-contextBridge.exposeInMainWorld('rag', {
-  ingest: (doc: RagDocument) => ipcRenderer.invoke('rag:ingest', doc),
-  search: (query: string, limit?: number) =>
-    ipcRenderer.invoke('rag:search', query, limit),
-  clear: () => ipcRenderer.invoke('rag:clear'),
-  indexCodebase: () => ipcRenderer.invoke('rag:index-codebase'),
-
-  // Document Management
-  getDocuments: () => ipcRenderer.invoke('rag:get-documents'),
-  addFile: (filePath: string) => ipcRenderer.invoke('rag:add-file', filePath),
-  addUrl: (url: string) => ipcRenderer.invoke('rag:add-url', url),
-  removeDocument: (id: string) => ipcRenderer.invoke('rag:remove-document', id),
-
-  // Configuration
-  getConfig: () => ipcRenderer.invoke('rag:get-config'),
-  setConfig: (config: Partial<RagConfig>) =>
-    ipcRenderer.invoke('rag:set-config', config),
-
-  // Advanced Search
-  searchAdvanced: (query: string, options?: SearchOptions) =>
-    ipcRenderer.invoke('rag:search-advanced', query, options),
-
-  // Get chunks by document IDs (for pinned docs - no embedding needed)
-  getChunksByDocuments: (documentIds: string[], limit?: number) =>
-    ipcRenderer.invoke('rag:get-chunks-by-documents', documentIds, limit),
-
-  // Strategy Decision
-  decideStrategy: (documentIds: string[], query: string) =>
-    ipcRenderer.invoke('rag:decide-strategy', documentIds, query),
-
-  // Pipeline Search (full chain: rewrite → hybrid → rerank → distill → trim)
-  searchPipeline: (query: string, options?: PipelineOptions) =>
-    ipcRenderer.invoke('rag:search-pipeline', query, options),
-
-  // Progress Events
-  onProgress: (
-    callback: (progress: {
-      id: string;
-      status: string;
-      message: string;
-      subSteps?: SubStep[];
-    }) => void
-  ) => {
-    const handler = (
-      _: unknown,
-      progress: {
-        id: string;
-        status: string;
-        message: string;
-        subSteps?: SubStep[];
-      }
-    ) => callback(progress);
-    ipcRenderer.on('rag:progress', handler);
-    return () => ipcRenderer.removeListener('rag:progress', handler);
-  },
 });
 
 contextBridge.exposeInMainWorld('codeRunner', {
@@ -395,15 +339,15 @@ contextBridge.exposeInMainWorld('pythonPackageManager', {
 // ============================================================================
 
 contextBridge.exposeInMainWorld('lspConfig', {
-  getConfig: async (): Promise<unknown> => {
+  getConfig: async (): Promise<LspConfig> => {
     return ipcRenderer.invoke('get-lsp-config');
   },
   saveConfig: async (
-    config: unknown
+    config: LspConfig
   ): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('save-lsp-config', config);
   },
-});
+} satisfies LspConfigApi);
 
 contextBridge.exposeInMainWorld('lspBridge', {
   start: (langId: string): Promise<{ success: boolean; error?: string }> =>
@@ -411,114 +355,11 @@ contextBridge.exposeInMainWorld('lspBridge', {
   stop: (langId: string): void => ipcRenderer.send('lsp:stop', langId),
   sendMessage: (langId: string, message: string): void =>
     ipcRenderer.send('lsp:message', { langId, data: message }),
-  onMessage: (callback: (msg: { langId: string; data: string }) => void) => {
-    const handler = (_event: unknown, msg: { langId: string; data: string }) =>
-      callback(msg);
+  onMessage: (callback: (msg: LspBridgeMessage) => void) => {
+    const handler = (_event: unknown, msg: LspBridgeMessage) => callback(msg);
     ipcRenderer.on('lsp:message-reply', handler);
     return () => ipcRenderer.removeListener('lsp:message-reply', handler);
   },
-});
-
-// ============================================================================
-// AI PROXY API
-// ============================================================================
-
-interface AIProxyRequest {
-  url: string;
-  method: string;
-  headers: Record<string, string>;
-  body?: string;
-}
-
-interface AIProxyResponse {
-  ok: boolean;
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  body: string;
-}
-
-// Store for active stream listeners
-const streamListeners = new Map<
-  string,
-  {
-    onChunk: (chunk: string) => void;
-    onEnd: () => void;
-    onError: (error: {
-      status: number;
-      statusText: string;
-      body: string;
-    }) => void;
-  }
->();
-
-contextBridge.exposeInMainWorld('aiProxy', {
-  /**
-   * Make a proxied fetch request through the main process (CORS-free)
-   */
-  fetch: async (request: AIProxyRequest): Promise<AIProxyResponse> => {
-    return ipcRenderer.invoke('ai:proxy', request);
-  },
-
-  /**
-   * Start a streaming request through the main process
-   */
-  streamFetch: async (
-    request: AIProxyRequest,
-    onChunk: (chunk: string) => void,
-    onEnd: () => void,
-    onError: (error: {
-      status: number;
-      statusText: string;
-      body: string;
-    }) => void
-  ): Promise<{ streamId: string; abort: () => void }> => {
-    const { streamId } = await ipcRenderer.invoke('ai:proxy:stream', request);
-
-    // Store listeners
-    streamListeners.set(streamId, { onChunk, onEnd, onError });
-
-    // Setup IPC listeners for this stream
-    const chunkHandler = (_event: unknown, chunk: string) => {
-      const listener = streamListeners.get(streamId);
-      listener?.onChunk(chunk);
-    };
-
-    const endHandler = () => {
-      const listener = streamListeners.get(streamId);
-      listener?.onEnd();
-      cleanup();
-    };
-
-    const errorHandler = (
-      _event: unknown,
-      error: { status: number; statusText: string; body: string }
-    ) => {
-      const listener = streamListeners.get(streamId);
-      listener?.onError(error);
-      cleanup();
-    };
-
-    const cleanup = () => {
-      streamListeners.delete(streamId);
-      ipcRenderer.removeListener(`ai:stream:chunk:${streamId}`, chunkHandler);
-      ipcRenderer.removeListener(`ai:stream:end:${streamId}`, endHandler);
-      ipcRenderer.removeListener(`ai:stream:error:${streamId}`, errorHandler);
-    };
-
-    ipcRenderer.on(`ai:stream:chunk:${streamId}`, chunkHandler);
-    ipcRenderer.on(`ai:stream:end:${streamId}`, endHandler);
-    ipcRenderer.on(`ai:stream:error:${streamId}`, errorHandler);
-
-    return {
-      streamId,
-      abort: () => {
-        // Signal the main process to abort the underlying fetch request
-        ipcRenderer.send('ai:proxy:stream:abort', streamId);
-        cleanup();
-      },
-    };
-  },
-});
+} satisfies LspBridgeApi);
 
 setTimeout(removeLoading, 1000);

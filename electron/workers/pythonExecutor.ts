@@ -973,7 +973,9 @@ async function executeCode(message: ExecuteMessage): Promise<void> {
     // Load .env variables into Python's os.environ
     if (options.workingDirectory) {
       try {
-        const parsedEnv = dotenvConfig({ path: path.join(options.workingDirectory, '.env') });
+        const parsedEnv = dotenvConfig({
+          path: path.join(options.workingDirectory, '.env'),
+        });
         if (parsedEnv.parsed) {
           dotenvExpand(parsedEnv);
           const envString = JSON.stringify(parsedEnv.parsed);

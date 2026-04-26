@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the End-to-End (E2E) testing strategy for the JS Runner application, focusing on AI integration, Code Execution (Prompt/Alert), and System Performance.
+This document outlines the End-to-End (E2E) testing strategy for the JS Runner application, focusing on code execution, language detection, and system performance.
 
 ## Test Environment
 
@@ -12,19 +12,7 @@ This document outlines the End-to-End (E2E) testing strategy for the JS Runner a
 
 ## Test Cases & Acceptance Criteria
 
-### 1. AI Interaction Flow (UI Validation)
-
-- **Objective**: Verify that the AI Chat interface is accessible and responsive.
-- **Steps**:
-  1. Locate the AI/Chat toggle button.
-  2. Click to open the panel.
-  3. Verify the input area is visible.
-- **Acceptance Criteria**:
-  - AI Button is visible.
-  - Chat panel opens with animation.
-  - Input field (`data-testid="ai-chat-input"`) is visible and focused.
-
-### 2. Prompt and Alert Flow (ConsoleInput)
+### 1. Prompt and Alert Flow (ConsoleInput)
 
 - **Objective**: Validate the synchronous `prompt()` implementation using SharedArrayBuffer/Atomics.
 - **Steps**:
@@ -37,7 +25,7 @@ This document outlines the End-to-End (E2E) testing strategy for the JS Runner a
   - Input submission unblocks the worker thread.
   - Output matches the entered value.
 
-### 3. Alert Flow
+### 2. Alert Flow
 
 - **Objective**: Validate the synchronous `alert()` implementation.
 - **Steps**:
@@ -50,7 +38,7 @@ This document outlines the End-to-End (E2E) testing strategy for the JS Runner a
   - Script is paused until dismissal.
   - Script resumes immediately after dismissal.
 
-### 4. Unicode Support (Python)
+### 3. Unicode Support (Python)
 
 - **Objective**: Ensure multi-language and unicode character support.
 - **Steps**:
@@ -59,7 +47,7 @@ This document outlines the End-to-End (E2E) testing strategy for the JS Runner a
 - **Acceptance Criteria**:
   - Output correctly renders "🐍" without encoding errors.
 
-### 5. System Performance (Load Test)
+### 4. System Performance (Load Test)
 
 - **Objective**: Validate renderer performance under high output load.
 - **Steps**:
@@ -71,26 +59,12 @@ This document outlines the End-to-End (E2E) testing strategy for the JS Runner a
   - Output is complete.
   - Rendering handles large buffers gracefully.
 
-### 6. AI Chat Interaction (Mocked)
-
-- **Objective**: Test the full AI response flow including tool usage.
-- **Steps**:
-  1. Open AI Chat.
-  2. Type a query.
-  3. Mock the AI response (since we can't rely on real API keys in CI).
-  4. Verify the message appears in the chat list.
-- **Acceptance Criteria**:
-  - User message appears immediately.
-  - AI response appears after generation.
-  - Chat state is preserved or handled correctly.
-
 ## Quality Metrics
 
 The following metrics are implicitly validated during test execution:
 
 - **Success Rate**: 100% (All tests must pass).
 - **Response Time**:
-  - AI UI Open: < 1000ms
   - Prompt Appearance: < 500ms
   - Script Resume: < 200ms
 - **Precision**: Output content must match expected strings exactly.

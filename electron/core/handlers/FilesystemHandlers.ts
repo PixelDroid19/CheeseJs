@@ -1,7 +1,7 @@
 /**
  * Filesystem Handlers Module (SECURITY HARDENED)
  *
- * Provides IPC handlers for filesystem operations used by the AI agent.
+ * Provides IPC handlers for workspace-scoped filesystem operations.
  * SECURITY: All file operations are restricted to a designated workspace directory.
  * COMMAND EXECUTION HAS BEEN REMOVED - Use only for code execution sandbox.
  */
@@ -25,9 +25,15 @@ function resolveWorkspaceRoot(): string {
   return path.join(app.getPath('userData'), 'workspace');
 }
 
-function isPathWithinWorkspace(workspace: string, resolvedPath: string): boolean {
+function isPathWithinWorkspace(
+  workspace: string,
+  resolvedPath: string
+): boolean {
   const relative = path.relative(workspace, resolvedPath);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  return (
+    relative === '' ||
+    (!relative.startsWith('..') && !path.isAbsolute(relative))
+  );
 }
 
 export function initWorkspace(): string {

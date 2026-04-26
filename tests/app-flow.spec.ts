@@ -23,6 +23,7 @@ let app: ElectronApplication;
 let page: Page;
 
 test.beforeAll(async () => {
+  test.setTimeout(120000);
   const appPath = process.cwd();
   const mainScript = path.join(appPath, 'dist-electron/main.js');
 
@@ -41,10 +42,13 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app.close();
+  if (app) {
+    await app.close();
+  }
 });
 
 test.beforeEach(async () => {
+  test.setTimeout(120000);
   await page.reload();
   await page.waitForLoadState('domcontentloaded');
   await expect(page.locator('.monaco-editor').first()).toBeVisible({

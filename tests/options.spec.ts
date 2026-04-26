@@ -33,12 +33,9 @@ test.beforeAll(async () => {
 });
 
 test.beforeEach(async () => {
-  // Ensure AI Chat is closed
-  const closeChat = page.getByTestId('close-ai-chat');
-  if (await closeChat.isVisible()) {
-    await closeChat.click();
-    await expect(closeChat).not.toBeVisible();
-  }
+  await page.evaluate(() => {
+    localStorage.removeItem('cheesejs-app-storage');
+  });
 });
 
 test.afterAll(async () => {
@@ -75,8 +72,11 @@ test.describe('Application Options & Behavior', () => {
       .first();
     await expect(row).toBeVisible();
 
-    // Click the toggle inside the row (label wrapper)
-    await row.locator('label').click();
+    // Enable the toggle only when needed because settings persist.
+    const undefinedToggle = row.locator('input[type="checkbox"]');
+    if (!(await undefinedToggle.isChecked())) {
+      await row.locator('label').click();
+    }
 
     // 4. Ensure top-level results are enabled (required for undefined expression visibility)
     await page.getByRole('button', { name: /Compilation|Compilaci/i }).click();

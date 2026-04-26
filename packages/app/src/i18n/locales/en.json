@@ -1,0 +1,155 @@
+{
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "language": "Language",
+    "fontSize": "Font Size",
+    "uiFontSize": "Font Size (UI)",
+    "close": "Close",
+    "categories": {
+      "general": "General",
+      "compilation": "Compilation",
+      "formatting": "Formatting",
+      "appearance": "Appearance",
+      "npm": "NPM",
+      "pypi": "PyPI (Python)",
+      "snippets": "Snippets",
+      "advanced": "Advanced"
+    },
+    "descriptions": {
+      "general": "Configure the editor's general behavior",
+      "compilation": "Compiler options and code transformations",
+      "formatting": "Customize how code output is displayed",
+      "appearance": "Customize the editor's appearance and theme",
+      "npm": "Manage NPM packages and configuration",
+      "pypi": "Manage Python packages from PyPI",
+      "snippets": "Manage your reusable code snippets",
+      "advanced": "Advanced settings and developer options"
+    },
+    "snippets": {
+      "description": "Save frequently used code snippets for quick access.",
+      "saveCurrent": "Save Current Code",
+      "empty": "No snippets saved yet.",
+      "confirmLoad": "Replace current code with snippet?"
+    },
+    "advanced": {
+      "environment": "Environment",
+      "executionEnvironment": "Execution Environment",
+      "executionEnvironmentTooltip": "Code runs in a sandboxed Node.js VM with native package support.",
+      "logsConfig": "Log configuration",
+      "logLevel": "Detail level (GlobalScheduler, AsyncEngine)",
+      "expressionEvaluation": "Expression evaluation",
+      "outputFormat": "Output format",
+      "execution": "Execution",
+      "expressionResults": "Expression results",
+      "showTopLevel": "Show the result of each top-level expression",
+      "showTopLevelResults": "Show top-level results",
+      "align": "Align",
+      "alignWithSource": "Align result with source",
+      "alignTooltip": "Output results will be placed on the same line as their source.\nDisable this to show output results in their natural order of execution.",
+      "logLevelTooltip": "Define the detail level of internal system logs for debugging (GlobalScheduler, AsyncEngine).",
+      "showTopLevelResultsTooltip": "Shows results of top-level expressions to see intermediate values.",
+      "showTopLevelTooltip": "Shows results of top-level expressions to see intermediate values.",
+      "showUndefinedTooltip": "If enabled, 'undefined' values will be explicitly shown in the output. If disabled, they will be hidden to clean up the view.",
+      "loopProtectionTooltip": "Stops execution if infinite loops or long scripts are detected.",
+      "showUndefined": "Show undefined",
+      "showUndefinedValues": "Show undefined values",
+      "loopProtection": "Loop protection",
+      "loopProtectionLabel": "Protect against long-running execution scripts",
+      "protectLongRunning": "Protect against long-running execution scripts",
+      "magicComments": "Magic Comments",
+      "magicCommentsTooltip": "Enable special comments like //? for inline debugging.",
+      "autoRunAfterInstall": "Auto-run after package install",
+      "autoRunAfterInstallTooltip": "Automatically re-run code after missing packages are installed.",
+      "autoInstallPackages": "Auto-install packages",
+      "autoInstallPackagesTooltip": "Automatically install missing packages when detected in imports. Disable to install packages manually."
+    },
+    "compilation": {
+      "transforms": "Code transformations"
+    },
+    "formatting": {
+      "display": "Output display",
+      "filters": "Console filters",
+      "filterLog": "Show Log messages",
+      "filterInfo": "Show Info messages",
+      "filterWarn": "Show Warn messages",
+      "filterError": "Show Error messages"
+    },
+    "npm": {
+      "description": "Manage npm packages for your code. Packages are automatically installed when detected in imports.",
+      "configuration": "Configuration (.npmrc)",
+      "automation": "Automation",
+      "installedPackages": "Installed Packages",
+      "registryPlaceholder": "registry=https://registry.npmjs.org/",
+      "placeholder": "Package name (e.g., lodash)",
+      "add": "Add",
+      "remove": "Remove package",
+      "empty": "No packages installed yet",
+      "info": {
+        "title": "How it works:",
+        "auto": "Packages are automatically detected from import statements",
+        "install": "They are installed on first code execution",
+        "manual": "You can also manually add packages here",
+        "sandbox": "All packages run in a secure sandboxed VM environment"
+      }
+    },
+    "pypi": {
+      "description": "Manage Python packages for your code. Packages are installed via micropip from PyPI.",
+      "installedPackages": "Installed Packages",
+      "placeholder": "Package name (e.g., numpy, pandas)",
+      "add": "Add",
+      "remove": "Remove package",
+      "empty": "No packages installed yet",
+      "loading": "Loading packages...",
+      "info": {
+        "title": "How it works:",
+        "auto": "Packages are detected from import statements",
+        "install": "They are installed automatically on first execution",
+        "manual": "You can also manually add packages here",
+        "sandbox": "All code runs in a secure WebAssembly sandbox"
+      },
+      "limitations": {
+        "title": "Pyodide Limitations",
+        "sockets": "No native sockets - packages like aiohttp cannot make HTTPS requests",
+        "ssl": "SSL/TLS not supported - use pyodide.http.pyfetch for HTTP requests",
+        "threading": "No threading/multiprocessing support",
+        "wheels": "Only pure Python packages or packages with WebAssembly wheels work",
+        "learnMore": "Learn more →"
+      }
+    }
+  },
+  "editor": {
+    "run": "Run",
+    "clear": "Clear"
+  },
+  "toolbar": {
+    "run": "Run Code",
+    "format": "Format Code",
+    "settings": "Open Settings"
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred in the application. Please try reloading.",
+    "reload": "Reload Application",
+    "details": "Error Details",
+    "unsupportedLanguage": "Unsupported Language: {{language}}\n\nThis editor can only execute JavaScript and TypeScript code.\n\nDetected language: {{language}}\nSupported languages: javascript, typescript"
+  },
+  "packages": {
+    "installing": "Installing...",
+    "checking": "Checking...",
+    "notFound": "Package not found",
+    "install": "Install Package",
+    "installPython": "Install via micropip",
+    "retry": "Retry"
+  },
+  "common": {
+    "comingSoon": "Coming soon"
+  },
+  "input": {
+    "defaultPrompt": "Enter value:",
+    "placeholder": "Enter a value...",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "hint": "Press Enter to submit, Escape to cancel"
+  }
+}

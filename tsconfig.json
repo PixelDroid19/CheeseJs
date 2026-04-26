@@ -6,6 +6,29 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "types": ["vitest/globals", "node", "electron"],
+    "baseUrl": ".",
+    "paths": {
+      "@cheesejs/app": ["packages/app/src/index.ts"],
+      "@cheesejs/app/*": ["packages/app/src/*"],
+      "@cheesejs/core": ["packages/core/src/index.ts"],
+      "@cheesejs/core/*": ["packages/core/src/*"],
+      "@cheesejs/editor": ["packages/editor/src/index.ts"],
+      "@cheesejs/editor/*": ["packages/editor/src/*"],
+      "@cheesejs/execution": ["packages/execution/src/index.ts"],
+      "@cheesejs/execution/*": ["packages/execution/src/*"],
+      "@cheesejs/frontend": ["packages/frontend/src/index.ts"],
+      "@cheesejs/frontend/*": ["packages/frontend/src/*"],
+      "@cheesejs/package-management": [
+        "packages/package-management/src/index.ts"
+      ],
+      "@cheesejs/package-management/*": ["packages/package-management/src/*"],
+      "@cheesejs/runtime-shell": ["packages/runtime-shell/src/index.ts"],
+      "@cheesejs/runtime-shell/*": ["packages/runtime-shell/src/*"],
+      "@cheesejs/settings": ["packages/settings/src/index.ts"],
+      "@cheesejs/settings/*": ["packages/settings/src/*"],
+      "@cheesejs/workbench": ["packages/workbench/src/index.ts"],
+      "@cheesejs/workbench/*": ["packages/workbench/src/*"]
+    },
 
     /* Module resolution */
     "moduleResolution": "node",
@@ -23,6 +46,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "electron", "shared"],
+  "include": ["electron", "shared", "packages"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

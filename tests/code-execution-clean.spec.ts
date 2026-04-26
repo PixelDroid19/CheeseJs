@@ -31,11 +31,7 @@ test.describe('Clean Code Execution', () => {
     window.on('console', async (msg) => {
       // Filter out known noise
       const text = msg.text();
-      if (
-        text.includes('FloatingToolbar') ||
-        text.includes('AI inline completion')
-      )
-        return;
+      if (text.includes('FloatingToolbar')) return;
 
       if (text === 'undefined') {
         // Get stack trace for undefined logs
@@ -54,12 +50,6 @@ test.describe('Clean Code Execution', () => {
     });
 
     await window.waitForLoadState('domcontentloaded');
-
-    // Close AI Chat if open
-    const aiChatClose = window.getByTestId('ai-chat-close');
-    if (await aiChatClose.isVisible()) {
-      await aiChatClose.click();
-    }
 
     // Wait for editor
     await ensureMonacoReady(window);

@@ -1,0 +1,111 @@
+import { m, AnimatePresence } from 'framer-motion';
+import { Play, Settings, Brush, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import clsx from 'clsx';
+import type { ReactNode } from 'react';
+import type { CheeseJsEventBus } from '@cheesejs/core';
+
+export interface FloatingToolbarProps {
+  busyMessage?: string;
+  eventBus: CheeseJsEventBus;
+  isBusy: boolean;
+  snippetsMenu?: ReactNode;
+}
+
+/**
+ * Shared workbench toolbar that emits UI intents through the event bus.
+ */
+export function FloatingToolbar({
+  busyMessage = '',
+  eventBus,
+  isBusy,
+  snippetsMenu,
+}: FloatingToolbarProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+      <m.div
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+        className="flex items-center gap-1 px-2 py-2 bg-card rounded-full shadow-2xl border border-border"
+        role="toolbar"
+        aria-label={t('toolbar.label', 'Main toolbar')}
+      >
+        <AnimatePresence>
+          {isBusy && (
+            <m.div
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              className="flex items-center gap-2 px-3 text-xs text-muted-foreground"
+            >
+              <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+              <span className="whitespace-nowrap text-amber-500/80">
+                {busyMessage}
+              </span>
+            </m.div>
+          )}
+        </AnimatePresence>
+
+        <ToolbarButton
+          icon={<Play className="w-5 h-5" />}
+          onClick={() => eventBus.emit('workbench.run.requested')}
+          label={t('toolbar.run')}
+          disabled={isBusy}
+          testId="run-button"
+        />
+        {snippetsMenu}
+        <ToolbarButton
+          icon={<Brush className="w-5 h-5" />}
+          onClick={() => eventBus.emit('editor.format.requested')}
+          label={t('toolbar.format')}
+        />
+        <ToolbarButton
+          icon={<Settings className="w-5 h-5" />}
+          onClick={() => eventBus.emit('workbench.settings.toggle.requested')}
+          label={t('toolbar.settings')}
+          testId="settings-button"
+        />
+      </m.div>
+    </div>
+  );
+}
+
+function ToolbarButton({
+  icon,
+  onClick,
+  label,
+  isActive = false,
+  disabled = false,
+  testId,
+}: {
+  icon: ReactNode;
+  onClick: () => void;
+  label: string;
+  isActive?: boolean;
+  disabled?: boolean;
+  testId?: string;
+}) {
+  return (
+    <m.button
+      whileHover={disabled ? {} : { scale: 1.1 }}
+      whileTap={disabled ? {} : { scale: 0.95 }}
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
+      className={clsx(
+        'p-3 rounded-full transition-colors relative group',
+        disabled
+          ? 'text-muted-foreground/50 cursor-not-allowed'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+      )}
+      title={label}
+      aria-label={label}
+      aria-pressed={isActive}
+    >
+      {icon}
+    </m.button>
+  );
+}

@@ -229,9 +229,27 @@ export async function runAndGetOutput(
   page: Page,
   waitMs = 5000
 ): Promise<string> {
-  await clearOutputModel(page);
   const before = await getOutputValue(page);
-  await page.getByRole('button', { name: /Run|Ejecutar/i }).click();
+  const runButton = page.getByRole('button', { name: /Run|Ejecutar/i });
+
+  // Give auto-run a chance to start before forcing a manual click.
+  const autoRunDeadline = Date.now() + 800;
+  while (Date.now() < autoRunDeadline) {
+    const current = await getOutputValue(page);
+    if (current && current.trim() !== '' && !isWaitingOutput(current)) {
+      break;
+    }
+
+    if (await runButton.isDisabled().catch(() => false)) {
+      break;
+    }
+
+    await page.waitForTimeout(100);
+  }
+
+  if (await runButton.isEnabled().catch(() => false)) {
+    await runButton.click();
+  }
 
   const deadline = Date.now() + waitMs;
   let current = before;

@@ -590,7 +590,9 @@ function createSandboxContext(
   let processEnv = { ...process.env };
   if (options.workingDirectory) {
     try {
-      const parsedEnv = dotenvConfig({ path: path.join(options.workingDirectory, '.env') });
+      const parsedEnv = dotenvConfig({
+        path: path.join(options.workingDirectory, '.env'),
+      });
       if (parsedEnv.parsed) {
         dotenvExpand(parsedEnv);
         processEnv = { ...processEnv, ...parsedEnv.parsed };

@@ -68,7 +68,10 @@ export class WindowManager {
 
     // Enable SharedArrayBuffer support
     this.mainWindow.webContents.session.webRequest.onHeadersReceived(
-      (details: Electron.OnHeadersReceivedListenerDetails, callback: (beforeSendResponse: Electron.HeadersReceivedResponse) => void) => {
+      (
+        details: Electron.OnHeadersReceivedListenerDetails,
+        callback: (beforeSendResponse: Electron.HeadersReceivedResponse) => void
+      ) => {
         callback({
           responseHeaders: {
             ...details.responseHeaders,
@@ -119,21 +122,24 @@ export class WindowManager {
     });
 
     // Handle renderer process crashes (OOM, etc.)
-    this.mainWindow.webContents.on('render-process-gone', (_event: unknown, details: Electron.RenderProcessGoneDetails) => {
-      console.error(
-        '[WindowManager] Render process gone:',
-        JSON.stringify(details, null, 2)
-      );
-      if (details.reason !== 'clean-exit') {
-        console.log('[WindowManager] Reloading window after crash...');
-        // We need to wait a bit before reloading to avoid crash loops if the issue is persistent
-        setTimeout(() => {
-          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-            this.mainWindow.reload();
-          }
-        }, 1000);
+    this.mainWindow.webContents.on(
+      'render-process-gone',
+      (_event: unknown, details: Electron.RenderProcessGoneDetails) => {
+        console.error(
+          '[WindowManager] Render process gone:',
+          JSON.stringify(details, null, 2)
+        );
+        if (details.reason !== 'clean-exit') {
+          console.log('[WindowManager] Reloading window after crash...');
+          // We need to wait a bit before reloading to avoid crash loops if the issue is persistent
+          setTimeout(() => {
+            if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+              this.mainWindow.reload();
+            }
+          }, 1000);
+        }
       }
-    });
+    );
   }
 
   private setupWindowIPC(): void {
@@ -164,7 +170,10 @@ export class WindowManager {
   }
 
   private setupApplicationMenu(): void {
-    const template: (Electron.MenuItemConstructorOptions | Electron.MenuItem)[] = [
+    const template: (
+      | Electron.MenuItemConstructorOptions
+      | Electron.MenuItem
+    )[] = [
       {
         label: 'File',
         submenu: [{ role: 'quit' }],

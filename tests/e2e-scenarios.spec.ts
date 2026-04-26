@@ -8,20 +8,46 @@ import {
 import path from 'path';
 import electronPath from 'electron';
 import {
-  clearOutputModel,
   ensureMonacoReady,
+  getOutputValue,
   setInputCode,
 } from './helpers/monaco';
 
 let app: ElectronApplication;
 let window: Page;
 
-async function clearEditor(page: Page, index: number = 0) {
-  if (index === 0) {
-    await setInputCode(page, '');
-  } else {
-    await clearOutputModel(page);
+async function ensureConsoleInputFlowStarted(page: Page) {
+  const consoleInput = page.getByTestId('console-input');
+  if (await consoleInput.isVisible().catch(() => false)) {
+    return;
   }
+
+  const runButton = page.locator('[data-testid="run-button"]');
+  await runButton.waitFor({ state: 'attached', timeout: 5000 });
+
+  const autoRunDeadline = Date.now() + 1500;
+  while (Date.now() < autoRunDeadline) {
+    if (await consoleInput.isVisible().catch(() => false)) {
+      return;
+    }
+
+    if (await runButton.isDisabled().catch(() => false)) {
+      await expect(consoleInput).toBeVisible({ timeout: 5000 });
+      return;
+    }
+
+    await page.waitForTimeout(100);
+  }
+
+  if (await consoleInput.isVisible().catch(() => false)) {
+    return;
+  }
+
+  if (await runButton.isEnabled().catch(() => false)) {
+    await runButton.click({ force: true });
+  }
+
+  await expect(consoleInput).toBeVisible({ timeout: 5000 });
 }
 
 test.beforeAll(async () => {
@@ -57,89 +83,34 @@ test.describe('End-to-End System Validation', () => {
     await window.evaluate(() => {
       localStorage.clear();
     });
-
-    const aiSettings = {
-      state: {
-        provider: 'local',
-        localConfig: {
-          baseURL: 'http://127.0.0.1:1234/v1',
-          modelId: 'mistralai/ministral-3-14b-reasoning',
-          apiKey: 'not-needed',
-        },
-        apiKeys: {
-          local: 'not-needed',
-          openai: '',
-          anthropic: '',
-          google: '',
-        },
-        enableChat: true,
-        enableInlineCompletion: true,
-      },
-      version: 0,
-    };
-
-    await window.evaluate((settings) => {
-      localStorage.setItem('ai-settings-storage', JSON.stringify(settings));
-    }, aiSettings);
-
-    await window.reload();
-    await window.waitForSelector('.monaco-editor', { timeout: 10000 });
-    await ensureMonacoReady(window);
-
-    await clearEditor(window, 0);
-
-    const chatPanelInput = window.locator(
-      'textarea[placeholder*="Ask"], textarea[placeholder*="Config"]'
-    );
-    if (await chatPanelInput.isVisible()) {
-      const closeChat = window.getByTestId('close-ai-chat');
-      if (await closeChat.isVisible()) {
-        await closeChat.click();
-      }
-      await expect(chatPanelInput).not.toBeVisible();
-    }
   });
 
-  test('1. AI Interaction Flow (UI Validation)', async () => {
-    const toggle = window.getByTestId('toggle-chat');
-    if (await toggle.isVisible()) {
-      await toggle.click();
-      const closeChat = window.getByTestId('close-ai-chat');
-      await expect(closeChat).toBeVisible({ timeout: 5000 });
-    }
-  });
-
-  test('2. Prompt and Alert Flow (ConsoleInput)', async () => {
+  test('1. Prompt and Alert Flow (ConsoleInput)', async () => {
     const code = `
       const name = prompt("What is your name?");
       console.log("Welcome " + name);
     `;
 
     await setInputCode(window, code);
-    const runButton = window.locator('[data-testid="run-button"]');
-    await runButton.waitFor({ state: 'attached', timeout: 5000 });
-    await runButton.click();
-
+    await ensureConsoleInputFlowStarted(window);
     const consoleInput = window.getByTestId('console-input');
     await expect(consoleInput).toBeVisible({ timeout: 10000 });
     await consoleInput.fill('PlaywrightUser');
     await window.keyboard.press('Enter');
 
-    const outputEditor = window.locator('.monaco-editor').nth(1);
-    await expect(outputEditor).toContainText('Welcome PlaywrightUser', {
-      timeout: 10000,
-    });
+    await expect
+      .poll(async () => getOutputValue(window), { timeout: 10000 })
+      .toContain('Welcome PlaywrightUser');
   });
 
-  test('3. Alert Flow', async () => {
+  test('2. Alert Flow', async () => {
     const code = `
       alert("This is an alert");
       console.log("Alert closed");
     `;
 
     await setInputCode(window, code);
-    await window.click('[data-testid="run-button"]');
-
+    await ensureConsoleInputFlowStarted(window);
     const consoleInput = window.getByTestId('console-input');
     await expect(consoleInput).toBeVisible({ timeout: 5000 });
     await expect(window.getByTestId('prompt-message')).toHaveText(
@@ -149,58 +120,26 @@ test.describe('End-to-End System Validation', () => {
     await window.getByTestId('console-submit').click();
     await expect(consoleInput).not.toBeVisible();
 
-    const outputEditor = window.locator('.monaco-editor').nth(1);
-    await expect(outputEditor).toContainText('Alert closed', {
-      timeout: 10000,
-    });
+    await expect
+      .poll(async () => getOutputValue(window), { timeout: 10000 })
+      .toContain('Alert closed');
   });
 
-  test('4. Error Handling Scenario', async () => {
+  test('3. Error Handling Scenario', async () => {
     await setInputCode(window, 'throw new Error("Test Error 123");');
     await window.click('[data-testid="run-button"]');
 
-    const outputEditor = window.locator('.monaco-editor').nth(1);
-    await expect(outputEditor).toContainText('Test Error 123', {
-      timeout: 10000,
-    });
+    await expect
+      .poll(async () => getOutputValue(window), { timeout: 10000 })
+      .toContain('Test Error 123');
   });
 
-  test('5. Performance/Load (Basic)', async () => {
+  test('4. Performance/Load (Basic)', async () => {
     await setInputCode(window, 'console.log("PERF_CHECK");');
     await window.click('[data-testid="run-button"]');
 
-    const outputEditor = window.locator('.monaco-editor').nth(1);
-    await expect(outputEditor).toContainText('PERF_CHECK', { timeout: 10000 });
-  });
-
-  test('6. AI Chat Interaction (Real)', async () => {
-    const toggleButton = window.getByTestId('toggle-chat');
-
-    if (await toggleButton.isVisible()) {
-      await toggleButton.click();
-    }
-
-    const chatInput = window.locator(
-      'textarea[placeholder*="Ask"], textarea[placeholder*="Config"]'
-    );
-    const closeChat = window.getByTestId('close-ai-chat');
-    await expect(closeChat).toBeVisible({ timeout: 5000 });
-
-    const hasInput = await chatInput.first().isVisible();
-    if (!hasInput) {
-      return;
-    }
-
-    const placeholder =
-      (await chatInput.first().getAttribute('placeholder')) || '';
-
-    if (/Configure/i.test(placeholder)) {
-      await expect(window.getByText(/Configure.*AI/i)).toBeVisible();
-    } else {
-      const prompt = 'Write a hello world function in JavaScript';
-      await chatInput.first().fill(prompt);
-      await chatInput.first().press('Enter');
-      await expect(window.getByText(prompt)).toBeVisible();
-    }
+    await expect
+      .poll(async () => getOutputValue(window), { timeout: 10000 })
+      .toContain('PERF_CHECK');
   });
 });

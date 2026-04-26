@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useHistoryStore } from '../../src/store/storeHooks';
+import { useHistoryStore } from '@cheesejs/app/store/storeHooks';
 
 describe('useHistoryStore', () => {
   beforeEach(() => {

@@ -33,16 +33,16 @@ export interface ExecutionRequest {
 
 export interface WorkerResult {
   type:
-  | 'result'
-  | 'console'
-  | 'debug'
-  | 'error'
-  | 'complete'
-  | 'ready'
-  | 'status'
-  | 'prompt-request'
-  | 'alert-request'
-  | 'input-request';
+    | 'result'
+    | 'console'
+    | 'debug'
+    | 'error'
+    | 'complete'
+    | 'ready'
+    | 'status'
+    | 'prompt-request'
+    | 'alert-request'
+    | 'input-request';
   id: string;
   data?: unknown;
   line?: number;
@@ -84,7 +84,10 @@ export class WorkerPoolManager {
   private pythonQueue: QueuedExecution[] = [];
 
   private pendingExecutions = new Map<string, QueuedExecution>();
-  private pendingCancellations = new Map<string, ReturnType<typeof setTimeout>>();
+  private pendingCancellations = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
   private executionTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   // Reference to main window for IPC
@@ -117,16 +120,22 @@ export class WorkerPoolManager {
   }
 
   isCodeWorkerReady(): boolean {
-    return this.codeWorkers.some(w => w.isReady) || this.codeWorkers.length < this.MAX_CODE_WORKERS;
+    return (
+      this.codeWorkers.some((w) => w.isReady) ||
+      this.codeWorkers.length < this.MAX_CODE_WORKERS
+    );
   }
 
   isPythonWorkerReady(): boolean {
-    return this.pythonWorkers.some(w => w.isReady) || this.pythonWorkers.length < this.MAX_PYTHON_WORKERS;
+    return (
+      this.pythonWorkers.some((w) => w.isReady) ||
+      this.pythonWorkers.length < this.MAX_PYTHON_WORKERS
+    );
   }
 
   resolveJSInput(id: string, value: string): void {
     // Find the worker executing this ID
-    const worker = this.codeWorkers.find(w => w.activeExecutionId === id);
+    const worker = this.codeWorkers.find((w) => w.activeExecutionId === id);
     if (!worker || !worker.jsInputBuffer || !worker.jsInputLock) return;
 
     // Reset buffer
@@ -152,13 +161,13 @@ export class WorkerPoolManager {
   }
 
   resolvePythonInput(id: string, value: string, requestId?: string): void {
-    const worker = this.pythonWorkers.find(w => w.activeExecutionId === id);
+    const worker = this.pythonWorkers.find((w) => w.activeExecutionId === id);
     if (worker && worker.worker) {
       worker.worker.postMessage({
         type: 'input-response',
         id,
         value,
-        requestId
+        requestId,
       });
     }
   }
@@ -185,15 +194,15 @@ export class WorkerPoolManager {
 
   async initializeCodeWorker(): Promise<void> {
     if (this.codeWorkers.length === 0) this.spawnCodeWorker();
-    while (!this.codeWorkers.some(w => w.isReady)) {
-      await new Promise(r => setTimeout(r, 100));
+    while (!this.codeWorkers.some((w) => w.isReady)) {
+      await new Promise((r) => setTimeout(r, 100));
     }
   }
 
   async initializePythonWorker(): Promise<void> {
     if (this.pythonWorkers.length === 0) this.spawnPythonWorker();
-    while (!this.pythonWorkers.some(w => w.isReady)) {
-      await new Promise(r => setTimeout(r, 100));
+    while (!this.pythonWorkers.some((w) => w.isReady)) {
+      await new Promise((r) => setTimeout(r, 100));
     }
   }
 
@@ -202,7 +211,10 @@ export class WorkerPoolManager {
   // ============================================================================
 
   private spawnCodeWorker() {
-    log.debug('[WorkerPool] Spawning new code worker. Current count:', this.codeWorkers.length);
+    log.debug(
+      '[WorkerPool] Spawning new code worker. Current count:',
+      this.codeWorkers.length
+    );
 
     // Initialize shared buffers for JS input for this specific worker
     // 10KB for input string, 4 bytes for lock (0 = wait, 1 = ready)
@@ -223,7 +235,7 @@ export class WorkerPoolManager {
       isReady: false,
       activeExecutionId: null,
       jsInputBuffer,
-      jsInputLock
+      jsInputLock,
     };
 
     this.codeWorkers.push(instance);
@@ -237,7 +249,10 @@ export class WorkerPoolManager {
       }
 
       // Handle prompt/alert requests
-      if (message.type === 'prompt-request' || message.type === 'alert-request') {
+      if (
+        message.type === 'prompt-request' ||
+        message.type === 'alert-request'
+      ) {
         // Already includes id from worker
         this.sendToRenderer('js-input-request', message);
         return;
@@ -263,10 +278,13 @@ export class WorkerPoolManager {
     worker.on('exit', (code) => {
       log.debug(`[WorkerPool] Code worker exited with code ${code}`);
       if (code !== 0) {
-        this.handleCodeWorkerCrash(instance, new Error(`Worker exited: ${code}`));
+        this.handleCodeWorkerCrash(
+          instance,
+          new Error(`Worker exited: ${code}`)
+        );
       } else {
         // Clean exit, remove from pool
-        this.codeWorkers = this.codeWorkers.filter(w => w !== instance);
+        this.codeWorkers = this.codeWorkers.filter((w) => w !== instance);
       }
     });
   }
@@ -276,14 +294,17 @@ export class WorkerPoolManager {
       this.resolveExecution(instance.activeExecutionId, {
         type: 'error',
         id: instance.activeExecutionId,
-        data: { name: 'WorkerCrash', message: error.message }
+        data: { name: 'WorkerCrash', message: error.message },
       });
     }
-    this.codeWorkers = this.codeWorkers.filter(w => w !== instance);
+    this.codeWorkers = this.codeWorkers.filter((w) => w !== instance);
     this.processJsQueue(); // might spawn a new one to replace it
   }
 
-  async executeCode(request: ExecutionRequest, transformedCode: string): Promise<unknown> {
+  async executeCode(
+    request: ExecutionRequest,
+    transformedCode: string
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       this.jsQueue.push({ request, transformedCode, resolve, reject });
       this.processJsQueue();
@@ -293,15 +314,22 @@ export class WorkerPoolManager {
   private processJsQueue() {
     // 1. Replenish workers if there is demand and capacity
     if (this.jsQueue.length > 0) {
-      const idleWorkers = this.codeWorkers.filter(w => !w.activeExecutionId);
-      if (idleWorkers.length === 0 && this.codeWorkers.length < this.MAX_CODE_WORKERS) {
+      const idleWorkers = this.codeWorkers.filter((w) => !w.activeExecutionId);
+      if (
+        idleWorkers.length === 0 &&
+        this.codeWorkers.length < this.MAX_CODE_WORKERS
+      ) {
         this.spawnCodeWorker(); // async startup
       }
     }
 
     // 2. Assign tasks to idle ready workers
     for (const worker of this.codeWorkers) {
-      if (worker.isReady && !worker.activeExecutionId && this.jsQueue.length > 0) {
+      if (
+        worker.isReady &&
+        !worker.activeExecutionId &&
+        this.jsQueue.length > 0
+      ) {
         const task = this.jsQueue.shift()!;
         this.startJsExecution(worker, task);
       }
@@ -320,7 +348,7 @@ export class WorkerPoolManager {
       options: {
         timeout: options.timeout ?? 30000,
         showUndefined: options.showUndefined ?? false,
-        workingDirectory: options.workingDirectory
+        workingDirectory: options.workingDirectory,
       },
     });
 
@@ -328,7 +356,9 @@ export class WorkerPoolManager {
     const timeoutMs = (options.timeout ?? 30000) + 5000;
     const fallbackTimeout = setTimeout(() => {
       if (worker.activeExecutionId === id) {
-        log.warn(`[WorkerPool] Code execution timeout reached for ${id}, force terminating.`);
+        log.warn(
+          `[WorkerPool] Code execution timeout reached for ${id}, force terminating.`
+        );
         this.forceTerminateCodeWorker(worker);
       }
     }, timeoutMs);
@@ -340,7 +370,10 @@ export class WorkerPoolManager {
   // ============================================================================
 
   private spawnPythonWorker() {
-    log.debug('[WorkerPool] Spawning new Python worker. Current count:', this.pythonWorkers.length);
+    log.debug(
+      '[WorkerPool] Spawning new Python worker. Current count:',
+      this.pythonWorkers.length
+    );
 
     const workerPath = path.join(this.distElectronPath, 'pythonExecutor.js');
     const worker = new Worker(workerPath);
@@ -355,7 +388,7 @@ export class WorkerPoolManager {
       worker,
       isReady: false,
       activeExecutionId: null,
-      interruptBuffer
+      interruptBuffer,
     };
 
     this.pythonWorkers.push(instance);
@@ -397,22 +430,28 @@ export class WorkerPoolManager {
     worker.on('exit', (code) => {
       log.debug(`[WorkerPool] Python worker exited with code ${code}`);
       if (code !== 0) {
-        this.handlePythonWorkerCrash(instance, new Error(`Worker exited: ${code}`));
+        this.handlePythonWorkerCrash(
+          instance,
+          new Error(`Worker exited: ${code}`)
+        );
       } else {
-        this.pythonWorkers = this.pythonWorkers.filter(w => w !== instance);
+        this.pythonWorkers = this.pythonWorkers.filter((w) => w !== instance);
       }
     });
   }
 
-  private handlePythonWorkerCrash(instance: PythonWorkerInstance, error: Error) {
+  private handlePythonWorkerCrash(
+    instance: PythonWorkerInstance,
+    error: Error
+  ) {
     if (instance.activeExecutionId) {
       this.resolveExecution(instance.activeExecutionId, {
         type: 'error',
         id: instance.activeExecutionId,
-        data: { name: 'WorkerCrash', message: error.message }
+        data: { name: 'WorkerCrash', message: error.message },
       });
     }
-    this.pythonWorkers = this.pythonWorkers.filter(w => w !== instance);
+    this.pythonWorkers = this.pythonWorkers.filter((w) => w !== instance);
     this.processPythonQueue();
   }
 
@@ -425,21 +464,33 @@ export class WorkerPoolManager {
 
   private processPythonQueue() {
     if (this.pythonQueue.length > 0) {
-      const idleWorkers = this.pythonWorkers.filter(w => !w.activeExecutionId);
-      if (idleWorkers.length === 0 && this.pythonWorkers.length < this.MAX_PYTHON_WORKERS) {
+      const idleWorkers = this.pythonWorkers.filter(
+        (w) => !w.activeExecutionId
+      );
+      if (
+        idleWorkers.length === 0 &&
+        this.pythonWorkers.length < this.MAX_PYTHON_WORKERS
+      ) {
         this.spawnPythonWorker();
       }
     }
 
     for (const worker of this.pythonWorkers) {
-      if (worker.isReady && !worker.activeExecutionId && this.pythonQueue.length > 0) {
+      if (
+        worker.isReady &&
+        !worker.activeExecutionId &&
+        this.pythonQueue.length > 0
+      ) {
         const task = this.pythonQueue.shift()!;
         this.startPythonExecution(worker, task);
       }
     }
   }
 
-  private startPythonExecution(worker: PythonWorkerInstance, task: QueuedExecution) {
+  private startPythonExecution(
+    worker: PythonWorkerInstance,
+    task: QueuedExecution
+  ) {
     const { id, options, code } = task.request;
     worker.activeExecutionId = id;
     this.pendingExecutions.set(id, task);
@@ -451,7 +502,7 @@ export class WorkerPoolManager {
       options: {
         timeout: options.timeout ?? 30000,
         showUndefined: options.showUndefined ?? false,
-        workingDirectory: options.workingDirectory
+        workingDirectory: options.workingDirectory,
       },
     });
 
@@ -459,7 +510,9 @@ export class WorkerPoolManager {
     const timeoutMs = (options.timeout ?? 30000) + 15000;
     const fallbackTimeout = setTimeout(() => {
       if (worker.activeExecutionId === id) {
-        log.warn(`[WorkerPool] Python execution timeout reached for ${id}, force terminating.`);
+        log.warn(
+          `[WorkerPool] Python execution timeout reached for ${id}, force terminating.`
+        );
         this.forceTerminatePythonWorker(worker);
       }
     }, timeoutMs);
@@ -472,14 +525,14 @@ export class WorkerPoolManager {
 
   cancelExecution(id: string): void {
     // 1. Is it still in the queue?
-    const jsIdx = this.jsQueue.findIndex(q => q.request.id === id);
+    const jsIdx = this.jsQueue.findIndex((q) => q.request.id === id);
     if (jsIdx >= 0) {
       const task = this.jsQueue.splice(jsIdx, 1)[0];
       task.reject(new Error('Execution cancelled'));
       return;
     }
 
-    const pyIdx = this.pythonQueue.findIndex(q => q.request.id === id);
+    const pyIdx = this.pythonQueue.findIndex((q) => q.request.id === id);
     if (pyIdx >= 0) {
       const task = this.pythonQueue.splice(pyIdx, 1)[0];
       task.reject(new Error('Execution cancelled'));
@@ -487,7 +540,7 @@ export class WorkerPoolManager {
     }
 
     // 2. Is it running?
-    const jsWorker = this.codeWorkers.find(w => w.activeExecutionId === id);
+    const jsWorker = this.codeWorkers.find((w) => w.activeExecutionId === id);
     if (jsWorker) {
       jsWorker.worker.postMessage({ type: 'cancel', id });
       const forceTimeout = setTimeout(() => {
@@ -496,7 +549,7 @@ export class WorkerPoolManager {
       this.pendingCancellations.set(`js-${id}`, forceTimeout);
     }
 
-    const pyWorker = this.pythonWorkers.find(w => w.activeExecutionId === id);
+    const pyWorker = this.pythonWorkers.find((w) => w.activeExecutionId === id);
     if (pyWorker) {
       if (pyWorker.interruptBuffer) {
         const view = new Uint8Array(pyWorker.interruptBuffer);
@@ -533,7 +586,8 @@ export class WorkerPoolManager {
     this.pythonQueue = [];
     this.pendingExecutions.clear();
     this.pendingCancellations.clear();
-    for (const timeout of this.executionTimeouts.values()) clearTimeout(timeout);
+    for (const timeout of this.executionTimeouts.values())
+      clearTimeout(timeout);
     this.executionTimeouts.clear();
   }
 
@@ -545,7 +599,9 @@ export class WorkerPoolManager {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send(channel, data);
     } else {
-      log.warn(`[WorkerPool] Cannot send to renderer (window destroyed or null)`);
+      log.warn(
+        `[WorkerPool] Cannot send to renderer (window destroyed or null)`
+      );
     }
   }
 
@@ -553,7 +609,9 @@ export class WorkerPoolManager {
     const pending = this.pendingExecutions.get(id);
     if (pending) {
       if (message.type === 'error') {
-        pending.reject(new Error((message.data as { message: string }).message));
+        pending.reject(
+          new Error((message.data as { message: string }).message)
+        );
       } else {
         pending.resolve(message.data);
       }
@@ -584,7 +642,9 @@ export class WorkerPoolManager {
     }
   }
 
-  private async forceTerminateCodeWorker(instance: CodeWorkerInstance): Promise<void> {
+  private async forceTerminateCodeWorker(
+    instance: CodeWorkerInstance
+  ): Promise<void> {
     const id = instance.activeExecutionId;
     if (id) {
       this.sendToRenderer('code-execution-result', {
@@ -595,14 +655,20 @@ export class WorkerPoolManager {
       this.pendingCancellations.delete(`js-${id}`);
     }
 
-    try { await instance.worker.terminate(); } catch (_e) { /* ignore */ }
-    this.codeWorkers = this.codeWorkers.filter(w => w !== instance);
+    try {
+      await instance.worker.terminate();
+    } catch (_e) {
+      /* ignore */
+    }
+    this.codeWorkers = this.codeWorkers.filter((w) => w !== instance);
 
     // Attempt to process queue (will spawn new worker if needed)
     this.processJsQueue();
   }
 
-  private async forceTerminatePythonWorker(instance: PythonWorkerInstance): Promise<void> {
+  private async forceTerminatePythonWorker(
+    instance: PythonWorkerInstance
+  ): Promise<void> {
     const id = instance.activeExecutionId;
     if (id) {
       this.sendToRenderer('code-execution-result', {
@@ -613,8 +679,12 @@ export class WorkerPoolManager {
       this.pendingCancellations.delete(`py-${id}`);
     }
 
-    try { await instance.worker.terminate(); } catch (_e) { /* ignore */ }
-    this.pythonWorkers = this.pythonWorkers.filter(w => w !== instance);
+    try {
+      await instance.worker.terminate();
+    } catch (_e) {
+      /* ignore */
+    }
+    this.pythonWorkers = this.pythonWorkers.filter((w) => w !== instance);
 
     // Attempt to process queue (will spawn new worker if needed)
     this.processPythonQueue();

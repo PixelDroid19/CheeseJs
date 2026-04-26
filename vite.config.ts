@@ -12,12 +12,27 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
+      '@cheesejs/app': resolve(__dirname, 'packages/app/src'),
+      '@cheesejs/core': resolve(__dirname, 'packages/core/src'),
+      '@cheesejs/editor': resolve(__dirname, 'packages/editor/src'),
+      '@cheesejs/execution': resolve(__dirname, 'packages/execution/src'),
+      '@cheesejs/frontend': resolve(__dirname, 'packages/frontend/src'),
+      '@cheesejs/package-management': resolve(
+        __dirname,
+        'packages/package-management/src'
+      ),
+      '@cheesejs/runtime-shell': resolve(
+        __dirname,
+        'packages/runtime-shell/src'
+      ),
+      '@cheesejs/settings': resolve(__dirname, 'packages/settings/src'),
+      '@cheesejs/workbench': resolve(__dirname, 'packages/workbench/src'),
       // Use path-browserify for browser environment
       path: 'path-browserify',
       // Shim @emotion/is-prop-valid to avoid dynamic require issues
       '@emotion/is-prop-valid': resolve(
         __dirname,
-        'src/lib/shims/is-prop-valid.ts'
+        'packages/app/src/lib/shims/is-prop-valid.ts'
       ),
     },
   },
@@ -31,18 +46,7 @@ export default defineConfig(({ mode }) => ({
         vite: {
           build: {
             rollupOptions: {
-              external: [
-                'typescript',
-                '@swc/core',
-                '@swc/core-win32-x64-msvc',
-                /^@libsql\//,
-                'libsql',
-                '@lancedb/lancedb',
-                'pdf-parse',
-                'mammoth',
-                'onnxruntime-node',
-                '@xenova/transformers',
-              ],
+              external: ['typescript', '@swc/core', '@swc/core-win32-x64-msvc'],
               output: {
                 format: 'es',
               },
@@ -147,33 +151,6 @@ export default defineConfig(({ mode }) => ({
       // Content Security Policy for Electron renderer
       'Content-Security-Policy':
         "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' blob:; child-src 'self' blob:; worker-src 'self' blob:;",
-    },
-    // Proxy for AI API calls to avoid CORS issues in development
-    proxy: {
-      '/api/minimax': {
-        target: 'https://api.minimax.io',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/minimax/, ''),
-        secure: true,
-      },
-      '/api/openai': {
-        target: 'https://api.openai.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/openai/, ''),
-        secure: true,
-      },
-      '/api/anthropic': {
-        target: 'https://api.anthropic.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/anthropic/, ''),
-        secure: true,
-      },
-      '/api/google': {
-        target: 'https://generativelanguage.googleapis.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/google/, ''),
-        secure: true,
-      },
     },
   },
   define: {
