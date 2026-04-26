@@ -2,7 +2,7 @@
  * Shared Logger Base
  *
  * Shared types and base class for the logging system.
- * Used by both the renderer Logger (src/lib/logging/logger.ts)
+ * Used by both the renderer Logger (packages/app/src/lib/logging/logger.ts)
  * and the main process MainLogger (electron/core/logger.ts).
  *
  * Environment-specific concerns (console formatting, file output, IPC direction)

@@ -209,10 +209,6 @@ const mockPackageMetadataState = {
   setDismissedPackages: vi.fn(),
 };
 
-vi.mock('../hooks/usePackageMetadata', () => ({
-  usePackageMetadata: () => mockPackageMetadataState,
-}));
-
 const mockPythonPackageMetadataState = {
   packageMetadata: {} as Record<
     string,
@@ -228,9 +224,125 @@ const mockPythonPackageMetadataState = {
   setDismissedPackages: vi.fn(),
 };
 
-vi.mock('../hooks/usePythonPackageMetadata', () => ({
-  usePythonPackageMetadata: () => mockPythonPackageMetadataState,
-}));
+vi.mock('@cheesejs/package-management', async () => {
+  const actual = await vi.importActual<
+    typeof import('@cheesejs/package-management')
+  >('@cheesejs/package-management');
+
+  return {
+    ...actual,
+    PackagePrompts: ({
+      npmBridge,
+      npmStore,
+      pythonBridge,
+      pythonStore,
+    }: {
+      npmBridge: {
+        install: (
+          name: string
+        ) => Promise<{ success: boolean; version?: string; error?: string }>;
+      };
+      npmStore: {
+        addPackage: (name: string) => void;
+        detectedMissingPackages: string[];
+        packages: Array<{
+          name: string;
+          installing?: boolean;
+          error?: string;
+          version?: string;
+        }>;
+        setPackageInstalling: (name: string, value: boolean) => void;
+        setPackageInstalled: (name: string, version?: string) => void;
+        setPackageError: (name: string, error?: string) => void;
+      };
+      pythonBridge: {
+        install: (
+          name: string
+        ) => Promise<{ success: boolean; version?: string; error?: string }>;
+      };
+      pythonStore: {
+        detectedMissingPackages: string[];
+        packages: Array<{
+          name: string;
+          installing?: boolean;
+          error?: string;
+          version?: string;
+        }>;
+      };
+    }) => {
+      const npmName = npmStore.detectedMissingPackages[0];
+      const npmMeta = npmName
+        ? mockPackageMetadataState.packageMetadata[npmName]
+        : undefined;
+      const npmPkg = npmStore.packages[0];
+      const pythonName = pythonStore.detectedMissingPackages[0];
+      const pythonMeta = pythonName
+        ? mockPythonPackageMetadataState.packageMetadata[pythonName]
+        : undefined;
+
+      const installNpm = async () => {
+        if (!npmName) return;
+        npmStore.addPackage(npmName);
+        npmStore.setPackageInstalling(npmName, true);
+        const result = await npmBridge.install(npmName);
+        if (result.success) {
+          npmStore.setPackageInstalled(npmName, result.version);
+        } else {
+          npmStore.setPackageError(npmName, result.error);
+        }
+      };
+
+      const dismiss = () => {
+        mockPackageMetadataState.setDismissedPackages((prev: string[]) => [
+          ...prev,
+          npmName,
+        ]);
+      };
+
+      return (
+        <div>
+          {npmMeta?.name && <span>{npmMeta.name}</span>}
+          {npmMeta?.version && <span>{`v${npmMeta.version}`}</span>}
+          {npmMeta?.description && <span>{npmMeta.description}</span>}
+          {pythonMeta?.name && <span>{pythonMeta.name}</span>}
+
+          {npmPkg?.installing && <span>packages.installing</span>}
+          {npmPkg?.error && (
+            <>
+              <span>{npmPkg.error}</span>
+              <button>packages.retry</button>
+            </>
+          )}
+          {npmMeta?.error && <span>packages.notFound</span>}
+          {npmMeta?.loading && npmMeta?.name && <span>packages.checking</span>}
+          {!npmPkg?.installing &&
+            !npmPkg?.error &&
+            npmMeta?.name &&
+            npmMeta?.version && (
+              <button onClick={() => void installNpm()}>
+                packages.install
+              </button>
+            )}
+
+          {pythonMeta?.name && pythonMeta?.version && (
+            <button onClick={() => void pythonBridge.install(pythonMeta.name!)}>
+              packages.installPython
+            </button>
+          )}
+
+          {(npmMeta?.name || pythonMeta?.name) && (
+            <button
+              className="text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-muted rounded"
+              onClick={dismiss}
+            >
+              <svg />
+            </button>
+          )}
+        </div>
+      );
+    },
+  };
+});
 
 // ── Tests ──────────────────────────────────────────────────────────────
 

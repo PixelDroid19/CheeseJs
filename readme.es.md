@@ -1,4 +1,3 @@
-
 # CheeseJS 🧀
 
 <p align="center">
@@ -24,13 +23,13 @@
 ## 🧑‍💻 Primeros pasos
 
 1. **Instala** las dependencias:
-	```sh
-	npm install
-	```
+   ```sh
+   pnpm install
+   ```
 2. **Ejecuta** la app:
-	```sh
-	npm run dev
-	```
+   ```sh
+   pnpm dev
+   ```
 3. **Escribe código** en el editor y ¡mira los resultados al instante!
 
 ---

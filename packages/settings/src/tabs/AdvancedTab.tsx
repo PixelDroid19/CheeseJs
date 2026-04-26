@@ -3,9 +3,7 @@ import { HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
-
-import { Select } from '../ui/Select';
-import { Tooltip } from '../ui/Tooltip';
+import { Select, Tooltip } from '@cheesejs/ui';
 
 export interface AdvancedTabProps {
   internalLogLevel: 'debug' | 'error' | 'info' | 'none' | 'warn';

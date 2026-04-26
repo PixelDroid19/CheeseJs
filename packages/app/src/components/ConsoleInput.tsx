@@ -1,4 +1,4 @@
-import { ConsoleInput as FrontendConsoleInput } from '@cheesejs/frontend';
+import { ConsoleInputPanel } from '@cheesejs/runtime-shell';
 import { useEditorTabsStore } from '../store/storeHooks';
 
 export function ConsoleInput() {
@@ -9,7 +9,7 @@ export function ConsoleInput() {
   const promptExecutionId = activeTab?.promptExecutionId || null;
 
   return (
-    <FrontendConsoleInput
+    <ConsoleInputPanel
       key={`${promptExecutionId ?? activeTabId ?? 'none'}:${promptType}:${promptRequest ?? ''}`}
       promptRequest={promptRequest}
       promptType={promptType}

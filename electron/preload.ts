@@ -5,7 +5,7 @@ import type {
   LspBridgeMessage,
   LspConfig,
   LspConfigApi,
-} from '../packages/core/src/contracts/lsp.js';
+} from '@cheesejs/core';
 
 const { appendLoading, removeLoading } = createLoading();
 

@@ -1,11 +1,7 @@
 import { m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-
-import { SectionHeader } from '../ui/SectionHeader';
-import { Select } from '../ui/Select';
-import { Slider } from '../ui/Slider';
-import { Toggle } from '../ui/Toggle';
+import { SectionHeader, Select, Slider, Toggle } from '@cheesejs/ui';
 
 export interface ThemeOption {
   label: string;

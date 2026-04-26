@@ -4,9 +4,7 @@ import { Info, Plus, Save, Search, Terminal, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import type { LspLanguageConfig } from '@cheesejs/core';
-
-import { SectionHeader } from '../ui/SectionHeader';
-import { Toggle } from '../ui/Toggle';
+import { SectionHeader, Toggle } from '@cheesejs/ui';
 
 export type LspConnectionStatus = 'error' | 'running' | 'starting' | 'stopped';
 

@@ -8,25 +8,27 @@ import tailwindcss from '@tailwindcss/vite';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+const packageAliases = {
+  '@cheesejs/app': resolve(__dirname, 'packages/app/src'),
+  '@cheesejs/core': resolve(__dirname, 'packages/core/src'),
+  '@cheesejs/editor': resolve(__dirname, 'packages/editor/src'),
+  '@cheesejs/execution': resolve(__dirname, 'packages/execution/src'),
+  '@cheesejs/frontend': resolve(__dirname, 'packages/frontend/src'),
+  '@cheesejs/package-management': resolve(
+    __dirname,
+    'packages/package-management/src'
+  ),
+  '@cheesejs/runtime-shell': resolve(__dirname, 'packages/runtime-shell/src'),
+  '@cheesejs/settings': resolve(__dirname, 'packages/settings/src'),
+  '@cheesejs/ui': resolve(__dirname, 'packages/ui/src'),
+  '@cheesejs/workbench': resolve(__dirname, 'packages/workbench/src'),
+} as const;
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
-      '@cheesejs/app': resolve(__dirname, 'packages/app/src'),
-      '@cheesejs/core': resolve(__dirname, 'packages/core/src'),
-      '@cheesejs/editor': resolve(__dirname, 'packages/editor/src'),
-      '@cheesejs/execution': resolve(__dirname, 'packages/execution/src'),
-      '@cheesejs/frontend': resolve(__dirname, 'packages/frontend/src'),
-      '@cheesejs/package-management': resolve(
-        __dirname,
-        'packages/package-management/src'
-      ),
-      '@cheesejs/runtime-shell': resolve(
-        __dirname,
-        'packages/runtime-shell/src'
-      ),
-      '@cheesejs/settings': resolve(__dirname, 'packages/settings/src'),
-      '@cheesejs/workbench': resolve(__dirname, 'packages/workbench/src'),
+      ...packageAliases,
       // Use path-browserify for browser environment
       path: 'path-browserify',
       // Shim @emotion/is-prop-valid to avoid dynamic require issues
@@ -44,6 +46,9 @@ export default defineConfig(({ mode }) => ({
         // Main-Process entry file of the Electron App.
         entry: 'electron/main.ts',
         vite: {
+          resolve: {
+            alias: packageAliases,
+          },
           build: {
             rollupOptions: {
               external: ['typescript', '@swc/core', '@swc/core-win32-x64-msvc'],
@@ -62,6 +67,9 @@ export default defineConfig(({ mode }) => ({
           options.reload();
         },
         vite: {
+          resolve: {
+            alias: packageAliases,
+          },
           build: {
             rollupOptions: {
               output: {
@@ -75,6 +83,9 @@ export default defineConfig(({ mode }) => ({
         // Worker thread for code execution
         entry: 'electron/workers/codeExecutor.ts',
         vite: {
+          resolve: {
+            alias: packageAliases,
+          },
           build: {
             rollupOptions: {
               output: {
@@ -88,6 +99,9 @@ export default defineConfig(({ mode }) => ({
         // Worker thread for Python execution
         entry: 'electron/workers/pythonExecutor.ts',
         vite: {
+          resolve: {
+            alias: packageAliases,
+          },
           build: {
             rollupOptions: {
               output: {
@@ -101,6 +115,9 @@ export default defineConfig(({ mode }) => ({
         // SWC transpiler worker (dedicated worker for 20-70x faster transpilation)
         entry: 'electron/workers/swcTranspilerWorker.ts',
         vite: {
+          resolve: {
+            alias: packageAliases,
+          },
           build: {
             rollupOptions: {
               external: ['@swc/core'],
@@ -115,6 +132,9 @@ export default defineConfig(({ mode }) => ({
         // SWC transpiler module (high-performance)
         entry: 'electron/transpiler/swcTranspiler.ts',
         vite: {
+          resolve: {
+            alias: packageAliases,
+          },
           build: {
             rollupOptions: {
               external: ['@swc/core'],
@@ -130,6 +150,9 @@ export default defineConfig(({ mode }) => ({
         // Package manager module
         entry: 'electron/packages/packageManager.ts',
         vite: {
+          resolve: {
+            alias: packageAliases,
+          },
           build: {
             rollupOptions: {
               output: {

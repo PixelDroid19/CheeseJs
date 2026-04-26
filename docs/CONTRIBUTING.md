@@ -65,13 +65,17 @@ pnpm run dev
 │   ├── transpiler/     # Code transformation
 │   ├── workers/        # Execution workers
 │   └── packages/       # Package management
-├── src/                # Renderer process (React)
-│   ├── components/     # UI components
-│   ├── hooks/          # Custom hooks
-│   ├── store/          # Zustand stores
-│   ├── lib/            # Utilities
-│   │   └── babel/      # Babel plugins
-│   └── themes/         # Editor themes
+├── packages/           # Package-based application architecture
+│   ├── app/            # Renderer app composition root
+│   ├── core/           # Shared contracts/state/events
+│   ├── editor/         # Monaco/editor features
+│   ├── execution/      # Execution runtime primitives
+│   ├── frontend/       # Renderer shell primitives
+│   ├── package-management/
+│   ├── runtime-shell/
+│   ├── settings/
+│   ├── ui/             # Shared UI atoms
+│   └── workbench/      # Layout/error chrome
 ├── tests/              # E2E tests (Playwright)
 └── docs/               # Documentation
 ```
@@ -216,7 +220,7 @@ Brief description of changes
 
 ### Unit Tests
 
-Located in `src/__test__/` and `electron/**/__test__/`:
+Located in `packages/app/src/__test__/` and `electron/**/__test__/`:
 
 ```bash
 # Run all tests
@@ -226,7 +230,7 @@ pnpm test
 pnpm run test:coverage
 
 # Run specific test file
-pnpm test src/__test__/babel-plugins.test.ts
+pnpm vitest run packages/app/src/components/Result.test.tsx
 
 # Run with UI
 pnpm run test:ui

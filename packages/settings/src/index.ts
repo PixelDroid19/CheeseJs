@@ -8,8 +8,3 @@ export * from './tabs/MarketplaceTab';
 export * from './tabs/PluginTab';
 export * from './tabs/SnippetsTab';
 export * from './tabs/FormattingTab';
-export * from './ui/SectionHeader';
-export * from './ui/Select';
-export * from './ui/Slider';
-export * from './ui/Toggle';
-export * from './ui/Tooltip';

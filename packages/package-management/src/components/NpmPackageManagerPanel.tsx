@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { HelpCircle } from 'lucide-react';
 import clsx from 'clsx';
 import type { BasePackageInfo } from '@cheesejs/core';
-import { Toggle, Tooltip } from '@cheesejs/settings';
+import { Toggle, Tooltip } from '@cheesejs/ui';
 
 import { PackageList } from './PackageList';
 

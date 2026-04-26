@@ -17,9 +17,6 @@ export interface SettingsState {
     warn: boolean;
     error: boolean;
   };
-  showTestPanel: boolean;
-  showConsole: boolean;
-  splitDirection: 'horizontal' | 'vertical';
   language: string;
   themeName: string;
   fontSize: number;
@@ -31,7 +28,6 @@ export interface SettingsState {
   internalLogLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
   npmRcContent: string;
   magicComments: boolean;
-  executionEnvironment: 'node' | 'browser';
   autoRunAfterInstall: boolean;
   autoInstallPackages: boolean;
   uiFontSize: number;
@@ -52,7 +48,6 @@ export interface SettingsState {
   ) => void;
   setNpmRcContent: (content: string) => void;
   setMagicComments: (enabled: boolean) => void;
-  setExecutionEnvironment: (env: 'node' | 'browser') => void;
   setFontLigatures: (enabled: boolean) => void;
   setWorkingDirectory: (dir: string) => void;
   setAutoRunAfterInstall: (autoRun: boolean) => void;
@@ -65,9 +60,6 @@ export interface SettingsState {
       error: boolean;
     }>
   ) => void;
-  toggleTestPanel: () => void;
-  toggleConsole: () => void;
-  toggleSplitDirection: () => void;
 }
 
 export const createSettingsSlice: import('zustand').StateCreator<
@@ -79,9 +71,6 @@ export const createSettingsSlice: import('zustand').StateCreator<
     warn: true,
     error: true,
   },
-  showTestPanel: false,
-  showConsole: false,
-  splitDirection: 'horizontal',
   language: 'en',
   themeName: 'onedark',
   fontSize: 19,
@@ -93,7 +82,6 @@ export const createSettingsSlice: import('zustand').StateCreator<
   internalLogLevel: 'none',
   npmRcContent: 'registry=https://registry.npmjs.org/\nstrict-ssl=true',
   magicComments: true,
-  executionEnvironment: 'node',
   autoRunAfterInstall: true,
   autoInstallPackages: true, // Default to auto-install
   uiFontSize: 14,
@@ -113,8 +101,6 @@ export const createSettingsSlice: import('zustand').StateCreator<
   setInternalLogLevel: (internalLogLevel) => set({ internalLogLevel }),
   setNpmRcContent: (npmRcContent) => set({ npmRcContent }),
   setMagicComments: (magicComments) => set({ magicComments }),
-  setExecutionEnvironment: (executionEnvironment) =>
-    set({ executionEnvironment }),
   setFontLigatures: (fontLigatures: boolean) => set({ fontLigatures }),
   setWorkingDirectory: (workingDirectory: string) => set({ workingDirectory }),
   setAutoRunAfterInstall: (autoRunAfterInstall) => set({ autoRunAfterInstall }),
@@ -122,14 +108,6 @@ export const createSettingsSlice: import('zustand').StateCreator<
   setConsoleFilters: (filters) =>
     set((state) => ({
       consoleFilters: { ...state.consoleFilters, ...filters },
-    })),
-  toggleTestPanel: () =>
-    set((state) => ({ showTestPanel: !state.showTestPanel })),
-  toggleConsole: () => set((state) => ({ showConsole: !state.showConsole })),
-  toggleSplitDirection: () =>
-    set((state) => ({
-      splitDirection:
-        state.splitDirection === 'horizontal' ? 'vertical' : 'horizontal',
     })),
 });
 
@@ -147,11 +125,7 @@ export const partializeSettings = (state: SettingsState) => ({
   uiFontSize: state.uiFontSize,
   fontLigatures: state.fontLigatures,
   workingDirectory: state.workingDirectory,
-  executionEnvironment: state.executionEnvironment,
   autoRunAfterInstall: state.autoRunAfterInstall,
   autoInstallPackages: state.autoInstallPackages,
   consoleFilters: state.consoleFilters,
-  showTestPanel: state.showTestPanel,
-  showConsole: state.showConsole,
-  splitDirection: state.splitDirection,
 });

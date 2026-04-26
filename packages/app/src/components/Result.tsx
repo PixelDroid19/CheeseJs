@@ -1,12 +1,25 @@
 import { useMemo } from 'react';
-import { ResultDisplay as FrontendResultDisplay } from '@cheesejs/frontend';
-import { useEditorTabsStore } from '../store/storeHooks';
-import { useSettingsStore } from '../store/storeHooks';
+import {
+  createNpmPackageBridge,
+  createPythonPackageBridge,
+  PackagePrompts,
+} from '@cheesejs/package-management';
+import { ResultPanel } from '@cheesejs/runtime-shell';
+import {
+  useEditorTabsStore,
+  usePackagesStore,
+  usePythonPackagesStore,
+  useSettingsStore,
+} from '../store/storeHooks';
 import { themes } from '../themes';
 import { Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { ConsoleInput } from './ConsoleInput';
-import { PackagePrompts } from './PackagePrompts';
+
+const npmBridge = createNpmPackageBridge(() => window.packageManager);
+const pythonBridge = createPythonPackageBridge(
+  () => window.pythonPackageManager
+);
 
 function ResultDisplay() {
   const { tabs, activeTabId } = useEditorTabsStore();
@@ -24,6 +37,8 @@ function ResultDisplay() {
     consoleFilters,
     setConsoleFilters,
   } = useSettingsStore();
+  const npmStore = usePackagesStore();
+  const pythonStore = usePythonPackagesStore();
 
   const toggleFilter = (type: keyof typeof consoleFilters) => {
     setConsoleFilters({ [type]: !consoleFilters[type] });
@@ -52,7 +67,7 @@ function ResultDisplay() {
   }
 
   return (
-    <FrontendResultDisplay
+    <ResultPanel
       elements={elements}
       code={code}
       themeName={themeName}
@@ -62,7 +77,15 @@ function ResultDisplay() {
       onToggleFilter={toggleFilter}
       onEditorWillMount={handleEditorWillMount}
       consoleInput={<ConsoleInput />}
-      packagePrompts={<PackagePrompts />}
+      packagePrompts={
+        <PackagePrompts
+          elements={elements}
+          npmBridge={npmBridge}
+          npmStore={npmStore}
+          pythonBridge={pythonBridge}
+          pythonStore={pythonStore}
+        />
+      }
     />
   );
 }

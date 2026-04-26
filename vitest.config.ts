@@ -67,6 +67,7 @@ export default defineConfig({
         './packages/runtime-shell/src'
       ),
       '@cheesejs/settings': path.resolve(__dirname, './packages/settings/src'),
+      '@cheesejs/ui': path.resolve(__dirname, './packages/ui/src'),
       '@cheesejs/workbench': path.resolve(
         __dirname,
         './packages/workbench/src'

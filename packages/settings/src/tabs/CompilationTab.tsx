@@ -3,9 +3,7 @@ import { HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
-
-import { Toggle } from '../ui/Toggle';
-import { Tooltip } from '../ui/Tooltip';
+import { Toggle, Tooltip } from '@cheesejs/ui';
 
 export interface CompilationTabProps {
   loopProtection: boolean;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface BasePackageMetadata {
   name?: string;
@@ -21,49 +21,56 @@ export function createPackageMetadataHook<
       {}
     );
     const [dismissedPackages, setDismissedPackages] = useState<string[]>([]);
+    const packageMetadataRef = useRef<Record<string, T>>({});
+
+    useEffect(() => {
+      packageMetadataRef.current = packageMetadata;
+    }, [packageMetadata]);
 
     useEffect(() => {
       let cancelled = false;
 
-      const fetchMetadata = async () => {
-        for (const pkgName of detectedMissingPackages) {
-          if (cancelled) {
-            break;
-          }
+      const packagesToFetch = detectedMissingPackages.filter(
+        (pkgName) => !packageMetadataRef.current[pkgName]
+      );
 
-          setPackageMetadata((prev) => {
-            if (prev[pkgName]) {
-              return prev;
-            }
-
-            fetchInfo(pkgName)
-              .then((info) => {
-                if (!cancelled) {
-                  setPackageMetadata((current) => ({
-                    ...current,
-                    [pkgName]: info.error
-                      ? info
-                      : (info as T) || ({ error: 'Failed to fetch info' } as T),
-                  }));
-                }
-              })
-              .catch(() => {
-                if (!cancelled) {
-                  setPackageMetadata((current) => ({
-                    ...current,
-                    [pkgName]: { error: 'Failed to fetch info' } as T,
-                  }));
-                }
-              });
-
-            return { ...prev, [pkgName]: { loading: true } as T };
-          });
-        }
-      };
-
-      if (detectedMissingPackages.length > 0) {
-        void fetchMetadata();
+      if (packagesToFetch.length === 0) {
+        return () => {
+          cancelled = true;
+        };
       }
+
+      setPackageMetadata((prev) => {
+        const next = { ...prev };
+        packagesToFetch.forEach((pkgName) => {
+          if (!next[pkgName]) {
+            next[pkgName] = { loading: true } as T;
+          }
+        });
+        return next;
+      });
+
+      packagesToFetch.forEach((pkgName) => {
+        void fetchInfo(pkgName)
+          .then((info) => {
+            if (!cancelled) {
+              setPackageMetadata((current) => ({
+                ...current,
+                [pkgName]: info.error
+                  ? info
+                  : (info as T) || ({ error: 'Failed to fetch info' } as T),
+              }));
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setPackageMetadata((current) => ({
+                ...current,
+                [pkgName]: { error: 'Failed to fetch info' } as T,
+              }));
+            }
+          });
+      });
 
       return () => {
         cancelled = true;

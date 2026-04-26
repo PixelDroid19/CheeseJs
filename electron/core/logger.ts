@@ -19,7 +19,7 @@ import {
   type LogLevel,
   type LogEntry,
   type BaseLoggerConfig,
-} from '../../packages/core/src/logging/logger-base.js';
+} from '@cheesejs/core';
 
 // Minimal interface to avoid direct Electron dependency in type checking
 interface BrowserWindowLike {

@@ -115,28 +115,26 @@ Results flow back through the chain:
 - **SmartScriptCache.ts**: LRU-K cache for compiled scripts
 - **MemoryManager.ts**: Memory monitoring and cleanup
 
-### State Management (`src/store/`)
+### State Management (`packages/app/src/store/`)
 
 All stores use Zustand with persistence:
 
 | Store                    | Purpose                           |
 | ------------------------ | --------------------------------- |
-| `useCodeStore`           | Editor content, execution results |
 | `useLanguageStore`       | Language detection, Monaco config |
 | `useSettingsStore`       | User preferences                  |
 | `usePackagesStore`       | npm package state                 |
 | `usePythonPackagesStore` | Python package state              |
 | `useSnippetsStore`       | Saved code snippets               |
 
-### Babel Plugins (`src/lib/babel/`)
+### Renderer Libraries (`packages/app/src/lib/`)
 
-Client-side AST transformations:
+Renderer-side utilities and adapters:
 
-- **loop-protection.ts**: Infinite loop prevention
-- **stray-expression.ts**: Auto-display expressions
-- **magic-comments.ts**: //? annotation processing
-- **top-level-this.ts**: `this` → `globalThis` at top level
-- **log-babel.ts**: Console method interception
+- **LanguageDetectionService.ts**: Deferred/async language detection orchestration
+- **execution/**: Browser-side execution engine adapter
+- **lsp/**: Renderer-side Monaco LSP bridge utilities
+- **python/**: Renderer-side Python service helpers
 
 ## Code Execution Flow
 
@@ -207,12 +205,22 @@ electron/
 └── packages/            # Package management
     └── packageManager.ts
 
-src/
-├── App.tsx              # React entry
-├── components/          # UI components
-├── hooks/               # Custom hooks
-├── store/               # Zustand stores
-├── lib/                 # Utilities
-│   └── babel/           # Babel plugins
-└── themes/              # Editor themes
+packages/
+├── app/                 # Renderer composition root
+│   └── src/
+│       ├── App.tsx
+│       ├── components/
+│       ├── hooks/
+│       ├── store/
+│       ├── lib/
+│       └── themes/
+├── core/                # Lowest shared contracts/state/events
+├── editor/              # Monaco/editor functionality
+├── execution/           # Execution engine/runtime primitives
+├── frontend/            # Shell composition primitives
+├── package-management/  # Package UI + prompt logic
+├── runtime-shell/       # Result/input execution UX
+├── settings/            # Settings dialog + tabs
+├── ui/                  # Shared UI atoms
+└── workbench/           # Layout/error chrome
 ```

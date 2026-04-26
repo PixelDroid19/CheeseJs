@@ -26,6 +26,8 @@
       "@cheesejs/runtime-shell/*": ["packages/runtime-shell/src/*"],
       "@cheesejs/settings": ["packages/settings/src/index.ts"],
       "@cheesejs/settings/*": ["packages/settings/src/*"],
+      "@cheesejs/ui": ["packages/ui/src/index.ts"],
+      "@cheesejs/ui/*": ["packages/ui/src/*"],
       "@cheesejs/workbench": ["packages/workbench/src/index.ts"],
       "@cheesejs/workbench/*": ["packages/workbench/src/*"]
     },

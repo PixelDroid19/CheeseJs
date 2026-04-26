@@ -1,9 +1,7 @@
 import { m } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-
-import { Select } from '../ui/Select';
-import { SectionHeader } from '../ui/SectionHeader';
+import { Select, SectionHeader } from '@cheesejs/ui';
 
 export interface GeneralTabProps {
   language: string;

@@ -14,8 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import type { Snippet } from '@cheesejs/core';
-
-import { SectionHeader } from '../ui/SectionHeader';
+import { SectionHeader } from '@cheesejs/ui';
 
 export interface SnippetsTabProps {
   addSnippet: (snippet: Omit<Snippet, 'id'>) => void;

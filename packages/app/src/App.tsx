@@ -1,10 +1,13 @@
 import { lazy } from 'react';
 import { AppShell, useWorkbenchBootstrap } from '@cheesejs/frontend';
+import {
+  createNpmPackageBridge,
+  usePackageInstaller,
+} from '@cheesejs/package-management';
 import FloatingToolbar from './components/FloatingToolbar';
-import { useSettingsStore } from './store/storeHooks';
+import { usePackagesStore, useSettingsStore } from './store/storeHooks';
 import { useAppStore } from './store';
 import { appEventBus } from './events/appEventBus';
-import { usePackageInstaller } from './hooks/usePackageInstaller';
 import { subscribeToMagicCommentsShortcut } from './host/electronShortcuts';
 
 // Lazy load Settings (modal, not critical path)
@@ -16,9 +19,15 @@ import CodeEditor from './components/Editor';
 import ResultDisplay from './components/Result';
 import { InputTooltip } from './components/InputTooltip';
 
+const npmBridge = createNpmPackageBridge(() => window.packageManager);
+
 function App() {
   const { setMagicComments } = useSettingsStore();
-  const { loadInstalledPackages } = usePackageInstaller();
+  const packagesStore = usePackagesStore();
+  const { loadInstalledPackages } = usePackageInstaller({
+    bridge: npmBridge,
+    store: packagesStore,
+  });
 
   useWorkbenchBootstrap({
     eventBus: appEventBus,

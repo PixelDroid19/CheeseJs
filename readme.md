@@ -1,4 +1,3 @@
-
 # CheeseJS 🧀
 
 <p align="center">
@@ -24,13 +23,13 @@
 ## 🧑‍💻 Getting Started
 
 1. **Install** dependencies:
-	 ```sh
-	 npm install
-	 ```
+   ```sh
+   pnpm install
+   ```
 2. **Run** the app:
-	 ```sh
-	 npm run dev
-	 ```
+   ```sh
+   pnpm dev
+   ```
 3. **Write code** in the editor and see results instantly!
 
 ---
@@ -46,6 +45,5 @@ Contributions are welcome! You can open issues or submit pull requests to improv
 CheeseJS is a fork of the excellent [JSRunner](https://github.com/maikCyphlock/jsrunner) project by Maikol Douglas Aguilar Falcón. This project builds upon JSRunner's foundation with a new identity, interface, and features.
 
 ---
-
 
 <sub>CheeseJS is not affiliated with the original JSRunner project. All trademarks and copyrights belong to their respective owners.</sub>
