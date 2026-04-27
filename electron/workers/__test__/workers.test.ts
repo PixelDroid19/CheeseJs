@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { Worker } from 'worker_threads';
 import path from 'path';
+import { isWasiToolchainAvailable } from '../wasiToolchain.js';
 
 const JS_WORKER_PATH = path.resolve(
   __dirname,
@@ -13,9 +14,18 @@ const PY_WORKER_PATH = path.resolve(
   __dirname,
   '../../../dist-electron/pythonExecutor.js'
 );
+const WASI_WORKER_PATH = path.resolve(
+  __dirname,
+  '../../../dist-electron/wasiExecutor.js'
+);
 
 // Helper to run code in a worker and gather results
-function runInWorker(workerPath: string, code: string, options: any = {}) {
+function runInWorker(
+  workerPath: string,
+  code: string,
+  options: any = {},
+  language?: string
+) {
   return new Promise<any[]>((resolve, reject) => {
     const worker = new Worker(workerPath, {
       workerData: {
@@ -57,6 +67,7 @@ function runInWorker(workerPath: string, code: string, options: any = {}) {
       type: 'execute',
       id,
       code,
+      language,
       options: { timeout: 5000, ...options },
     });
   });
@@ -155,3 +166,28 @@ print(math.pi)
     PYTHON_TIMEOUT
   );
 });
+
+describe.skipIf(!isWasiToolchainAvailable())(
+  'WASI C/C++ Worker Integration (dist-electron)',
+  () => {
+    it('should compile and execute simple C', async () => {
+      const code =
+        '#include <stdio.h>\nint main(){ printf("30\\n"); return 0; }';
+      const results = await runInWorker(WASI_WORKER_PATH, code, {}, 'c');
+
+      const logs = results.filter((r) => r.type === 'console');
+      expect(logs.length).toBeGreaterThan(0);
+      expect(logs[0].data.content).toContain('30');
+    });
+
+    it('should compile and execute simple C++', async () => {
+      const code =
+        '#include <iostream>\nint main(){ std::cout << 42 << std::endl; return 0; }';
+      const results = await runInWorker(WASI_WORKER_PATH, code, {}, 'cpp');
+
+      const logs = results.filter((r) => r.type === 'console');
+      expect(logs.length).toBeGreaterThan(0);
+      expect(logs[0].data.content).toContain('42');
+    });
+  }
+);

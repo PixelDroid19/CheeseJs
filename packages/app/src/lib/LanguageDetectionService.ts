@@ -106,7 +106,14 @@ export class LanguageDetectionService {
    */
   detectSync(content: string): DetectionResult {
     this.metrics.syncDetections++;
-    return patternBasedDetection(content);
+    return (
+      patternBasedDetection(content) ?? {
+        monacoId: 'typescript',
+        confidence: 0.5,
+        isExecutable: true,
+        source: 'sticky',
+      }
+    );
   }
 
   /**

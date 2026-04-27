@@ -33,10 +33,10 @@ export const themesConfig: Record<string, ThemeDefinition> = {
 };
 
 export const themes: Record<string, unknown> = Object.fromEntries(
-  Object.values(themesConfig).map((t) => [t.name, t.monacoTheme])
+  Object.values(themesConfig).map((theme) => [theme.name, theme.monacoTheme])
 );
 
-export const themeOptions = Object.values(themesConfig).map((t) => ({
-  value: t.name,
-  label: t.label,
+export const themeOptions = Object.values(themesConfig).map((theme) => ({
+  value: theme.name,
+  label: theme.label,
 }));

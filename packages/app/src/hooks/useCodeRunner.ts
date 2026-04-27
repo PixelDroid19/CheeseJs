@@ -1,7 +1,9 @@
 import {
+  getExecutionLanguage,
+  getLanguageDisplayName,
+  isExecutableLanguage,
   useEditorTabsStore,
   useSettingsStore,
-  getLanguageDisplayName,
 } from '../store/storeHooks';
 import { useAppStore } from '../store/index';
 import { executionEngine } from '../lib/execution/ExecutionEngine';
@@ -109,12 +111,12 @@ export function useCodeRunner() {
       const detected = detectLanguage(sourceCode);
       const currentLang = detected.monacoId;
 
-      if (!useAppStore.getState().language.isExecutable(currentLang)) {
+      if (!isExecutableLanguage(currentLang)) {
         setTabExecuting(callerTabId, false);
         setTabResults(callerTabId, [
           {
             element: {
-              content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript and Python code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python`,
+              content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript, Python, C, and C++ code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python, c, cpp`,
             },
             type: 'error',
           },
@@ -125,12 +127,20 @@ export function useCodeRunner() {
       clearTabResults(callerTabId);
       setTabExecuting(callerTabId, true);
 
-      const execLanguage =
-        currentLang === 'python'
-          ? 'python'
-          : currentLang === 'typescript'
-            ? 'typescript'
-            : 'javascript';
+      const execLanguage = getExecutionLanguage(currentLang);
+      if (!execLanguage) {
+        setTabExecuting(callerTabId, false);
+        setTabResults(callerTabId, [
+          {
+            element: {
+              content: `❌ No execution runtime is configured for ${getLanguageDisplayName(currentLang)} (${currentLang}).`,
+            },
+            type: 'error',
+          },
+        ]);
+        return;
+      }
+
       const executionId = createExecutionId(callerTabId);
       setMappedTabId(executionId, callerTabId);
 

@@ -20,7 +20,7 @@ vi.mock('../../store/index', () => ({
       language: {
         detectLanguage: mockDetectLanguage,
         isExecutable: (lang: string) =>
-          ['javascript', 'typescript', 'python'].includes(lang),
+          ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
       },
       history: {
         addToHistory: mockAddToHistory,
@@ -116,10 +116,14 @@ vi.mock('../../store/storeHooks', () => ({
       addToHistory: mockAddToHistory,
     }),
   }),
-  isLanguageExecutable: (lang: string) =>
-    ['javascript', 'typescript', 'python'].includes(lang),
+  isExecutableLanguage: (lang: string) =>
+    ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
   getLanguageDisplayName: (lang: string) =>
     lang.charAt(0).toUpperCase() + lang.slice(1),
+  getExecutionLanguage: (lang: string) =>
+    ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang)
+      ? lang
+      : undefined,
 }));
 
 // ── Mock lib modules ───────────────────────────────────────────────────
@@ -676,6 +680,50 @@ describe('useCodeRunner', () => {
       expect.any(String),
       'const x: number = 1',
       expect.objectContaining({ language: 'typescript' })
+    );
+  });
+
+  it('should detect c and pass it to execute', async () => {
+    mockDetectLanguage.mockReturnValue({
+      monacoId: 'c',
+      confidence: 1,
+      isExecutable: true,
+    });
+
+    const { result } = renderHook(() => useCodeRunner());
+
+    act(() => {
+      result.current.runCode('#include <stdio.h>\nint main(){return 0;}');
+    });
+    await flushDebounce();
+
+    expect(mockWaitForReady).toHaveBeenCalledWith('c');
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.any(String),
+      '#include <stdio.h>\nint main(){return 0;}',
+      expect.objectContaining({ language: 'c' })
+    );
+  });
+
+  it('should detect cpp and pass it to execute', async () => {
+    mockDetectLanguage.mockReturnValue({
+      monacoId: 'cpp',
+      confidence: 1,
+      isExecutable: true,
+    });
+
+    const { result } = renderHook(() => useCodeRunner());
+
+    act(() => {
+      result.current.runCode('#include <iostream>\nint main(){return 0;}');
+    });
+    await flushDebounce();
+
+    expect(mockWaitForReady).toHaveBeenCalledWith('cpp');
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.any(String),
+      '#include <iostream>\nint main(){return 0;}',
+      expect.objectContaining({ language: 'cpp' })
     );
   });
 

@@ -1,7 +1,9 @@
+import type { Language } from '../contracts/workerTypes';
+
 export interface HistoryItem {
   id: string;
   code: string;
-  language: 'javascript' | 'typescript' | 'python';
+  language: Language;
   timestamp: number;
   status: 'success' | 'error';
   executionTime?: number;

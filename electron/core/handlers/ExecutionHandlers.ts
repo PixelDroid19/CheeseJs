@@ -1,10 +1,33 @@
 import { ipcMain } from 'electron';
+import {
+  getRuntimeProviderId,
+  type RuntimeProviderId,
+} from '@cheesejs/languages';
 import type { WorkerPoolManager, ExecutionRequest } from '../WorkerPoolManager';
 import type { TransformOptions } from '../../transpiler/codeTransforms';
+import {
+  DEFAULT_RUNTIME_PROVIDER_ID,
+  getRuntimeExecutionProvider,
+} from '../runtimeProviderRegistry';
 
 export interface ExecutionHandlersConfig {
   workerPool: WorkerPoolManager;
   transformCode: (code: string, options: TransformOptions) => string;
+}
+
+function resolveExecutionProvider(language: string) {
+  const providerId = getRuntimeProviderId(language);
+  const runtimeProvider = providerId
+    ? getRuntimeExecutionProvider(providerId as RuntimeProviderId)
+    : getRuntimeExecutionProvider(DEFAULT_RUNTIME_PROVIDER_ID);
+
+  if (!runtimeProvider) {
+    throw new Error(
+      `No runtime execution provider registered for ${providerId ?? DEFAULT_RUNTIME_PROVIDER_ID}`
+    );
+  }
+
+  return runtimeProvider;
 }
 
 export function registerExecutionHandlers({
@@ -25,30 +48,14 @@ export function registerExecutionHandlers({
       );
       try {
         const language = request.language || 'javascript';
+        const normalizedRequest: ExecutionRequest = { ...request, language };
+        const runtimeProvider = resolveExecutionProvider(language);
 
-        let result: unknown;
-        if (language === 'python') {
-          result = await workerPool.executePython(request);
-        } else {
-          // Transform code before execution
-          const transformOptions: TransformOptions = {
-            showTopLevelResults: request.options.showTopLevelResults ?? true,
-            loopProtection: request.options.loopProtection ?? true,
-            magicComments: request.options.magicComments ?? false,
-            showUndefined: request.options.showUndefined ?? false,
-          };
-
-          let transformedCode: string;
-          try {
-            transformedCode = transformCode(request.code, transformOptions);
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            throw new Error(`Transpilation error: ${errorMessage}`);
-          }
-
-          result = await workerPool.executeCode(request, transformedCode);
-        }
+        const result = await runtimeProvider.execute({
+          request: normalizedRequest,
+          workerPool,
+          transformCode,
+        });
 
         return { success: true, data: result };
       } catch (error) {
@@ -66,10 +73,8 @@ export function registerExecutionHandlers({
   ipcMain.handle(
     'is-worker-ready',
     async (_event: unknown, language: string) => {
-      if (language === 'python') {
-        return { ready: workerPool.isPythonWorkerReady() };
-      }
-      return { ready: workerPool.isCodeWorkerReady() };
+      const runtimeProvider = resolveExecutionProvider(language);
+      return { ready: runtimeProvider.isReady(workerPool) };
     }
   );
 

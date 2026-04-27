@@ -5,6 +5,8 @@
  * transpilation, and worker performance monitoring.
  */
 
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -37,7 +39,7 @@ export interface MetricEvent {
   /** Duration in ms (for timed events) */
   duration?: number;
   /** Language being executed */
-  language?: 'javascript' | 'typescript' | 'python';
+  language?: Language;
   /** Success status */
   success?: boolean;
   /** Additional metadata */
@@ -332,7 +334,7 @@ class MetricsCollector {
    * Record an execution event with timing
    */
   recordExecution(options: {
-    language: 'javascript' | 'typescript' | 'python';
+    language: Language;
     duration: number;
     success: boolean;
     error?: string;

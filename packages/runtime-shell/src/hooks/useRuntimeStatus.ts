@@ -1,14 +1,7 @@
-/**
- * Runtime Status Hook
- *
- * Tracks initialization and readiness state of code execution runtimes
- * (JavaScript, Python) for displaying loading indicators in UI.
- */
-
-import { create } from 'zustand';
 import { useEffect } from 'react';
-
-type Language = 'javascript' | 'typescript' | 'python';
+import { create } from 'zustand';
+import type { CodeRunner } from '@cheesejs/core';
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
 
 interface RuntimeStatus {
   language: Language;
@@ -20,22 +13,17 @@ interface RuntimeStatus {
 
 interface RuntimeStatusState {
   statuses: Map<Language, RuntimeStatus>;
-
-  // Getters
   getStatus: (lang: Language) => RuntimeStatus;
   isReady: (lang: Language) => boolean;
   isLoading: (lang: Language) => boolean;
   getLoadingMessage: (lang: Language) => string | undefined;
-
-  // Setters
   updateStatus: (lang: Language, update: Partial<RuntimeStatus>) => void;
 }
 
-// Default status: not loading, not ready (will check on demand)
 const defaultStatus = (lang: Language): RuntimeStatus => ({
   language: lang,
-  ready: lang !== 'python', // JS/TS are ready immediately
-  loading: false, // Don't show loading by default
+  ready: lang !== 'python',
+  loading: false,
   message: undefined,
 });
 
@@ -44,24 +32,14 @@ export const useRuntimeStatusStore = create<RuntimeStatusState>((set, get) => ({
     ['javascript', defaultStatus('javascript')],
     ['typescript', defaultStatus('typescript')],
     ['python', defaultStatus('python')],
+    ['c', defaultStatus('c')],
+    ['cpp', defaultStatus('cpp')],
   ]),
 
-  getStatus: (lang) => {
-    return get().statuses.get(lang) || defaultStatus(lang);
-  },
-
-  isReady: (lang) => {
-    return get().statuses.get(lang)?.ready ?? false;
-  },
-
-  isLoading: (lang) => {
-    return get().statuses.get(lang)?.loading ?? false;
-  },
-
-  getLoadingMessage: (lang) => {
-    return get().statuses.get(lang)?.message;
-  },
-
+  getStatus: (lang) => get().statuses.get(lang) || defaultStatus(lang),
+  isReady: (lang) => get().statuses.get(lang)?.ready ?? false,
+  isLoading: (lang) => get().statuses.get(lang)?.loading ?? false,
+  getLoadingMessage: (lang) => get().statuses.get(lang)?.message,
   updateStatus: (lang, update) => {
     set((state) => {
       const newStatuses = new Map(state.statuses);
@@ -72,17 +50,16 @@ export const useRuntimeStatusStore = create<RuntimeStatusState>((set, get) => ({
   },
 }));
 
-/**
- * Hook to subscribe to runtime status updates from main process
- */
-export function useRuntimeStatus(language?: Language) {
+export function useRuntimeStatus(
+  language?: Language,
+  codeRunner?: Pick<CodeRunner, 'isReady' | 'onResult'>
+) {
   const store = useRuntimeStatusStore();
 
-  // Check Python worker readiness on mount
   useEffect(() => {
     const checkPythonReady = async () => {
       try {
-        const isReady = await window.codeRunner?.isReady('python');
+        const isReady = await codeRunner?.isReady('python');
         if (isReady) {
           store.updateStatus('python', {
             loading: false,
@@ -91,21 +68,19 @@ export function useRuntimeStatus(language?: Language) {
           });
         }
       } catch {
-        // Worker not ready yet, that's fine
+        // Worker not ready yet.
       }
     };
 
-    checkPythonReady();
-  }, [store]);
+    void checkPythonReady();
+  }, [codeRunner, store]);
 
   useEffect(() => {
-    // Subscribe to runtime status events from main process
     const handleStatus = (result: { type: string; data?: unknown }) => {
       if (result.type === 'status') {
         const data = result.data as { message?: string } | undefined;
         const message = data?.message || 'Loading...';
 
-        // Check if Python is ready
         if (message.toLowerCase().includes('ready')) {
           store.updateStatus('python', {
             loading: false,
@@ -113,7 +88,6 @@ export function useRuntimeStatus(language?: Language) {
             message: undefined,
           });
         } else {
-          // Still loading
           store.updateStatus('python', {
             loading: true,
             ready: false,
@@ -123,14 +97,14 @@ export function useRuntimeStatus(language?: Language) {
       }
     };
 
-    // Subscribe to code runner results (includes status messages)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const unsubscribe = window.codeRunner?.onResult(handleStatus as any);
+    const unsubscribe = codeRunner?.onResult(
+      handleStatus as Parameters<CodeRunner['onResult']>[0]
+    );
 
     return () => {
       unsubscribe?.();
     };
-  }, [store]);
+  }, [codeRunner, store]);
 
   if (language) {
     return {

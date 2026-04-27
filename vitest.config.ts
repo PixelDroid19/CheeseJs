@@ -58,6 +58,10 @@ export default defineConfig({
         './packages/execution/src'
       ),
       '@cheesejs/frontend': path.resolve(__dirname, './packages/frontend/src'),
+      '@cheesejs/languages': path.resolve(
+        __dirname,
+        './packages/languages/src'
+      ),
       '@cheesejs/package-management': path.resolve(
         __dirname,
         './packages/package-management/src'
@@ -67,6 +71,7 @@ export default defineConfig({
         './packages/runtime-shell/src'
       ),
       '@cheesejs/settings': path.resolve(__dirname, './packages/settings/src'),
+      '@cheesejs/themes': path.resolve(__dirname, './packages/themes/src'),
       '@cheesejs/ui': path.resolve(__dirname, './packages/ui/src'),
       '@cheesejs/workbench': path.resolve(
         __dirname,

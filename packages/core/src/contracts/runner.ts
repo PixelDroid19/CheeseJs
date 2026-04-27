@@ -1,3 +1,5 @@
+import type { Language } from './workerTypes';
+
 /** Shared execution options for renderer/main worker orchestration. */
 export interface ExecutionOptions {
   timeout?: number;
@@ -6,7 +8,7 @@ export interface ExecutionOptions {
   loopProtection?: boolean;
   magicComments?: boolean;
   workingDirectory?: string;
-  language?: 'javascript' | 'typescript' | 'python';
+  language?: Language;
 }
 
 /** Result payload emitted by JS/TS/Python workers through the preload bridge. */

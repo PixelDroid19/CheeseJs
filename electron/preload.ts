@@ -6,6 +6,7 @@ import type {
   LspConfig,
   LspConfigApi,
 } from '@cheesejs/core';
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
 
 const { appendLoading, removeLoading } = createLoading();
 
@@ -21,7 +22,7 @@ interface ExecutionOptions {
   showTopLevelResults?: boolean;
   loopProtection?: boolean;
   magicComments?: boolean;
-  language?: 'javascript' | 'typescript' | 'python';
+  language?: Language;
 }
 
 interface ExecutionResult {

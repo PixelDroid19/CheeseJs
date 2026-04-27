@@ -54,7 +54,7 @@ vi.mock('./ConsoleInput', () => ({
 }));
 
 // Theme mock
-vi.mock('../themes', () => ({
+vi.mock('@cheesejs/themes', () => ({
   themes: {
     'test-theme': {
       base: 'vs-dark',
@@ -186,11 +186,15 @@ vi.mock('../store/storeHooks', () => ({
   useAppStore: {
     getState: () => ({
       language: {
-        isLanguageExecutable: (lang: string) =>
-          ['javascript', 'typescript', 'python'].includes(lang),
+        isExecutableLanguage: (lang: string) =>
+          ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
       },
     }),
   },
+  isExecutableLanguage: (lang: string) =>
+    ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
+  getRuntimeProviderId: (lang: string) =>
+    lang === 'python' ? 'pyodide' : 'node-vm',
 }));
 
 // Package metadata hooks

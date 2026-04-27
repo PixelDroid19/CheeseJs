@@ -2,12 +2,13 @@
  * Worker Pool Manager
  *
  * Handles the lifecycle and communication with code execution workers.
- * Provides a scalable pool interface for JS/TS (up to 4) and Python (up to 2).
+ * Provides a scalable pool interface for JS/TS, Python, and WASI C/C++ workers.
  */
 
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
 import type { BrowserWindow } from 'electron';
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
 
 import { createMainLogger } from './logger.js';
 
@@ -20,7 +21,7 @@ const log = createMainLogger('WorkerPoolManager');
 export interface ExecutionRequest {
   id: string;
   code: string;
-  language?: 'javascript' | 'typescript' | 'python';
+  language?: Language;
   options: {
     timeout?: number;
     showUndefined?: boolean;
@@ -72,6 +73,12 @@ interface PythonWorkerInstance {
   interruptBuffer: SharedArrayBuffer;
 }
 
+interface WasiWorkerInstance {
+  worker: Worker;
+  isReady: boolean;
+  activeExecutionId: string | null;
+}
+
 // ============================================================================
 // WORKER POOL MANAGER CLASS
 // ============================================================================
@@ -79,9 +86,11 @@ interface PythonWorkerInstance {
 export class WorkerPoolManager {
   private codeWorkers: CodeWorkerInstance[] = [];
   private pythonWorkers: PythonWorkerInstance[] = [];
+  private wasiWorkers: WasiWorkerInstance[] = [];
 
   private jsQueue: QueuedExecution[] = [];
   private pythonQueue: QueuedExecution[] = [];
+  private wasiQueue: QueuedExecution[] = [];
 
   private pendingExecutions = new Map<string, QueuedExecution>();
   private pendingCancellations = new Map<
@@ -101,6 +110,7 @@ export class WorkerPoolManager {
   private readonly FORCE_TERMINATION_TIMEOUT = 2000;
   private readonly MAX_CODE_WORKERS = 4;
   private readonly MAX_PYTHON_WORKERS = 2;
+  private readonly MAX_WASI_WORKERS = 2;
 
   constructor(distElectronPath: string, nodeModulesPath: string) {
     this.distElectronPath = distElectronPath;
@@ -130,6 +140,13 @@ export class WorkerPoolManager {
     return (
       this.pythonWorkers.some((w) => w.isReady) ||
       this.pythonWorkers.length < this.MAX_PYTHON_WORKERS
+    );
+  }
+
+  isWasiWorkerReady(): boolean {
+    return (
+      this.wasiWorkers.some((w) => w.isReady) ||
+      this.wasiWorkers.length < this.MAX_WASI_WORKERS
     );
   }
 
@@ -202,6 +219,13 @@ export class WorkerPoolManager {
   async initializePythonWorker(): Promise<void> {
     if (this.pythonWorkers.length === 0) this.spawnPythonWorker();
     while (!this.pythonWorkers.some((w) => w.isReady)) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+
+  async initializeWasiWorker(): Promise<void> {
+    if (this.wasiWorkers.length === 0) this.spawnWasiWorker();
+    while (!this.wasiWorkers.some((w) => w.isReady)) {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
@@ -462,6 +486,13 @@ export class WorkerPoolManager {
     });
   }
 
+  async executeWasi(request: ExecutionRequest): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      this.wasiQueue.push({ request, resolve, reject });
+      this.processWasiQueue();
+    });
+  }
+
   private processPythonQueue() {
     if (this.pythonQueue.length > 0) {
       const idleWorkers = this.pythonWorkers.filter(
@@ -520,6 +551,130 @@ export class WorkerPoolManager {
   }
 
   // ============================================================================
+  // WASI WORKER MANAGEMENT
+  // ============================================================================
+
+  private spawnWasiWorker() {
+    log.debug(
+      '[WorkerPool] Spawning new WASI worker. Current count:',
+      this.wasiWorkers.length
+    );
+
+    const workerPath = path.join(this.distElectronPath, 'wasiExecutor.js');
+    const worker = new Worker(workerPath);
+
+    const instance: WasiWorkerInstance = {
+      worker,
+      isReady: false,
+      activeExecutionId: null,
+    };
+
+    this.wasiWorkers.push(instance);
+
+    worker.on('message', (message: WorkerResult) => {
+      if (message.type === 'ready') {
+        log.debug('[WorkerPool] WASI executor worker ready');
+        instance.isReady = true;
+        this.processWasiQueue();
+        return;
+      }
+
+      this.sendToRenderer('code-execution-result', message);
+
+      if (message.type === 'complete' || message.type === 'error') {
+        this.clearPendingCancellation(message.id);
+        this.resolveExecution(message.id, message);
+        instance.activeExecutionId = null;
+        this.processWasiQueue();
+      }
+    });
+
+    worker.on('error', (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error));
+      log.error('[WorkerPool] WASI worker error:', err);
+      this.handleWasiWorkerCrash(instance, err);
+    });
+
+    worker.on('exit', (code) => {
+      log.debug(`[WorkerPool] WASI worker exited with code ${code}`);
+      if (code !== 0) {
+        this.handleWasiWorkerCrash(
+          instance,
+          new Error(`Worker exited: ${code}`)
+        );
+      } else {
+        this.wasiWorkers = this.wasiWorkers.filter((w) => w !== instance);
+      }
+    });
+  }
+
+  private handleWasiWorkerCrash(instance: WasiWorkerInstance, error: Error) {
+    if (instance.activeExecutionId) {
+      this.resolveExecution(instance.activeExecutionId, {
+        type: 'error',
+        id: instance.activeExecutionId,
+        data: { name: 'WorkerCrash', message: error.message },
+      });
+    }
+    this.wasiWorkers = this.wasiWorkers.filter((w) => w !== instance);
+    this.processWasiQueue();
+  }
+
+  private processWasiQueue() {
+    if (this.wasiQueue.length > 0) {
+      const idleWorkers = this.wasiWorkers.filter((w) => !w.activeExecutionId);
+      if (
+        idleWorkers.length === 0 &&
+        this.wasiWorkers.length < this.MAX_WASI_WORKERS
+      ) {
+        this.spawnWasiWorker();
+      }
+    }
+
+    for (const worker of this.wasiWorkers) {
+      if (
+        worker.isReady &&
+        !worker.activeExecutionId &&
+        this.wasiQueue.length > 0
+      ) {
+        const task = this.wasiQueue.shift()!;
+        this.startWasiExecution(worker, task);
+      }
+    }
+  }
+
+  private startWasiExecution(
+    worker: WasiWorkerInstance,
+    task: QueuedExecution
+  ) {
+    const { id, options, language } = task.request;
+    worker.activeExecutionId = id;
+    this.pendingExecutions.set(id, task);
+
+    worker.worker.postMessage({
+      type: 'execute',
+      id,
+      code: task.request.code,
+      language,
+      options: {
+        timeout: options.timeout ?? 30000,
+        workingDirectory: options.workingDirectory,
+      },
+    });
+
+    const timeoutMs = (options.timeout ?? 30000) + 5000;
+    const fallbackTimeout = setTimeout(() => {
+      if (worker.activeExecutionId === id) {
+        log.warn(
+          `[WorkerPool] WASI execution timeout reached for ${id}, force terminating.`
+        );
+        this.forceTerminateWasiWorker(worker);
+      }
+    }, timeoutMs);
+    this.executionTimeouts.set(id, fallbackTimeout);
+  }
+
+  // ============================================================================
   // CANCELLATION
   // ============================================================================
 
@@ -535,6 +690,13 @@ export class WorkerPoolManager {
     const pyIdx = this.pythonQueue.findIndex((q) => q.request.id === id);
     if (pyIdx >= 0) {
       const task = this.pythonQueue.splice(pyIdx, 1)[0];
+      task.reject(new Error('Execution cancelled'));
+      return;
+    }
+
+    const wasiIdx = this.wasiQueue.findIndex((q) => q.request.id === id);
+    if (wasiIdx >= 0) {
+      const task = this.wasiQueue.splice(wasiIdx, 1)[0];
       task.reject(new Error('Execution cancelled'));
       return;
     }
@@ -562,6 +724,15 @@ export class WorkerPoolManager {
       this.pendingCancellations.set(`py-${id}`, forceTimeout);
     }
 
+    const wasiWorker = this.wasiWorkers.find((w) => w.activeExecutionId === id);
+    if (wasiWorker) {
+      wasiWorker.worker.postMessage({ type: 'cancel', id });
+      const forceTimeout = setTimeout(() => {
+        this.forceTerminateWasiWorker(wasiWorker);
+      }, this.FORCE_TERMINATION_TIMEOUT);
+      this.pendingCancellations.set(`wasi-${id}`, forceTimeout);
+    }
+
     const pending = this.pendingExecutions.get(id);
     if (pending) {
       pending.reject(new Error('Execution cancelled'));
@@ -580,10 +751,15 @@ export class WorkerPoolManager {
     for (const worker of this.pythonWorkers) {
       worker.worker.terminate();
     }
+    for (const worker of this.wasiWorkers) {
+      worker.worker.terminate();
+    }
     this.codeWorkers = [];
     this.pythonWorkers = [];
+    this.wasiWorkers = [];
     this.jsQueue = [];
     this.pythonQueue = [];
+    this.wasiQueue = [];
     this.pendingExecutions.clear();
     this.pendingCancellations.clear();
     for (const timeout of this.executionTimeouts.values())
@@ -630,6 +806,12 @@ export class WorkerPoolManager {
     if (pyTimeout) {
       clearTimeout(pyTimeout);
       this.pendingCancellations.delete(`py-${id}`);
+    }
+
+    const wasiTimeout = this.pendingCancellations.get(`wasi-${id}`);
+    if (wasiTimeout) {
+      clearTimeout(wasiTimeout);
+      this.pendingCancellations.delete(`wasi-${id}`);
     }
   }
 
@@ -688,5 +870,27 @@ export class WorkerPoolManager {
 
     // Attempt to process queue (will spawn new worker if needed)
     this.processPythonQueue();
+  }
+
+  private async forceTerminateWasiWorker(
+    instance: WasiWorkerInstance
+  ): Promise<void> {
+    const id = instance.activeExecutionId;
+    if (id) {
+      this.sendToRenderer('code-execution-result', {
+        type: 'error',
+        id,
+        data: { name: 'CancelError', message: 'Execution forcibly terminated' },
+      });
+      this.pendingCancellations.delete(`wasi-${id}`);
+    }
+
+    try {
+      await instance.worker.terminate();
+    } catch (_e) {
+      /* ignore */
+    }
+    this.wasiWorkers = this.wasiWorkers.filter((w) => w !== instance);
+    this.processWasiQueue();
   }
 }

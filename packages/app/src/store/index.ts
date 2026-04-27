@@ -37,11 +37,15 @@ import {
   partializeLanguage,
 } from './useLanguageStore';
 import {
+  createLspSlice,
+  partializeLsp,
+  type LspState,
+} from '@cheesejs/editor/state/useLspStore';
+import {
   createEditorTabsSlice,
   type EditorTabsState,
   partializeEditorTabs,
 } from './useEditorTabsStore';
-import { createLspSlice, type LspState, partializeLsp } from './useLspStore';
 
 export interface AppState {
   settings: SettingsState;
@@ -106,7 +110,7 @@ export const useAppStore = create<AppState>()(
           set as never,
           get as never,
           'lsp',
-          createLspSlice
+          createLspSlice({ getLspConfig: () => window.lspConfig })
         ),
       }),
       {

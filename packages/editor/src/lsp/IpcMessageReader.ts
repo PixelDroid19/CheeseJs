@@ -3,14 +3,18 @@ import {
   DataCallback,
   type Disposable,
 } from 'vscode-jsonrpc';
+import type { LspBridgeApi } from '@cheesejs/core';
 
 export class IpcMessageReader extends AbstractMessageReader {
   private state: 'initial' | 'listening' | 'closed' = 'initial';
   private callback: DataCallback | null = null;
   private disposeListener: (() => void) | null = null;
-  private buffer: string = '';
+  private buffer = '';
 
-  constructor(private langId: string) {
+  constructor(
+    private readonly langId: string,
+    private readonly lspBridge: Pick<LspBridgeApi, 'onMessage'>
+  ) {
     super();
   }
 
@@ -19,7 +23,7 @@ export class IpcMessageReader extends AbstractMessageReader {
       this.state = 'listening';
       this.callback = callback;
 
-      this.disposeListener = window.lspBridge.onMessage((msg) => {
+      this.disposeListener = this.lspBridge.onMessage((msg) => {
         if (msg.langId === this.langId) {
           this.buffer += msg.data;
           this.processBuffer();
@@ -37,6 +41,7 @@ export class IpcMessageReader extends AbstractMessageReader {
         },
       };
     }
+
     throw new Error('Reader is closed');
   }
 
@@ -44,7 +49,7 @@ export class IpcMessageReader extends AbstractMessageReader {
     while (true) {
       const match = this.buffer.match(/Content-Length:\s*(\d+)\s*\r\n\r\n/);
       if (!match) {
-        break; // Not enough data for headers
+        break;
       }
 
       const headerLength = match[0].length;
@@ -60,11 +65,11 @@ export class IpcMessageReader extends AbstractMessageReader {
         try {
           const message = JSON.parse(messageString);
           this.callback?.(message);
-        } catch (err) {
-          this.fireError(err as Error);
+        } catch (error) {
+          this.fireError(error as Error);
         }
       } else {
-        break; // Not enough data for body
+        break;
       }
     }
   }

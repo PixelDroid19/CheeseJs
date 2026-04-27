@@ -9,12 +9,14 @@
 // LANGUAGES
 // ============================================================================
 
-export type Language = 'javascript' | 'typescript' | 'python';
+export type Language = string;
 
 export const SUPPORTED_LANGUAGES: Language[] = [
   'javascript',
   'typescript',
   'python',
+  'c',
+  'cpp',
 ];
 
 export function isValidLanguage(lang: string): lang is Language {

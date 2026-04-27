@@ -18,6 +18,8 @@
       "@cheesejs/execution/*": ["packages/execution/src/*"],
       "@cheesejs/frontend": ["packages/frontend/src/index.ts"],
       "@cheesejs/frontend/*": ["packages/frontend/src/*"],
+      "@cheesejs/languages": ["packages/languages/src/index.ts"],
+      "@cheesejs/languages/*": ["packages/languages/src/*"],
       "@cheesejs/package-management": [
         "packages/package-management/src/index.ts"
       ],
@@ -26,6 +28,8 @@
       "@cheesejs/runtime-shell/*": ["packages/runtime-shell/src/*"],
       "@cheesejs/settings": ["packages/settings/src/index.ts"],
       "@cheesejs/settings/*": ["packages/settings/src/*"],
+      "@cheesejs/themes": ["packages/themes/src/index.ts"],
+      "@cheesejs/themes/*": ["packages/themes/src/*"],
       "@cheesejs/ui": ["packages/ui/src/index.ts"],
       "@cheesejs/ui/*": ["packages/ui/src/*"],
       "@cheesejs/workbench": ["packages/workbench/src/index.ts"],

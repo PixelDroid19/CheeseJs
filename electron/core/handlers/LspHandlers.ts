@@ -7,18 +7,11 @@ import {
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn, ChildProcess } from 'node:child_process';
+import type { LspLanguageConfig } from '@cheesejs/core';
+import { getDefaultLspConfig } from '@cheesejs/languages';
 import { appLog } from '../logger.js';
 
 const activeLspProcesses = new Map<string, ChildProcess>();
-
-interface LspLanguageConfig {
-  name: string;
-  command: string;
-  args: string[];
-  fileExtensions: string[];
-  enabled: boolean;
-  initializationOptions?: Record<string, unknown>;
-}
 
 interface LspConfig {
   languages: Record<string, LspLanguageConfig>;
@@ -36,43 +29,7 @@ export function getLspConfigPath(): string {
   return path.join(app.getPath('userData'), 'lsp.json');
 }
 
-const DEFAULT_LSP_CONFIG: LspConfig = {
-  languages: {
-    javascript: {
-      name: 'JavaScript/TypeScript (tsls)',
-      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['typescript-language-server', '--stdio'],
-      fileExtensions: ['.js', '.jsx', '.ts', '.tsx'],
-      enabled: true,
-      initializationOptions: {
-        preferences: {
-          includeCompletionsForModuleExports: true,
-          includeCompletionsWithInsertText: true,
-        },
-      },
-    },
-    typescript: {
-      name: 'TypeScript (tsls)',
-      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['typescript-language-server', '--stdio'],
-      fileExtensions: ['.ts', '.tsx'],
-      enabled: true,
-      initializationOptions: {
-        preferences: {
-          includeCompletionsForModuleExports: true,
-          includeCompletionsWithInsertText: true,
-        },
-      },
-    },
-    python: {
-      name: 'Python (Pyright)',
-      command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      args: ['pyright-langserver', '--stdio'],
-      fileExtensions: ['.py'],
-      enabled: true,
-    },
-  },
-};
+const DEFAULT_LSP_CONFIG: LspConfig = getDefaultLspConfig();
 
 export function registerLspHandlers(): void {
   ipcMain.handle('get-lsp-config', async () => {

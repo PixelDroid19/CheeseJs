@@ -1,5 +1,5 @@
 import type { Monaco } from '@monaco-editor/react';
-import { themes } from '../themes';
+import { themes } from '@cheesejs/themes';
 import {
   configureMonaco as configureMonacoBase,
   setupMonacoEnvironment,

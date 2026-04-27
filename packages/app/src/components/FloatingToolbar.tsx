@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { FloatingToolbar as FrontendFloatingToolbar } from '@cheesejs/frontend';
+import { useRuntimeStatus } from '@cheesejs/runtime-shell';
 import { useCodeRunner } from '../hooks/useCodeRunner';
 import { useSettingsStore } from '../store/storeHooks';
-import { useRuntimeStatus } from '../hooks/useRuntimeStatus';
 import { useLanguageStore } from '../store/storeHooks';
 import { useEditorTabsStore } from '../store/storeHooks';
 import { usePackagesStore } from '../store/storeHooks';
@@ -15,7 +15,10 @@ export default function FloatingToolbar() {
   const toggleSettings = useSettingsStore((state) => state.toggleSettings);
   const currentLanguage = useLanguageStore((state) => state.currentLanguage);
   const { isLoading: isRuntimeLoading, message: runtimeMessage } =
-    useRuntimeStatus(currentLanguage === 'python' ? 'python' : 'javascript');
+    useRuntimeStatus(
+      currentLanguage === 'python' ? 'python' : 'javascript',
+      window.codeRunner
+    );
 
   const { tabs, activeTabId } = useEditorTabsStore();
   const activeTab = tabs.find((t) => t.id === activeTabId);

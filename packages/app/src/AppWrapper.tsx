@@ -1,6 +1,6 @@
 import { AppFrame } from '@cheesejs/frontend';
+import { themesConfig } from '@cheesejs/themes';
 import { useSettingsStore } from './store/storeHooks';
-import { themesConfig } from './themes';
 import ErrorBoundary from './components/ErrorBoundary';
 import { TitleBar } from './components/TitleBar';
 import App from './App';

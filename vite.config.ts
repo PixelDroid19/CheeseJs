@@ -14,12 +14,14 @@ const packageAliases = {
   '@cheesejs/editor': resolve(__dirname, 'packages/editor/src'),
   '@cheesejs/execution': resolve(__dirname, 'packages/execution/src'),
   '@cheesejs/frontend': resolve(__dirname, 'packages/frontend/src'),
+  '@cheesejs/languages': resolve(__dirname, 'packages/languages/src'),
   '@cheesejs/package-management': resolve(
     __dirname,
     'packages/package-management/src'
   ),
   '@cheesejs/runtime-shell': resolve(__dirname, 'packages/runtime-shell/src'),
   '@cheesejs/settings': resolve(__dirname, 'packages/settings/src'),
+  '@cheesejs/themes': resolve(__dirname, 'packages/themes/src'),
   '@cheesejs/ui': resolve(__dirname, 'packages/ui/src'),
   '@cheesejs/workbench': resolve(__dirname, 'packages/workbench/src'),
 } as const;
@@ -98,6 +100,22 @@ export default defineConfig(({ mode }) => ({
       {
         // Worker thread for Python execution
         entry: 'electron/workers/pythonExecutor.ts',
+        vite: {
+          resolve: {
+            alias: packageAliases,
+          },
+          build: {
+            rollupOptions: {
+              output: {
+                format: 'es',
+              },
+            },
+          },
+        },
+      },
+      {
+        // Worker thread for WASI C/C++ execution
+        entry: 'electron/workers/wasiExecutor.ts',
         vite: {
           resolve: {
             alias: packageAliases,

@@ -193,7 +193,7 @@ export async function getInputLanguage(page: Page): Promise<string> {
 
 export async function forceInputLanguage(
   page: Page,
-  language: 'javascript' | 'typescript' | 'python'
+  language: 'javascript' | 'typescript' | 'python' | 'c' | 'cpp'
 ): Promise<void> {
   await page.evaluate((lang) => {
     const w = window as unknown as {

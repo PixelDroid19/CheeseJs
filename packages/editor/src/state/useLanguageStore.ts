@@ -27,9 +27,6 @@ import {
   clearDetectionCache,
   getCacheKey,
   getCached,
-  DEFINITIVE_PYTHON_PATTERNS,
-  DEFINITIVE_TS_PATTERNS,
-  DEFINITIVE_JS_PATTERNS,
 } from '../languageDetection';
 
 // Re-export types for backward compatibility
@@ -117,46 +114,22 @@ export const createLanguageSlice: import('zustand').StateCreator<
    * For immediate UI feedback, prefer detectLanguageAsync for accuracy
    */
   detectLanguage: (content: string): DetectionResult => {
-    const trimmed = content?.trim() || '';
-
-    // Check definitive patterns first (highest priority)
-    for (const pattern of DEFINITIVE_PYTHON_PATTERNS) {
-      if (pattern.test(trimmed)) {
-        return {
-          monacoId: 'python',
-          confidence: 0.98,
-          isExecutable: true,
-        };
-      }
-    }
-
-    for (const pattern of DEFINITIVE_TS_PATTERNS) {
-      if (pattern.test(trimmed)) {
-        return {
-          monacoId: 'typescript',
-          confidence: 0.98,
-          isExecutable: true,
-        };
-      }
-    }
-
-    for (const pattern of DEFINITIVE_JS_PATTERNS) {
-      if (pattern.test(trimmed)) {
-        return {
-          monacoId: 'javascript',
-          confidence: 0.98,
-          isExecutable: true,
-        };
-      }
-    }
-
     // Check cache
     const cacheKey = getCacheKey(content);
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
     // Fallback to pattern-based detection
-    return patternBasedDetection(content);
+    return (
+      patternBasedDetection(content, {
+        currentLanguage: get().currentLanguage,
+      }) ?? {
+        monacoId: 'typescript',
+        confidence: 0.5,
+        isExecutable: true,
+        source: 'sticky',
+      }
+    );
   },
 
   /**
@@ -170,6 +143,7 @@ export const createLanguageSlice: import('zustand').StateCreator<
 
     const result = await detectWithML(
       content,
+      { currentLanguage: get().currentLanguage },
       (detecting) => {
         // Only update if version hasn't changed
         if (get().detectionVersion === versionAtStart) {

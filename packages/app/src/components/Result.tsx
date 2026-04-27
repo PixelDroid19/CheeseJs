@@ -5,13 +5,13 @@ import {
   PackagePrompts,
 } from '@cheesejs/package-management';
 import { ResultPanel } from '@cheesejs/runtime-shell';
+import { themes } from '@cheesejs/themes';
 import {
   useEditorTabsStore,
   usePackagesStore,
   usePythonPackagesStore,
   useSettingsStore,
 } from '../store/storeHooks';
-import { themes } from '../themes';
 import { Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { ConsoleInput } from './ConsoleInput';

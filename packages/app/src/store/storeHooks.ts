@@ -1,5 +1,11 @@
 import { useAppStore, type AppState } from './index';
 import { createScopedStoreHook } from '@cheesejs/core';
+import {
+  getExecutionLanguage,
+  getLanguageDisplayName,
+  getRuntimeProviderId,
+  isExecutableLanguage,
+} from '@cheesejs/languages';
 import { type HistoryState } from '@cheesejs/core/state/useHistoryStore';
 import {
   type PackageInfo,
@@ -23,26 +29,27 @@ import {
   type LanguageInfo,
   detectLanguageSync,
   detectLanguageAsync,
-  isLanguageExecutable,
   initializeLanguageDetection,
-  getLanguageDisplayName,
   setMonacoInstance,
 } from './useLanguageStore';
 import { type EditorTabsState, type EditorTab } from './useEditorTabsStore';
 import {
-  type LspState,
   type LspLanguageConfig,
   type LspConnectionStatus,
-} from './useLspStore';
+  type LspState,
+} from '@cheesejs/editor/state/useLspStore';
 
 export {
   detectLanguageSync,
   detectLanguageAsync,
-  isLanguageExecutable,
   initializeLanguageDetection,
+  getExecutionLanguage,
   getLanguageDisplayName,
+  getRuntimeProviderId,
   setMonacoInstance,
 };
+
+export { isExecutableLanguage };
 
 export type {
   SettingsState,

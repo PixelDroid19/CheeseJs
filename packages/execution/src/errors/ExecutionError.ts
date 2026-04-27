@@ -5,6 +5,8 @@
  * with categorization, source mapping, and user-friendly messages.
  */
 
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
+
 // ============================================================================
 // ERROR CATEGORIES
 // ============================================================================
@@ -70,7 +72,7 @@ export interface SerializedExecutionError {
   message: string;
   category: ErrorCategory;
   severity: ErrorSeverity;
-  language: 'javascript' | 'typescript' | 'python';
+  language: Language;
   originalMessage: string;
   friendlyMessage: string;
   location?: SourceLocation;
@@ -86,7 +88,7 @@ export interface SerializedExecutionError {
 export class ExecutionError extends Error {
   public readonly category: ErrorCategory;
   public readonly severity: ErrorSeverity;
-  public readonly language: 'javascript' | 'typescript' | 'python';
+  public readonly language: Language;
   public readonly originalMessage: string;
   public readonly friendlyMessage: string;
   public readonly location?: SourceLocation;
@@ -98,7 +100,7 @@ export class ExecutionError extends Error {
     message: string;
     category?: ErrorCategory;
     severity?: ErrorSeverity;
-    language?: 'javascript' | 'typescript' | 'python';
+    language?: Language;
     location?: SourceLocation;
     suggestions?: ErrorSuggestion[];
     stack?: string;
@@ -277,7 +279,7 @@ export class ExecutionError extends Error {
 export function detectErrorCategory(
   errorName: string,
   errorMessage: string,
-  _language: 'javascript' | 'typescript' | 'python'
+  _language: Language
 ): ErrorCategory {
   const lowerMessage = errorMessage.toLowerCase();
   const lowerName = errorName.toLowerCase();
@@ -403,7 +405,7 @@ export function parseErrorLocation(
 export function generateSuggestions(
   category: ErrorCategory,
   errorMessage: string,
-  language: 'javascript' | 'typescript' | 'python'
+  language: Language
 ): ErrorSuggestion[] {
   const suggestions: ErrorSuggestion[] = [];
 
@@ -468,7 +470,7 @@ export function generateSuggestions(
  */
 export function createExecutionError(
   error: unknown,
-  language: 'javascript' | 'typescript' | 'python' = 'javascript'
+  language: Language = 'javascript'
 ): ExecutionError {
   // Handle ExecutionError instances
   if (error instanceof ExecutionError) {

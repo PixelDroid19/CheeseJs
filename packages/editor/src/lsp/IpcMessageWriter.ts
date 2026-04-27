@@ -1,14 +1,18 @@
 import { AbstractMessageWriter, Message } from 'vscode-jsonrpc';
+import type { LspBridgeApi } from '@cheesejs/core';
 
 export class IpcMessageWriter extends AbstractMessageWriter {
-  private errorCount: number = 0;
+  private errorCount = 0;
 
-  constructor(private langId: string) {
+  constructor(
+    private readonly langId: string,
+    private readonly lspBridge: Pick<LspBridgeApi, 'sendMessage' | 'stop'>
+  ) {
     super();
   }
 
   public end(): void {
-    window.lspBridge.stop(this.langId);
+    this.lspBridge.stop(this.langId);
   }
 
   public write(msg: Message): Promise<void> {
@@ -16,7 +20,7 @@ export class IpcMessageWriter extends AbstractMessageWriter {
       const content = JSON.stringify(msg);
       const byteLength = new TextEncoder().encode(content).length;
       const headers = `Content-Length: ${byteLength}\r\n\r\n`;
-      window.lspBridge.sendMessage(this.langId, headers + content);
+      this.lspBridge.sendMessage(this.langId, headers + content);
       return Promise.resolve();
     } catch (error) {
       this.errorCount++;

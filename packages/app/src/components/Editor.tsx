@@ -3,16 +3,17 @@ import { useSettingsStore } from '../store/storeHooks';
 import { useLanguageStore, useLspStore } from '../store/storeHooks';
 import { useCodeRunner } from '../hooks/useCodeRunner';
 import { appEventBus } from '../events/appEventBus';
+import { createMonacoLspClient } from '@cheesejs/editor';
 import CodeEditor from '@cheesejs/editor/components/CodeEditor';
 import { configureMonaco } from '../utils/monaco-config';
 import { registerPythonLanguage } from '../lib/python';
 import { setupTypeAcquisition } from '../lib/ata';
 import { registerPackageCommands } from '../lib/monacoCommands';
-import {
-  startLspClient,
-  stopLspClient,
-  isLspClientActive,
-} from '../lib/lsp/monacoClient';
+
+const lspClient = createMonacoLspClient({
+  getLspBridge: () => window.lspBridge,
+  getLspConfig: () => window.lspConfig,
+});
 
 export default function CodeEditorAdapter() {
   const editorTabs = useEditorTabsStore();
@@ -82,9 +83,9 @@ export default function CodeEditorAdapter() {
       lsp={{
         languages,
         setLspStatus,
-        startClient: startLspClient,
-        stopClient: stopLspClient,
-        isClientActive: isLspClientActive,
+        startClient: lspClient.startLspClient,
+        stopClient: lspClient.stopLspClient,
+        isClientActive: lspClient.isLspClientActive,
       }}
     />
   );

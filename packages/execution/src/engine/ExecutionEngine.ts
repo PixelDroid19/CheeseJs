@@ -3,6 +3,7 @@ import type {
   ExecutionOptions,
   ExecutionResult,
 } from '@cheesejs/core/contracts/runner';
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
 import { getMetrics } from '@cheesejs/execution/metrics';
 import {
   createExecutionError,
@@ -19,7 +20,7 @@ export interface ExecutionCallbacks {
   }) => void;
   onComplete: (historyData: {
     code: string;
-    language: 'javascript' | 'typescript' | 'python';
+    language: Language;
     status: 'success' | 'error';
     executionTime: number;
   }) => void;
@@ -50,7 +51,7 @@ export class ExecutionSession {
     private deps: ExecutionEngineDependencies,
     public executionId: string,
     private code: string,
-    private language: 'javascript' | 'typescript' | 'python',
+    private language: Language,
     private callbacks: ExecutionCallbacks
   ) {}
 
@@ -197,7 +198,7 @@ export class ExecutionEngine {
     tabId: string,
     executionId: string,
     code: string,
-    language: 'javascript' | 'typescript' | 'python',
+    language: Language,
     options: ExecutionOptions,
     callbacks: ExecutionCallbacks
   ) {

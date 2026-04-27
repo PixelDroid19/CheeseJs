@@ -1,6 +1,6 @@
 import { AppearanceTab as SettingsAppearanceTab } from '@cheesejs/settings';
+import { themeOptions } from '@cheesejs/themes';
 import { useSettingsStore } from '../../../store/storeHooks';
-import { themeOptions } from '../../../themes';
 
 export function AppearanceTab() {
   const {

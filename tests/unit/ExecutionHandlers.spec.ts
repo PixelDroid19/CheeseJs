@@ -3,6 +3,14 @@ import { registerExecutionHandlers } from '../../electron/core/handlers/Executio
 import { WorkerPoolManager } from '../../electron/core/WorkerPoolManager';
 import { ipcMain } from 'electron';
 
+const { mockGetRuntimeProviderId } = vi.hoisted(() => ({
+  mockGetRuntimeProviderId: vi.fn((language: string) => {
+    if (language === 'python') return 'pyodide';
+    if (language === 'c' || language === 'cpp') return 'wasi-clang';
+    return 'node-vm';
+  }),
+}));
+
 // Mock electron ipcMain
 vi.mock('electron', () => ({
   ipcMain: {
@@ -11,14 +19,20 @@ vi.mock('electron', () => ({
   },
 }));
 
+vi.mock('@cheesejs/languages', () => ({
+  getRuntimeProviderId: mockGetRuntimeProviderId,
+}));
+
 // Mock WorkerPoolManager
 const mockPostMessage = vi.fn();
 const mockWorkerPool = {
   executeCode: vi.fn(),
   executePython: vi.fn(),
+  executeWasi: vi.fn(),
   cancelExecution: vi.fn(),
   isCodeWorkerReady: vi.fn(),
   isPythonWorkerReady: vi.fn(),
+  isWasiWorkerReady: vi.fn(),
   getPythonWorker: vi.fn(),
   resolveJSInput: vi.fn(),
   resolvePythonInput: vi.fn(),
@@ -45,6 +59,11 @@ function registerAndGetHandler(
 describe('ExecutionHandlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetRuntimeProviderId.mockImplementation((language: string) => {
+      if (language === 'python') return 'pyodide';
+      if (language === 'c' || language === 'cpp') return 'wasi-clang';
+      return 'node-vm';
+    });
   });
 
   it('should register expected IPC handlers', () => {
@@ -111,6 +130,47 @@ describe('ExecutionHandlers', () => {
     expect(mockTransformCode).not.toHaveBeenCalled();
     expect(mockWorkerPool.executePython).toHaveBeenCalled();
     expect(result).toEqual({ success: true, data: 'success' });
+  });
+
+  it('should handle C/C++ execution through WASI runtime', async () => {
+    const handler = registerAndGetHandler('execute-code');
+    (mockWorkerPool.executeWasi as any).mockResolvedValue('wasi-success');
+
+    const result = await handler(
+      {},
+      {
+        code: '#include <stdio.h>\nint main(){printf("hi\\n");return 0;}',
+        language: 'c',
+        id: 'c-test-id',
+        options: {},
+      }
+    );
+
+    expect(mockTransformCode).not.toHaveBeenCalled();
+    expect(mockWorkerPool.executeWasi).toHaveBeenCalled();
+    expect(result).toEqual({ success: true, data: 'wasi-success' });
+  });
+
+  it('should return error when runtime provider registration is missing', async () => {
+    const handler = registerAndGetHandler('execute-code');
+    mockGetRuntimeProviderId.mockReturnValueOnce('missing-provider');
+
+    const result = await handler(
+      {},
+      {
+        code: 'console.log("test")',
+        language: 'javascript',
+        id: 'missing-provider',
+        options: {},
+      }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: 'No runtime execution provider registered for missing-provider',
+    });
+    expect(mockWorkerPool.executeCode).not.toHaveBeenCalled();
+    expect(mockWorkerPool.executePython).not.toHaveBeenCalled();
   });
 
   it('should handle cancellation', () => {
@@ -301,6 +361,25 @@ describe('ExecutionHandlers', () => {
       expect(mockWorkerPool.isPythonWorkerReady).toHaveBeenCalled();
       expect(mockWorkerPool.isCodeWorkerReady).not.toHaveBeenCalled();
       expect(result).toEqual({ ready: false });
+    });
+
+    it('should return WASI worker readiness', async () => {
+      const handler = registerAndGetHandler('is-worker-ready');
+      (mockWorkerPool.isWasiWorkerReady as any).mockReturnValue(true);
+
+      const result = await handler({}, 'cpp');
+
+      expect(mockWorkerPool.isWasiWorkerReady).toHaveBeenCalled();
+      expect(result).toEqual({ ready: true });
+    });
+
+    it('should return error when readiness provider registration is missing', async () => {
+      const handler = registerAndGetHandler('is-worker-ready');
+      mockGetRuntimeProviderId.mockReturnValueOnce('missing-provider');
+
+      await expect(handler({}, 'javascript')).rejects.toThrow(
+        'No runtime execution provider registered for missing-provider'
+      );
     });
   });
 

@@ -1,3 +1,5 @@
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
+
 /**
  * Dependency Detector
  *
@@ -28,7 +30,7 @@ export interface DependencyDetectionResult {
   /** Dependencies that appear to be missing */
   missing: DetectedDependency[];
   /** Language of the code */
-  language: 'javascript' | 'typescript' | 'python';
+  language: Language;
 }
 
 // ============================================================================
@@ -498,7 +500,7 @@ export function detectPythonDependencies(code: string): DetectedDependency[] {
  */
 export async function checkInstalledPackages(
   dependencies: DetectedDependency[],
-  language: 'javascript' | 'typescript' | 'python'
+  language: Language
 ): Promise<DetectedDependency[]> {
   // Filter out built-ins first
   const externalDeps = dependencies.filter((d) => !d.isBuiltin);
@@ -549,14 +551,16 @@ export async function checkInstalledPackages(
  */
 export async function detectDependencies(
   code: string,
-  language: 'javascript' | 'typescript' | 'python'
+  language: Language
 ): Promise<DependencyDetectionResult> {
   let dependencies: DetectedDependency[];
 
   if (language === 'python') {
     dependencies = detectPythonDependencies(code);
-  } else {
+  } else if (language === 'javascript' || language === 'typescript') {
     dependencies = detectJSDependencies(code);
+  } else {
+    dependencies = [];
   }
 
   // Check which are installed

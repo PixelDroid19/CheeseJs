@@ -46,9 +46,16 @@ vi.mock('../store/storeHooks', () => ({
   ),
 }));
 
-vi.mock('../hooks/useRuntimeStatus', () => ({
-  useRuntimeStatus: () => ({ isLoading: false, message: null }),
-}));
+vi.mock('@cheesejs/runtime-shell', async () => {
+  const actual = await vi.importActual<
+    typeof import('@cheesejs/runtime-shell')
+  >('@cheesejs/runtime-shell');
+
+  return {
+    ...actual,
+    useRuntimeStatus: () => ({ isLoading: false, message: null }),
+  };
+});
 
 vi.mock('./SnippetsMenu', () => ({
   SnippetsMenu: () => <div data-testid="snippets-menu">Snippets</div>,
