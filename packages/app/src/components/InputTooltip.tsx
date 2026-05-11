@@ -1,4 +1,5 @@
 import { InputTooltipOverlay } from '@cheesejs/runtime-shell';
+import { hostBridge } from '../host/hostBridge';
 
 interface InputTooltipProps {
   /** Callback to get line position from editor */
@@ -8,7 +9,7 @@ interface InputTooltipProps {
 export function InputTooltip({ getLineTop }: InputTooltipProps) {
   return (
     <InputTooltipOverlay
-      codeRunner={window.codeRunner}
+      codeRunner={hostBridge.codeRunner}
       getLineTop={getLineTop}
     />
   );

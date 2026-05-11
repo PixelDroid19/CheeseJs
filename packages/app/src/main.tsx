@@ -10,5 +10,5 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   </React.StrictMode>
 );
 
-// Notify Electron preload that the app has loaded
+// Notify host preload/runtime shims that the app has loaded.
 postMessage({ payload: 'removeLoading' }, window.location.origin);

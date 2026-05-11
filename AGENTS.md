@@ -2,50 +2,66 @@
 
 ## Toolchain truth
 
-- Use `pnpm` (repo is pinned to `pnpm@10.30.0` in `package.json`; workspace now includes root app plus `packages/*`).
+- Use `pnpm` (repo is pinned to `pnpm@10.30.0` in `package.json`).
 - Use Node 20 when reproducing CI behavior (`.github/workflows/build.yml`).
-- Root README files show `npm` examples; prefer `pnpm` commands from scripts/CI.
+- Use Zero Native plus Zig for the native shell. Do not add another desktop shell.
 
-## Runtime map (entrypoints that matter)
+## Runtime map
 
 - Renderer app starts at `packages/app/src/main.tsx` -> `packages/app/src/AppWrapper.tsx` -> `packages/app/src/App.tsx`.
-- Electron main process starts at `electron/main.ts` (window creation, worker pool, IPC registration).
-- Renderer/main bridge is `electron/preload.ts` (defines `window.codeRunner`, `window.packageManager`, `window.pythonPackageManager`, `window.lspConfig`, `window.lspBridge`, `window.electronAPI`).
-- Package ownership is now centered under `packages/*`; renderer host composition lives in `packages/app/src/`.
+- Native shell starts at `src-native/main.zig`; reusable host setup lives in `src-native/runner.zig`.
+- Host access goes through `packages/app/src/host/hostBridge.ts` and the shared contract in `packages/core/src/contracts/hostBridge.ts`.
+- Browser/runtime fallback execution lives in `packages/app/src/host/browserRuntimeBridge.ts`.
+- Package ownership is centered under `packages/*`; renderer composition lives in `packages/app/src/`.
 
-## Verified dev commands
+## Verified commands
 
 - Install: `pnpm install`
+- Native host prerequisite check: `pnpm run native:check`
 - Dev app: `pnpm dev`
 - Lint: `pnpm lint`
 - Type-check: `pnpm type-check`
 - Format check: `pnpm format:check`
-- Unit tests (one-shot): `pnpm vitest run`
-- Single unit test file: `pnpm vitest run path/to/file.test.ts`
+- Unit tests: `pnpm vitest run`
 - Coverage gate: `pnpm test:coverage`
-- Built worker integration tests: `pnpm test:workers`
-- E2E (Playwright Electron): build first, then run tests
-  - `pnpm build:dist`
-  - `pnpm exec playwright test` (or pass a specific `tests/*.spec.ts` file)
+- Native headless tests: `pnpm run native:test`
+- Windows native cross-build from Linux: `pnpm run native:build:windows`
+- Windows native package from Linux: `pnpm run native:package:windows`
+- Native manifest validation: `pnpm run native:validate`
+- Native doctor: `pnpm run native:doctor`
+- Release build: `pnpm run build`
+- Native package: `pnpm run package:native`
+- Native package artifact check: `pnpm run native:package:check`
+- Bundle budget check: `pnpm run bundle:check`
+- Full release verification: `pnpm run release:check`
+- GitHub Actions platform evidence: `pnpm run ci:platforms:check`
+- E2E against built `dist`: `pnpm exec playwright test`
 
-## Gotchas that prevent common breakage
+## Architecture constraints
 
-- `pnpm quality` ends with `vitest` (watch mode locally). For non-interactive runs, use `pnpm vitest run` (or `CI=1 pnpm quality`).
-- Local builds need extra heap. Use repo scripts (`build:vite`, `build:dist`, `build`) instead of raw `vite build`.
-- Keep explicit `.js` import extensions in `electron/**/*.ts` local imports (ESM output expects this).
-- When changing IPC/preload APIs, update both implementation and renderer typings:
-  - main/preload side: `electron/preload.ts` and `electron/core/handlers/*`
-  - renderer typing side: `packages/app/src/types.d.ts` and related files under `packages/app/src/types/`
-- The AI and RAG subsystems have been removed from the active app/runtime; do not reintroduce old AI/knowledge-base renderer flows or Electron wiring unless explicitly requested.
-- Root legacy `src/` renderer shims have been removed; new renderer code belongs in `packages/app/src/` or another dedicated package, not in a recreated root `src/`.
-- Filesystem IPC is intentionally workspace-scoped and blocks sensitive files (`electron/core/handlers/FilesystemHandlers.ts`); preserve these restrictions.
-- `.env` loading for executed JS/Python code depends on Settings `workingDirectory` and is applied inside workers (`electron/workers/codeExecutor.ts`, `electron/workers/pythonExecutor.ts`).
+- Keep new renderer code in `packages/app/src/` or another dedicated package. Do not recreate root `src/` shims.
+- Keep host capabilities behind `HostBridge`; UI code should not read native globals directly.
+- Active executable runtimes are JavaScript, TypeScript, and Python. Other languages may be detected for editor support without promising execution.
+- AI/RAG is not part of the active runtime. Future assistant behavior must enter through extension contracts, not direct UI/runtime wiring.
+- Run `pnpm run arch:check` after changing package boundaries, host access, or extension capability definitions.
+- `native:test` intentionally uses `-Dplatform=null`; desktop web engines must not be required for headless native tests.
+
+## Build notes
+
+- The default native build uses Zero Native's system WebView route.
+- Linux requires GTK4 and WebKitGTK 6.0 development libraries. `pnpm run native:check` gives distro-specific install hints.
+- Do not use Chromium/CEF on Linux with Zero Native 0.1.9; its Linux CEF host is not a real long-lived WebView host.
+- `pnpm run native:cef` is only for optional macOS Chromium-backed builds.
+- Local builds need extra heap. Use repo scripts (`build:vite`, `build:frontend`, `build`) instead of raw `vite build`.
+- Packaging uses Zero Native artifacts under `release/<platform>/`; Windows may use the repo fallback directory writer if the host-side Zero Native package shortcut exits without an artifact. Do not restore Electron Builder release paths.
+- Keep the Vite entry script below the bundle budget. Heavy editor/runtime dependencies must stay lazy or vendor-split.
 
 ## Commit/CI constraints
 
 - Pre-commit hook runs `lint-staged` (`.husky/pre-commit`).
 - Commit messages must satisfy conventional commitlint (`.husky/commit-msg`, `commitlint.config.js`).
-- CI quality gate runs `lint` -> `type-check` -> `test:coverage` (then release job).
+- CI quality gate and local `pnpm run quality` run native prerequisite validation, manifest validation, Zero Native doctor diagnostics, lint, architecture, format, type-check, coverage, and native headless tests.
+- CI release matrix runs `pnpm run package:native` on Linux, macOS, and Windows runners. Use `pnpm run ci:platforms:check` after GitHub authentication is valid to verify the latest matrix run.
 
 ## Existing instruction files
 

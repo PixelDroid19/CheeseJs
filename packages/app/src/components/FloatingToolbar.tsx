@@ -9,6 +9,7 @@ import { usePackagesStore } from '../store/storeHooks';
 import { usePythonPackagesStore } from '../store/storeHooks';
 import { SnippetsMenu } from './SnippetsMenu';
 import { appEventBus } from '../events/appEventBus';
+import { hostBridge } from '../host/hostBridge';
 
 export default function FloatingToolbar() {
   const { runCode } = useCodeRunner();
@@ -17,7 +18,7 @@ export default function FloatingToolbar() {
   const { isLoading: isRuntimeLoading, message: runtimeMessage } =
     useRuntimeStatus(
       currentLanguage === 'python' ? 'python' : 'javascript',
-      window.codeRunner
+      hostBridge.codeRunner
     );
 
   const { tabs, activeTabId } = useEditorTabsStore();

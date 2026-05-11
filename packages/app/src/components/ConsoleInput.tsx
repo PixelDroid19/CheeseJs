@@ -1,5 +1,6 @@
 import { ConsoleInputPanel } from '@cheesejs/runtime-shell';
 import { useEditorTabsStore } from '../store/storeHooks';
+import { hostBridge } from '../host/hostBridge';
 
 export function ConsoleInput() {
   const { tabs, activeTabId, setTabPromptRequest } = useEditorTabsStore();
@@ -16,7 +17,7 @@ export function ConsoleInput() {
       onSubmit={(input) => {
         const targetExecutionId = promptExecutionId || activeTabId;
         if (targetExecutionId) {
-          window.codeRunner.sendJSInputResponse(targetExecutionId, input);
+          hostBridge.codeRunner?.sendJSInputResponse(targetExecutionId, input);
         }
         if (activeTabId) setTabPromptRequest(activeTabId, null);
       }}

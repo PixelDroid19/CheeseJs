@@ -1,14 +1,34 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import electron from 'vite-plugin-electron';
-import renderer from 'vite-plugin-electron-renderer';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
-const packageAliases = {
+function vendorChunk(id: string) {
+  if (!id.includes('node_modules')) return undefined;
+  if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {
+    return 'vendor-monaco';
+  }
+  if (
+    id.includes('monaco-languageclient') ||
+    id.includes('vscode-jsonrpc') ||
+    id.includes('vscode-languageclient') ||
+    id.includes('vscode-ws-jsonrpc') ||
+    id.includes('@vscode/')
+  ) {
+    return 'vendor-vscode';
+  }
+  if (id.includes('pyodide')) return 'vendor-pyodide';
+  if (id.includes('@babel/')) return 'vendor-babel';
+  if (id.includes('framer-motion')) return 'vendor-motion';
+  if (id.includes('react') || id.includes('scheduler')) return 'vendor-react';
+  if (id.includes('i18next')) return 'vendor-i18n';
+  return undefined;
+}
+
+export const packageAliases = {
   '@cheesejs/app': resolve(__dirname, 'packages/app/src'),
   '@cheesejs/core': resolve(__dirname, 'packages/core/src'),
   '@cheesejs/editor': resolve(__dirname, 'packages/editor/src'),
@@ -26,172 +46,28 @@ const packageAliases = {
   '@cheesejs/workbench': resolve(__dirname, 'packages/workbench/src'),
 } as const;
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   resolve: {
     alias: {
       ...packageAliases,
-      // Use path-browserify for browser environment
       path: 'path-browserify',
-      // Shim @emotion/is-prop-valid to avoid dynamic require issues
       '@emotion/is-prop-valid': resolve(
         __dirname,
         'packages/app/src/lib/shims/is-prop-valid.ts'
       ),
     },
   },
-  plugins: [
-    tailwindcss(),
-    react(),
-    electron([
-      {
-        // Main-Process entry file of the Electron App.
-        entry: 'electron/main.ts',
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              external: ['typescript', '@swc/core', '@swc/core-win32-x64-msvc'],
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-      {
-        entry: 'electron/preload.ts',
-        onstart(options) {
-          // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete,
-          // instead of restarting the entire Electron App.
-          options.reload();
-        },
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-      {
-        // Worker thread for code execution
-        entry: 'electron/workers/codeExecutor.ts',
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-      {
-        // Worker thread for Python execution
-        entry: 'electron/workers/pythonExecutor.ts',
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-      {
-        // Worker thread for WASI C/C++ execution
-        entry: 'electron/workers/wasiExecutor.ts',
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-      {
-        // SWC transpiler worker (dedicated worker for 20-70x faster transpilation)
-        entry: 'electron/workers/swcTranspilerWorker.ts',
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              external: ['@swc/core'],
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-      {
-        // SWC transpiler module (high-performance)
-        entry: 'electron/transpiler/swcTranspiler.ts',
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              external: ['@swc/core'],
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-
-      {
-        // Package manager module
-        entry: 'electron/packages/packageManager.ts',
-        vite: {
-          resolve: {
-            alias: packageAliases,
-          },
-          build: {
-            rollupOptions: {
-              output: {
-                format: 'es',
-              },
-            },
-          },
-        },
-      },
-    ]),
-    renderer(),
-  ],
-  // Drop debugger in production
-  esbuild: {
-    drop: mode === 'production' ? ['debugger'] : [],
-  },
+  plugins: [tailwindcss(), react()],
   server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+    watch: {
+      ignored: ['**/coverage/**', '**/dist/**', '**/zig-cache/**'],
+    },
     headers: {
-      // Content Security Policy for Electron renderer
       'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-src 'self' blob:; child-src 'self' blob:; worker-src 'self' blob:;",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss: http://127.0.0.1:*; frame-src 'self' blob:; child-src 'self' blob:; worker-src 'self' blob:;",
     },
   },
   define: {
@@ -207,15 +83,12 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: 'esnext',
-    // Disable modulepreload entirely to avoid preload warnings in Electron
     modulePreload: false,
+    outDir: 'dist',
     rollupOptions: {
       output: {
-        // Ensure framer-motion is properly chunked
-        manualChunks: {
-          'framer-motion': ['framer-motion'],
-        },
+        manualChunks: vendorChunk,
       },
     },
   },
-}));
+});

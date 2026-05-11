@@ -63,15 +63,36 @@ vi.mock('./SnippetsMenu', () => ({
 
 // Mock framer-motion
 vi.mock('framer-motion', () => {
-  const component = (props: React.ComponentPropsWithoutRef<'div'>) => (
-    <div {...props}>{props.children}</div>
-  );
+  type MotionMockProps<T> = T & {
+    animate?: unknown;
+    exit?: unknown;
+    initial?: unknown;
+    transition?: unknown;
+    whileHover?: unknown;
+    whileTap?: unknown;
+  };
+
+  const stripMotionProps = <T extends object>({
+    animate: _animate,
+    exit: _exit,
+    initial: _initial,
+    transition: _transition,
+    whileHover: _whileHover,
+    whileTap: _whileTap,
+    ...domProps
+  }: MotionMockProps<T>) => domProps;
+
+  const component = (props: React.ComponentPropsWithoutRef<'div'>) => {
+    const domProps = stripMotionProps(props);
+    return <div {...domProps}>{props.children}</div>;
+  };
   return {
     m: {
       div: component,
-      button: (props: React.ComponentPropsWithoutRef<'button'>) => (
-        <button {...props}>{props.children}</button>
-      ),
+      button: (props: React.ComponentPropsWithoutRef<'button'>) => {
+        const domProps = stripMotionProps(props);
+        return <button {...domProps}>{props.children}</button>;
+      },
     },
     AnimatePresence: ({ children }: { children: React.ReactNode }) => (
       <>{children}</>

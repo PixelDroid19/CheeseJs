@@ -1,0 +1,55 @@
+{
+  "packages": {
+    "core": [],
+    "themes": [],
+    "ui": [],
+    "languages": ["core"],
+    "execution": ["core", "execution"],
+    "editor": ["core", "languages", "editor"],
+    "runtime-shell": ["core"],
+    "workbench": [],
+    "frontend": ["core", "workbench"],
+    "package-management": ["core", "ui"],
+    "settings": ["core", "ui"],
+    "app": [
+      "core",
+      "editor",
+      "execution",
+      "frontend",
+      "languages",
+      "package-management",
+      "runtime-shell",
+      "settings",
+      "themes",
+      "ui",
+      "workbench"
+    ]
+  },
+  "hostGlobals": [
+    "window.codeRunner",
+    "window.packageManager",
+    "window.pythonPackageManager",
+    "window.lspConfig",
+    "window.lspBridge"
+  ],
+  "hostGlobalAllowPaths": [
+    "packages/app/src/host/",
+    "packages/app/src/types.d.ts",
+    "packages/package-management/src/bridges/packageManagement.ts",
+    "packages/app/src/__test__/",
+    "packages/app/src/components/*.test.tsx",
+    "packages/app/src/hooks/__tests__/"
+  ],
+  "bannedActiveImports": [
+    "electron",
+    "electron-log",
+    "vite-plugin-electron",
+    "vite-plugin-electron-renderer"
+  ],
+  "bannedActiveAiTerms": [
+    "openai",
+    "anthropic",
+    "knowledge-base",
+    "knowledgeBase"
+  ]
+}

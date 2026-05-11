@@ -26,8 +26,6 @@ updates:
           - 'minor'
           - 'patch'
     ignore:
-      - dependency-name: 'electron'
-        update-types: ['version-update:semver-major']
       - dependency-name: '@types/react'
         update-types: ['version-update:semver-major']
       - dependency-name: '@types/react-dom'

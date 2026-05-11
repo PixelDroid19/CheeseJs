@@ -12,26 +12,73 @@
 
 import type * as Monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-// Import from the new language detection module
+// Keep ML language detection off the startup path. The ML model is loaded via
+// dynamic import from detectLanguageAsync/initializeModel.
+import type { DetectionResult } from '../languageDetection/types';
+import type { LanguageInfo } from '../languageDetection/languages';
 import {
-  type DetectionResult,
-  type LanguageInfo,
-  patternBasedDetection,
-  detectWithML,
-  initializeMLModel,
-  isMLModelLoaded,
-  isMLModelLoading,
   getLanguageInfo as getLangInfo,
   isExecutable as checkExecutable,
   getDisplayName as getLangDisplayName,
+  toDetectionResult,
+} from '../languageDetection/languages';
+import {
   clearDetectionCache,
   getCacheKey,
   getCached,
-} from '../languageDetection';
+} from '../languageDetection/cache';
 
 // Re-export types for backward compatibility
 export type { DetectionResult, LanguageInfo };
 export { clearDetectionCache };
+
+function quickPatternDetection(
+  content: string,
+  currentLanguage: string
+): DetectionResult {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return toDetectionResult(currentLanguage, 0.5, 'sticky');
+  }
+
+  if (/^\s*#include\s*<iostream>/m.test(content) || /\bstd::/.test(content)) {
+    return toDetectionResult('cpp', 0.9, 'parser');
+  }
+
+  if (
+    /^\s*#include\s*<stdio\.h>/m.test(content) ||
+    /\bprintf\s*\(/.test(content)
+  ) {
+    return toDetectionResult('c', 0.86, 'parser');
+  }
+
+  if (
+    /\b(def|class)\s+[A-Za-z_]\w*\s*[:(]/.test(content) ||
+    /\bprint\s*\(/.test(content)
+  ) {
+    return toDetectionResult('python', 0.82, 'parser');
+  }
+
+  if (
+    /\b(interface|type|enum)\s+[A-Za-z_]\w*/.test(content) ||
+    /:\s*[A-Za-z_$][\w$<>,\s|&[\]]+\s*[=;,){}]/.test(content)
+  ) {
+    return toDetectionResult('typescript', 0.78, 'parser');
+  }
+
+  if (
+    /\b(console|document|window)\s*\./.test(content) ||
+    /\b(const|let|var|function)\b|=>/.test(content)
+  ) {
+    return toDetectionResult('javascript', 0.74, 'parser');
+  }
+
+  if (/^\s*[{[]/.test(trimmed)) {
+    return toDetectionResult('json', 0.65, 'parser');
+  }
+
+  return toDetectionResult(currentLanguage, 0.5, 'sticky');
+}
 
 // ============================================================================
 // TYPES
@@ -119,17 +166,7 @@ export const createLanguageSlice: import('zustand').StateCreator<
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    // Fallback to pattern-based detection
-    return (
-      patternBasedDetection(content, {
-        currentLanguage: get().currentLanguage,
-      }) ?? {
-        monacoId: 'typescript',
-        confidence: 0.5,
-        isExecutable: true,
-        source: 'sticky',
-      }
-    );
+    return quickPatternDetection(content, get().currentLanguage);
   },
 
   /**
@@ -141,6 +178,7 @@ export const createLanguageSlice: import('zustand').StateCreator<
     // Capture version at start of detection
     const versionAtStart = get().detectionVersion;
 
+    const { detectWithML } = await import('../languageDetection/mlDetection');
     const result = await detectWithML(
       content,
       { currentLanguage: get().currentLanguage },
@@ -194,6 +232,8 @@ export const createLanguageSlice: import('zustand').StateCreator<
 
     set({ isModelLoading: true });
 
+    const { initializeMLModel, isMLModelLoaded, isMLModelLoading } =
+      await import('../languageDetection/mlDetection');
     await initializeMLModel();
 
     set({

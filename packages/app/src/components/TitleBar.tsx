@@ -1,11 +1,12 @@
 import { TitleBar as FrontendTitleBar } from '@cheesejs/frontend';
+import { hostBridge } from '../host/hostBridge';
 
 export function TitleBar() {
   return (
     <FrontendTitleBar
-      onMinimize={() => window.electronAPI.minimizeApp()}
-      onMaximize={() => window.electronAPI.maximizeApp()}
-      onClose={() => window.electronAPI.closeApp()}
+      onMinimize={() => hostBridge.windowControls.minimizeApp()}
+      onMaximize={() => hostBridge.windowControls.maximizeApp()}
+      onClose={() => hostBridge.windowControls.closeApp()}
     />
   );
 }

@@ -8,14 +8,14 @@ import reactCompiler from 'eslint-plugin-react-compiler';
 
 export default [
   {
-    ignores: [
-      'dist',
-      'dist-electron',
-      'node_modules',
-      'coverage',
-      'electron/**/*.js',
-      'release',
-    ],
+    ignores: ['dist', 'dist-native', 'node_modules', 'coverage', 'release'],
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
+    },
   },
   js.configs.recommended,
   {

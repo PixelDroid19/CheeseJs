@@ -1,4 +1,5 @@
 import type { Language } from '@cheesejs/core/contracts/workerTypes';
+import { hostBridge } from '../../host/hostBridge';
 
 /**
  * Dependency Detector
@@ -512,8 +513,8 @@ export async function checkInstalledPackages(
   try {
     if (language === 'python') {
       // Check Python packages via Pyodide
-      if (typeof window !== 'undefined' && window.pythonPackageManager) {
-        const result = await window.pythonPackageManager.listInstalled();
+      if (hostBridge.pythonPackageManager) {
+        const result = await hostBridge.pythonPackageManager.listInstalled();
         if (result.success) {
           const installedSet = new Set(
             result.packages.map((p) => p.toLowerCase())
@@ -526,8 +527,8 @@ export async function checkInstalledPackages(
       }
     } else {
       // Check npm packages
-      if (typeof window !== 'undefined' && window.packageManager) {
-        const result = await window.packageManager.list();
+      if (hostBridge.packageManager) {
+        const result = await hostBridge.packageManager.list();
         if (result.success) {
           const installedSet = new Set(
             result.packages.map((p) => p.name.toLowerCase())

@@ -187,12 +187,12 @@ vi.mock('../store/storeHooks', () => ({
     getState: () => ({
       language: {
         isExecutableLanguage: (lang: string) =>
-          ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
+          ['javascript', 'typescript', 'python'].includes(lang),
       },
     }),
   },
   isExecutableLanguage: (lang: string) =>
-    ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
+    ['javascript', 'typescript', 'python'].includes(lang),
   getRuntimeProviderId: (lang: string) =>
     lang === 'python' ? 'pyodide' : 'node-vm',
 }));

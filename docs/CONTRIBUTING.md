@@ -22,8 +22,10 @@ Please read and follow our [Code of Conduct](../CODE_OF_CONDUCT.md).
 ### Prerequisites
 
 - **Node.js** 20.x or higher
-- **pnpm** 9.x or higher
+- **pnpm** 10.30.0
+- **Zig** 0.16.0 or higher
 - **Git**
+- **Linux native WebView**: WebKitGTK 6.0 development libraries (`webkitgtk-6.0` / `libwebkitgtk-6.0-dev`) and GTK4.
 
 ### Initial Setup
 
@@ -41,30 +43,38 @@ pnpm run dev
 
 ### Development Commands
 
-| Command                  | Description                      |
-| ------------------------ | -------------------------------- |
-| `pnpm run dev`           | Start Vite dev server + Electron |
-| `pnpm run build:dist`    | Build Vite only                  |
-| `pnpm run build:win`     | Build Windows installer          |
-| `pnpm test`              | Run Vitest tests                 |
-| `pnpm run test:ui`       | Run tests with UI                |
-| `pnpm run test:coverage` | Run tests with coverage          |
-| `pnpm run lint`          | Run ESLint                       |
-| `pnpm run lint:fix`      | Fix ESLint issues                |
-| `pnpm run format`        | Format code with Prettier        |
-| `pnpm run type-check`    | TypeScript type checking         |
-| `pnpm run quality`       | Run lint + format check + test   |
+| Command                           | Description                                                |
+| --------------------------------- | ---------------------------------------------------------- |
+| `pnpm run dev`                    | Start Zero Native dev flow                                 |
+| `pnpm run dev:web`                | Start the web frontend only                                |
+| `pnpm run dev:vite`               | Start only the Vite frontend                               |
+| `pnpm run native:check`           | Check native host prerequisites                            |
+| `pnpm run native:cef`             | Install macOS CEF runtime for optional Chromium builds     |
+| `pnpm run native:run`             | Build frontend and run native app                          |
+| `pnpm run native:test`            | Run headless Zig native tests                              |
+| `pnpm run native:doctor`          | Diagnose Zero Native platform prerequisites                |
+| `pnpm run package:native`         | Build and package the native artifact for this runner      |
+| `pnpm run native:package:windows` | Cross-build, package, and verify Windows output from Linux |
+| `pnpm run build:dist`             | Build Vite only                                            |
+| `pnpm run build`                  | Build frontend and native binary                           |
+| `pnpm test`                       | Run Vitest tests                                           |
+| `pnpm run test:ui`                | Run tests with UI                                          |
+| `pnpm run test:coverage`          | Run tests with coverage                                    |
+| `pnpm run lint`                   | Run ESLint                                                 |
+| `pnpm run lint:fix`               | Fix ESLint issues                                          |
+| `pnpm run format`                 | Format code with Prettier                                  |
+| `pnpm run type-check`             | TypeScript type checking                                   |
+| `pnpm run quality`                | Run lint, architecture, type, unit, and native checks      |
+| `pnpm run ci:platforms:check`     | Verify latest GitHub Actions Linux/macOS/Windows jobs      |
 
 ## Project Structure
 
 ```
-├── electron/           # Main process code
-│   ├── main.ts         # Entry point
-│   ├── preload.ts      # Context bridge
-│   ├── core/           # Core modules
-│   ├── transpiler/     # Code transformation
-│   ├── workers/        # Execution workers
-│   └── packages/       # Package management
+├── app.zon             # Zero Native manifest
+├── build.zig           # Native build graph
+├── src-native/         # Zig native host
+│   ├── main.zig        # App model, bridge, security
+│   └── runner.zig      # Runtime/platform bootstrap
 ├── packages/           # Package-based application architecture
 │   ├── app/            # Renderer app composition root
 │   ├── core/           # Shared contracts/state/events
@@ -76,7 +86,7 @@ pnpm run dev
 │   ├── settings/
 │   ├── ui/             # Shared UI atoms
 │   └── workbench/      # Layout/error chrome
-├── tests/              # E2E tests (Playwright)
+├── tests/              # Legacy and migration tests
 └── docs/               # Documentation
 ```
 
@@ -111,6 +121,9 @@ Use descriptive branch names:
 
    ```bash
    pnpm run quality
+   pnpm run package:native
+   pnpm run native:package:windows
+   pnpm run ci:platforms:check
    ```
 
 5. Commit your changes following [commit guidelines](#commit-guidelines)
@@ -220,7 +233,7 @@ Brief description of changes
 
 ### Unit Tests
 
-Located in `packages/app/src/__test__/` and `electron/**/__test__/`:
+Located under package-local `*.test.ts` and `*.test.tsx` files:
 
 ```bash
 # Run all tests

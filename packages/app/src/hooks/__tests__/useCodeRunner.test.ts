@@ -20,7 +20,7 @@ vi.mock('../../store/index', () => ({
       language: {
         detectLanguage: mockDetectLanguage,
         isExecutable: (lang: string) =>
-          ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
+          ['javascript', 'typescript', 'python'].includes(lang),
       },
       history: {
         addToHistory: mockAddToHistory,
@@ -117,13 +117,11 @@ vi.mock('../../store/storeHooks', () => ({
     }),
   }),
   isExecutableLanguage: (lang: string) =>
-    ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang),
+    ['javascript', 'typescript', 'python'].includes(lang),
   getLanguageDisplayName: (lang: string) =>
-    lang.charAt(0).toUpperCase() + lang.slice(1),
+    lang === 'cpp' ? 'C++' : lang.charAt(0).toUpperCase() + lang.slice(1),
   getExecutionLanguage: (lang: string) =>
-    ['javascript', 'typescript', 'python', 'c', 'cpp'].includes(lang)
-      ? lang
-      : undefined,
+    ['javascript', 'typescript', 'python'].includes(lang) ? lang : undefined,
 }));
 
 // ── Mock lib modules ───────────────────────────────────────────────────
@@ -683,11 +681,11 @@ describe('useCodeRunner', () => {
     );
   });
 
-  it('should detect c and pass it to execute', async () => {
+  it('should reject c execution in the native browser runtime', async () => {
     mockDetectLanguage.mockReturnValue({
       monacoId: 'c',
       confidence: 1,
-      isExecutable: true,
+      isExecutable: false,
     });
 
     const { result } = renderHook(() => useCodeRunner());
@@ -697,19 +695,26 @@ describe('useCodeRunner', () => {
     });
     await flushDebounce();
 
-    expect(mockWaitForReady).toHaveBeenCalledWith('c');
-    expect(mockExecute).toHaveBeenCalledWith(
-      expect.any(String),
-      '#include <stdio.h>\nint main(){return 0;}',
-      expect.objectContaining({ language: 'c' })
+    expect(mockWaitForReady).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockSetTabResults).toHaveBeenCalledWith(
+      'test-tab',
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'error',
+          element: expect.objectContaining({
+            content: expect.stringContaining('Unsupported Language: C'),
+          }),
+        }),
+      ])
     );
   });
 
-  it('should detect cpp and pass it to execute', async () => {
+  it('should reject cpp execution in the native browser runtime', async () => {
     mockDetectLanguage.mockReturnValue({
       monacoId: 'cpp',
       confidence: 1,
-      isExecutable: true,
+      isExecutable: false,
     });
 
     const { result } = renderHook(() => useCodeRunner());
@@ -719,11 +724,18 @@ describe('useCodeRunner', () => {
     });
     await flushDebounce();
 
-    expect(mockWaitForReady).toHaveBeenCalledWith('cpp');
-    expect(mockExecute).toHaveBeenCalledWith(
-      expect.any(String),
-      '#include <iostream>\nint main(){return 0;}',
-      expect.objectContaining({ language: 'cpp' })
+    expect(mockWaitForReady).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockSetTabResults).toHaveBeenCalledWith(
+      'test-tab',
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'error',
+          element: expect.objectContaining({
+            content: expect.stringContaining('Unsupported Language: C++'),
+          }),
+        }),
+      ])
     );
   });
 

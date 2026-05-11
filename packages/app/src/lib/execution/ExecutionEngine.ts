@@ -5,9 +5,10 @@ import {
   type ExecutionCallbacks,
   type ExecutionEngineDependencies,
 } from '@cheesejs/execution/engine/ExecutionEngine';
+import { hostBridge } from '../../host/hostBridge';
 
 const browserExecutionEngineDeps: ExecutionEngineDependencies = {
-  getCodeRunner: () => window.codeRunner,
+  getCodeRunner: () => hostBridge.codeRunner,
   defaultTimeout: DEFAULT_TIMEOUT,
 };
 

@@ -3,7 +3,7 @@ import type { Language } from '@cheesejs/core/contracts/workerTypes';
 
 export type LanguageId = string;
 export type PackageEcosystemId = 'npm' | 'pypi';
-export type RuntimeProviderId = 'node-vm' | 'pyodide' | 'wasi-clang';
+export type RuntimeProviderId = 'node-vm' | 'pyodide';
 export type ExecutionLanguageId = Language;
 
 export interface LanguageDescriptor {

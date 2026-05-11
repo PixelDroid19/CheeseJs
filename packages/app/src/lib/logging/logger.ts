@@ -3,7 +3,7 @@
  *
  * Extends the shared BaseLogger with browser-specific output:
  * - CSS-styled console output with emojis
- * - IPC bridge to Electron main process
+ * - Browser console output
  *
  * @see @cheesejs/core/logging/logger-base for shared types and base class
  */
@@ -115,32 +115,9 @@ class Logger extends BaseLogger<LoggerConfig> {
     }
   }
 
-  /**
-   * Send log entry to Electron main process via IPC
-   */
+  /** Host log forwarding hook. */
   protected sendToIpc(entry: LogEntry): void {
-    if (
-      typeof window !== 'undefined' &&
-      (
-        window as Window & {
-          electron?: {
-            ipcRenderer?: {
-              send: (channel: string, ...args: unknown[]) => void;
-            };
-          };
-        }
-      ).electron?.ipcRenderer
-    ) {
-      (
-        window as Window & {
-          electron?: {
-            ipcRenderer?: {
-              send: (channel: string, ...args: unknown[]) => void;
-            };
-          };
-        }
-      ).electron!.ipcRenderer!.send('log-entry', entry);
-    }
+    void entry;
   }
 }
 

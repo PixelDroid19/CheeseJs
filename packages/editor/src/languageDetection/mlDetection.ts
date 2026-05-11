@@ -11,4 +11,4 @@ export {
   initializeMLModel,
   isMLModelLoaded,
   isMLModelLoading,
-} from '@cheesejs/languages';
+} from '@cheesejs/languages/detection/mlDetection';

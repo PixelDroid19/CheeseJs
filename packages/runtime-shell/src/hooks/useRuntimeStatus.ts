@@ -32,8 +32,6 @@ export const useRuntimeStatusStore = create<RuntimeStatusState>((set, get) => ({
     ['javascript', defaultStatus('javascript')],
     ['typescript', defaultStatus('typescript')],
     ['python', defaultStatus('python')],
-    ['c', defaultStatus('c')],
-    ['cpp', defaultStatus('cpp')],
   ]),
 
   getStatus: (lang) => get().statuses.get(lang) || defaultStatus(lang),
@@ -54,14 +52,38 @@ export function useRuntimeStatus(
   language?: Language,
   codeRunner?: Pick<CodeRunner, 'isReady' | 'onResult'>
 ) {
-  const store = useRuntimeStatusStore();
+  const updateStatus = useRuntimeStatusStore((state) => state.updateStatus);
+  const selectedReady = useRuntimeStatusStore((state) =>
+    language ? state.isReady(language) : false
+  );
+  const selectedLoading = useRuntimeStatusStore((state) =>
+    language ? state.isLoading(language) : false
+  );
+  const selectedMessage = useRuntimeStatusStore((state) =>
+    language ? state.getLoadingMessage(language) : undefined
+  );
+  const selectedStatus = useRuntimeStatusStore((state) =>
+    language ? state.getStatus(language) : undefined
+  );
+  const pythonStatus = useRuntimeStatusStore((state) =>
+    state.getStatus('python')
+  );
+  const javascriptStatus = useRuntimeStatusStore((state) =>
+    state.getStatus('javascript')
+  );
+  const typescriptStatus = useRuntimeStatusStore((state) =>
+    state.getStatus('typescript')
+  );
+  const isPythonLoading = useRuntimeStatusStore((state) =>
+    state.isLoading('python')
+  );
 
   useEffect(() => {
     const checkPythonReady = async () => {
       try {
         const isReady = await codeRunner?.isReady('python');
         if (isReady) {
-          store.updateStatus('python', {
+          updateStatus('python', {
             loading: false,
             ready: true,
             message: undefined,
@@ -73,7 +95,7 @@ export function useRuntimeStatus(
     };
 
     void checkPythonReady();
-  }, [codeRunner, store]);
+  }, [codeRunner, updateStatus]);
 
   useEffect(() => {
     const handleStatus = (result: { type: string; data?: unknown }) => {
@@ -82,13 +104,13 @@ export function useRuntimeStatus(
         const message = data?.message || 'Loading...';
 
         if (message.toLowerCase().includes('ready')) {
-          store.updateStatus('python', {
+          updateStatus('python', {
             loading: false,
             ready: true,
             message: undefined,
           });
         } else {
-          store.updateStatus('python', {
+          updateStatus('python', {
             loading: true,
             ready: false,
             message,
@@ -104,23 +126,23 @@ export function useRuntimeStatus(
     return () => {
       unsubscribe?.();
     };
-  }, [codeRunner, store]);
+  }, [codeRunner, updateStatus]);
 
   if (language) {
     return {
-      isReady: store.isReady(language),
-      isLoading: store.isLoading(language),
-      message: store.getLoadingMessage(language),
-      status: store.getStatus(language),
+      isReady: selectedReady,
+      isLoading: selectedLoading,
+      message: selectedMessage,
+      status: selectedStatus,
     };
   }
 
   return {
-    python: store.getStatus('python'),
-    javascript: store.getStatus('javascript'),
-    typescript: store.getStatus('typescript'),
-    isAnyLoading: store.isLoading('python'),
-    updateStatus: store.updateStatus,
+    python: pythonStatus,
+    javascript: javascriptStatus,
+    typescript: typescriptStatus,
+    isAnyLoading: isPythonLoading,
+    updateStatus,
   };
 }
 

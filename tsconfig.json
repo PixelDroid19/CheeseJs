@@ -5,7 +5,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "types": ["vitest/globals", "node", "electron"],
+    "types": ["vitest/globals", "node"],
     "baseUrl": ".",
     "paths": {
       "@cheesejs/app": ["packages/app/src/index.ts"],
@@ -52,6 +52,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["electron", "shared", "packages"],
+  "include": ["packages"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -7,9 +7,7 @@ export interface TitleBarProps {
   statusLabel?: string;
 }
 
-/**
- * Shared Electron title bar chrome for the renderer shell.
- */
+/** Shared native title bar chrome for the renderer shell. */
 export function TitleBar({
   onClose,
   onMaximize,

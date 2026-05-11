@@ -15,10 +15,11 @@ import {
 import { Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { ConsoleInput } from './ConsoleInput';
+import { hostBridge } from '../host/hostBridge';
 
-const npmBridge = createNpmPackageBridge(() => window.packageManager);
+const npmBridge = createNpmPackageBridge(() => hostBridge.packageManager);
 const pythonBridge = createPythonPackageBridge(
-  () => window.pythonPackageManager
+  () => hostBridge.pythonPackageManager
 );
 
 function ResultDisplay() {

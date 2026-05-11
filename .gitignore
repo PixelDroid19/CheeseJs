@@ -10,7 +10,13 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-dist-electron
+dist-native
+coverage
+.zig-cache
+zig-cache
+zig-out
+zig-pkg
+third_party/cef/
 release
 temp_cache
 *.local

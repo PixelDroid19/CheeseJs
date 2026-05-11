@@ -8,6 +8,7 @@ import {
 import { useAppStore } from '../store/index';
 import { executionEngine } from '../lib/execution/ExecutionEngine';
 import { useEffect, useCallback } from 'react';
+import { hostBridge } from '../host/hostBridge';
 
 let executionCounter = 0;
 const executionToTabMap = new Map<string, string>();
@@ -57,9 +58,9 @@ export function useCodeRunner() {
 
   // Listen for JS input requests (synchronous prompt)
   useEffect(() => {
-    if (!window.codeRunner?.onJSInputRequest) return;
+    if (!hostBridge.codeRunner?.onJSInputRequest) return;
 
-    const unsubscribe = window.codeRunner.onJSInputRequest((request) => {
+    const unsubscribe = hostBridge.codeRunner.onJSInputRequest((request) => {
       const mappedTabId = getMappedTabId(request.id);
       const fallbackTabId = useEditorTabsStore
         .getState()
@@ -116,7 +117,7 @@ export function useCodeRunner() {
         setTabResults(callerTabId, [
           {
             element: {
-              content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript, Python, C, and C++ code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python, c, cpp`,
+              content: `❌ Unsupported Language: ${getLanguageDisplayName(currentLang)} \n\nThis editor can execute JavaScript, TypeScript, and Python code.\n\nDetected language: ${currentLang} \nSupported languages: javascript, typescript, python`,
             },
             type: 'error',
           },

@@ -9,10 +9,11 @@ import { configureMonaco } from '../utils/monaco-config';
 import { registerPythonLanguage } from '../lib/python';
 import { setupTypeAcquisition } from '../lib/ata';
 import { registerPackageCommands } from '../lib/monacoCommands';
+import { hostBridge } from '../host/hostBridge';
 
 const lspClient = createMonacoLspClient({
-  getLspBridge: () => window.lspBridge,
-  getLspConfig: () => window.lspConfig,
+  getLspBridge: () => hostBridge.lspBridge,
+  getLspConfig: () => hostBridge.lspConfig,
 });
 
 export default function CodeEditorAdapter() {

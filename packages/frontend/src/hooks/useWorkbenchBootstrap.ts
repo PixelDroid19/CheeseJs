@@ -12,7 +12,7 @@ export interface WorkbenchBootstrapOptions {
 
 /**
  * Wires renderer bootstrap concerns into the shared frontend package while the
- * host keeps ownership of Electron-specific services.
+ * host keeps ownership of native services.
  */
 export function useWorkbenchBootstrap({
   eventBus,

@@ -30,6 +30,7 @@ import { SnippetsTab } from './tabs/SnippetsTab';
 import { CompilationTab } from './tabs/CompilationTab';
 import { FormattingTab } from './tabs/FormattingTab';
 import { LspTab } from './tabs/LspTab';
+import { hostBridge } from '../../host/hostBridge';
 
 type Tab =
   | 'general'
@@ -42,9 +43,9 @@ type Tab =
   | 'lsp'
   | 'advanced';
 
-const npmBridge = createNpmPackageBridge(() => window.packageManager);
+const npmBridge = createNpmPackageBridge(() => hostBridge.packageManager);
 const pythonBridge = createPythonPackageBridge(
-  () => window.pythonPackageManager
+  () => hostBridge.pythonPackageManager
 );
 
 export default function Settings() {
