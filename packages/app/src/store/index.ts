@@ -46,6 +46,7 @@ import {
   type EditorTabsState,
   partializeEditorTabs,
 } from './useEditorTabsStore';
+import { hostBridge } from '../host/hostBridge';
 
 export interface AppState {
   settings: SettingsState;
@@ -110,7 +111,7 @@ export const useAppStore = create<AppState>()(
           set as never,
           get as never,
           'lsp',
-          createLspSlice({ getLspConfig: () => window.lspConfig })
+          createLspSlice({ getLspConfig: () => hostBridge.lspConfig })
         ),
       }),
       {

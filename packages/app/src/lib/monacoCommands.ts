@@ -7,6 +7,7 @@ import {
 } from '@cheesejs/editor/services/monacoPackageCommands';
 import { usePackagesStore } from '../store/storeHooks';
 import { usePythonPackagesStore } from '../store/storeHooks';
+import { hostBridge } from '../host/hostBridge';
 
 export function registerPackageCommands(
   monaco: Monaco,
@@ -16,9 +17,9 @@ export function registerPackageCommands(
   registerPackageCommandsBase(monaco, editorInstance, runCode, {
     npmStore: usePackagesStore,
     pythonStore: usePythonPackagesStore,
-    packageManager: window.packageManager,
-    pythonPackageManager: window.pythonPackageManager,
-    openExternal: (url: string) => window.open(url, '_blank'),
+    packageManager: hostBridge.packageManager,
+    pythonPackageManager: hostBridge.pythonPackageManager,
+    openExternal: hostBridge.external.openExternal,
   });
 }
 

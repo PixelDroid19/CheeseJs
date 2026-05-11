@@ -1,0 +1,23 @@
+.{
+    .name = .cheesejs,
+    .fingerprint = 0xeb7cb9759c0a4db8,
+    .version = "1.1.0",
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .zero_native = .{
+            .url = "https://github.com/vercel-labs/zero-native/archive/refs/tags/v0.1.9.tar.gz",
+            .hash = "zero_native-0.1.0-qoHd46Y8IQCXsec-JmMzenjMXNLaAd1k-XMb4agjP3Sj",
+        },
+    },
+    .paths = .{
+        "app.zon",
+        "assets",
+        "build.zig",
+        "build.zig.zon",
+        "index.html",
+        "packages",
+        "public",
+        "src-native",
+        "vite.config.ts",
+    },
+}

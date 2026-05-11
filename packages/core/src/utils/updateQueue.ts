@@ -1,5 +1,5 @@
 /**
- * Limitador de ráfagas para actualizaciones asincrónicas en la UI de React/Electron.
+ * Limitador de ráfagas para actualizaciones asincrónicas en la UI de React.
  * Especial para Text Streaming super rápido donde iterar renderizados puede colgar la app.
  */
 

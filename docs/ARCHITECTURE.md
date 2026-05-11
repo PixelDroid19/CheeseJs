@@ -1,226 +1,104 @@
 # CheeseJS Architecture
 
-This document describes the technical architecture of CheeseJS, an Electron-based code playground for JavaScript, TypeScript, and Python.
+CheeseJS is now organized as a Zero Native application with a React/Vite workbench and a small Zig host. The active app is intentionally layered: product features live in packages, native capability is exposed through explicit bridge contracts, and optional future systems such as assistants or package/runtime extensions must enter through extension points instead of directly wiring themselves into the UI.
 
-## Overview
-
-CheeseJS uses a **three-process model** to ensure safe code execution and responsive UI:
+## Runtime Shape
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         User Interface                               │
-│  ┌─────────────────┐  ┌──────────────────┐  ┌───────────────────┐   │
-│  │  Monaco Editor  │  │  Result Display  │  │  Package Manager  │   │
-│  └────────┬────────┘  └────────▲─────────┘  └─────────┬─────────┘   │
-│           │                    │                      │              │
-│           ▼                    │                      ▼              │
-│  ┌─────────────────────────────┴─────────────────────────────────┐  │
-│  │                     Renderer Process (React)                   │  │
-│  │  • Zustand State Management                                    │  │
-│  │  • Language Detection (ML-based)                               │  │
-│  │  • Code Transformation (Babel plugins)                         │  │
-│  └────────────────────────────┬──────────────────────────────────┘  │
-└───────────────────────────────┼──────────────────────────────────────┘
-                                │ IPC (preload.ts)
-┌───────────────────────────────┼──────────────────────────────────────┐
-│                               ▼                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │                     Main Process (Electron)                      │ │
-│  │  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────┐  │ │
-│  │  │ WorkerPoolManager│  │   IPCHandlers    │  │ WindowManager │  │ │
-│  │  └────────┬─────────┘  └────────┬─────────┘  └───────────────┘  │ │
-│  │           │                     │                                │ │
-│  │           ▼                     ▼                                │ │
-│  │  ┌─────────────────────────────────────────────────────────────┐│ │
-│  │  │               Transpiler (TS or SWC)                        ││ │
-│  │  │  • Code transformation (debug injection, loop protection)   ││ │
-│  │  │  • Shared transforms via codeTransforms.ts                  ││ │
-│  │  └─────────────────────────────────────────────────────────────┘│ │
-│  └─────────────────────────────────────────────────────────────────┘ │
-│                        Main Process (electron/main.ts)               │
-└───────────────────────────────┬──────────────────────────────────────┘
-                                │ Worker Threads
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-┌───────────────────┐  ┌───────────────────┐  ┌───────────────────┐
-│  JS/TS Worker     │  │  Python Worker    │  │  SWC Worker       │
-│  (codeExecutor)   │  │  (pythonExecutor) │  │  (transpiler)     │
-│                   │  │                   │  │                   │
-│  • Node.js VM     │  │  • Pyodide WASM   │  │  • Fast transpile │
-│  • Sandbox        │  │  • micropip       │  │                   │
-│  • SmartCache     │  │  • Memory Mgmt    │  │                   │
-└───────────────────┘  └───────────────────┘  └───────────────────┘
-```
+src-native/                  Zig native host
+  main.zig                   App model, bridge policies, security
+  runner.zig                 Runtime/platform bootstrap
+  platform/                  Local native adapters needed for platform fixes
 
-## Process Communication
-
-### Renderer → Main (IPC)
-
-Communication from the React UI to the main process uses the `electronAPI` bridge defined in `electron/preload.ts`:
-
-```typescript
-// In renderer
-window.electronAPI.executeCode({
-  id: 'exec-123',
-  code: '
-  language: 'javascript',
-  options: { timeout: 30000 }
-});
-```
-
-### Main → Workers (postMessage)
-
-The main process communicates with worker threads via `postMessage`:
-
-```typescript
-// In main process
-codeWorker.postMessage({
-  type: 'execute',
-  id: 'exec-123',
-  code: transformedCode,
-  options: { timeout: 30000 },
-});
-```
-
-### Workers → Main → Renderer
-
-Results flow back through the chain:
-
-1. Worker sends result via `parentPort.postMessage()`
-2. Main process receives and forwards via `win.webContents.send()`
-3. Renderer receives via `window.electronAPI.onExecutionResult()`
-
-## Key Modules
-
-### Core Modules (`electron/core/`)
-
-- **WorkerPoolManager**: Manages worker lifecycle, execution queuing, and cancellation
-- **IPCHandlers**: Centralized IPC handler registration
-- **WindowManager**: BrowserWindow creation and management
-
-### Transpiler (`electron/transpiler/`)
-
-- **tsTranspiler.ts**: TypeScript Compiler API-based transpilation
-- **swcTranspiler.ts**: SWC-based transpilation (20-70x faster)
-- **codeTransforms.ts**: Shared transformation logic:
-  - `transformConsoleTodebug()`: Replace console.\* with debug()
-  - `addLoopProtection()`: Inject iteration limits
-  - `wrapTopLevelExpressions()`: Auto-display results
-  - `applyMagicComments()`: Process //? annotations
-
-### Workers (`electron/workers/`)
-
-- **codeExecutor.ts**: JavaScript/TypeScript execution in VM sandbox
-- **pythonExecutor.ts**: Python execution via Pyodide WASM
-- **SmartScriptCache.ts**: LRU-K cache for compiled scripts
-- **MemoryManager.ts**: Memory monitoring and cleanup
-
-### State Management (`packages/app/src/store/`)
-
-All stores use Zustand with persistence:
-
-| Store                    | Purpose                           |
-| ------------------------ | --------------------------------- |
-| `useLanguageStore`       | Language detection, Monaco config |
-| `useSettingsStore`       | User preferences                  |
-| `usePackagesStore`       | npm package state                 |
-| `usePythonPackagesStore` | Python package state              |
-| `useSnippetsStore`       | Saved code snippets               |
-
-### Renderer Libraries (`packages/app/src/lib/`)
-
-Renderer-side utilities and adapters:
-
-- **LanguageDetectionService.ts**: Deferred/async language detection orchestration
-- **execution/**: Browser-side execution engine adapter
-- **lsp/**: Renderer-side Monaco LSP bridge utilities
-- **python/**: Renderer-side Python service helpers
-
-## Code Execution Flow
-
-```
-1. User writes code in Monaco Editor
-          │
-2. useCodeRunner hook triggers execution
-          │
-3. Language detected (ML or pattern-based)
-          │
-4. IPC: execute-code → Main Process
-          │
-5. Code transformed (transpile + inject debug/loop protection)
-          │
-6. Worker executes code in sandbox
-          │
-7. Results sent back through IPC chain
-          │
-8. Results displayed inline via Result component
-```
-
-## Security Model
-
-### VM Sandbox (JavaScript/TypeScript)
-
-```javascript
-const context = vm.createContext({
-  console: customConsole,
-  debug: debugFunction,
-  require: restrictedRequire,
-  // No access to process, fs, etc.
-});
-```
-
-### Python Sandbox
-
-Pyodide runs in WASM, providing natural isolation. Additional restrictions:
-
-- No direct filesystem access
-- Network limited to CORS-enabled endpoints
-- Memory limits enforced
-
-## Performance Optimizations
-
-1. **Script Caching**: `SmartScriptCache` uses LRU-K with 50MB memory limit
-2. **Worker Pooling**: Workers persist across executions
-3. **Lazy Loading**: Heavy components loaded on demand
-4. **SWC Option**: 20-70x faster transpilation available
-
-## Directory Structure
-
-```
-electron/
-├── main.ts              # Main process entry
-├── preload.ts           # Context bridge
-├── core/                # Core modules (NEW)
-│   ├── WorkerPoolManager.ts
-│   ├── IPCHandlers.ts
-│   └── WindowManager.ts
-├── transpiler/          # Code transformation
-│   ├── tsTranspiler.ts
-│   ├── swcTranspiler.ts
-│   └── codeTransforms.ts  # Shared transforms (NEW)
-├── workers/             # Execution workers
-│   ├── codeExecutor.ts
-│   ├── pythonExecutor.ts
-│   └── SmartScriptCache.ts
-└── packages/            # Package management
-    └── packageManager.ts
+app.zon                      Zero Native manifest
+build.zig(.zon)              Zig build graph and zero-native dependency
 
 packages/
-├── app/                 # Renderer composition root
-│   └── src/
-│       ├── App.tsx
-│       ├── components/
-│       ├── hooks/
-│       ├── store/
-│       ├── lib/
-│       └── themes/
-├── core/                # Lowest shared contracts/state/events
-├── editor/              # Monaco/editor functionality
-├── execution/           # Execution engine/runtime primitives
-├── frontend/            # Shell composition primitives
-├── package-management/  # Package UI + prompt logic
-├── runtime-shell/       # Result/input execution UX
-├── settings/            # Settings dialog + tabs
-├── ui/                  # Shared UI atoms
-└── workbench/           # Layout/error chrome
+  core/                      contracts, state primitives, extension registry
+  languages/                 language descriptors and detection
+  execution/                 execution engine contracts and metrics
+  editor/                    Monaco editor integration
+  runtime-shell/             result and input surfaces
+  package-management/        package UI/bridges
+  settings/                  settings tabs
+  frontend/                  application shell components
+  workbench/                 layout/error boundaries
+  app/                       composition root and host adapters
 ```
+
+## Host Boundary
+
+The renderer does not call native globals directly. It goes through `packages/app/src/host/hostBridge.ts`, which selects the available host:
+
+- Zero Native: `window.zero.invoke()` and built-in window commands.
+- Browser/test fallback: in-browser JavaScript/TypeScript worker runner and Pyodide-backed Python execution.
+- Legacy test globals: only where tests inject `window.codeRunner` or package-manager mocks.
+
+The shared host contract is `packages/core/src/contracts/hostBridge.ts`. New native features must add a contract first, then implement a host adapter, then consume the adapter from UI packages.
+
+## Zero Native Policy
+
+`app.zon` is the source of truth for native permissions and navigation:
+
+- `web_engine = "system"` is the default because it is the supported cross-platform Zero Native route.
+- Linux native builds use WebKitGTK 6.0. Run `pnpm run native:check` before `pnpm dev` to verify host libraries.
+- Linux links `src-native/platform/linux_gtk_host.c`, a local Zero Native 0.1.9 adapter copy. It keeps `GtkApplication` non-unique so local dev sessions create a resident window instead of exiting after DBus single-instance handoff.
+- Windows uses the Zero Native system host path. `src-native/platform/windows_webview2_host.cpp` is a local adapter copy with forward declarations required for Windows cross-compilation on Zig/clang.
+- Chromium/CEF is not used on Linux in this repo. Zero Native 0.1.9's Linux CEF host is not a real long-lived WebView host, so using it would produce a process that starts and shuts down immediately.
+- macOS can opt into Chromium/CEF with `-Dweb-engine=chromium` and `pnpm run native:cef` when a bundled Chromium runtime is desired.
+- Dev origin is `http://127.0.0.1:5173`.
+- Production origin is `zero://app`.
+- Bridge commands are default-deny and must be listed in `app.zon`.
+- Window permission is scoped to the built-in close command.
+
+## Startup Performance Policy
+
+The Vite entry script must stay small enough for the native WebView startup path. Heavy subsystems are split out:
+
+- Monaco editor/runtime payloads load through lazy editor chunks.
+- Parser and ML language detection are kept off the synchronous startup path.
+- Pyodide loads only when Python execution or package management needs it.
+
+`pnpm run bundle:check` enforces a 250 KiB budget on the entry script referenced by `dist/index.html`.
+
+## Extension Points
+
+`packages/core/src/extensions/extensionRegistry.ts` defines the first stable extension registry. Current capabilities are:
+
+- `runtime`
+- `language`
+- `editor-command`
+- `settings-tab`
+- `package-manager`
+- `theme`
+- `assistant`
+
+The `assistant` capability is only a future extension point. There is no active AI/RAG runtime wiring in the app.
+
+## Validation
+
+Use these commands for the active architecture:
+
+```bash
+pnpm run arch:check
+pnpm run type-check
+pnpm vitest run
+pnpm run native:test
+pnpm exec zero-native validate app.zon
+pnpm run native:doctor
+pnpm run native:build:windows
+pnpm run build
+pnpm run package:native
+pnpm run bundle:check
+pnpm exec playwright test
+```
+
+`native:test` uses `/tmp/cheesejs-zig-cache` because this checkout may live on an external filesystem where Zig's default atomic cache rename can fail.
+
+From Linux, Windows compile coverage is available with:
+
+```bash
+pnpm run native:build:windows
+```
+
+macOS package verification must run on a macOS host or CI runner because Apple frameworks such as WebKit and AppKit are not available on Linux.

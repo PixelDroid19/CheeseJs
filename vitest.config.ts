@@ -9,16 +9,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './packages/app/src/__test__/setup.ts',
     include: [
+      'packages/core/src/**/*.{test,spec}.{ts,tsx}',
       'packages/app/src/**/*.{test,spec}.{ts,tsx}',
+      'packages/editor/src/**/*.{test,spec}.{ts,tsx}',
       'tests/unit/**/*.{test,spec}.{ts,tsx}',
-      'electron/**/*.{test,spec}.{ts,tsx}',
     ],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      'tests/*.spec.ts',
-      'electron/workers/__test__/workers.test.ts',
-    ],
+    exclude: ['**/node_modules/**', '**/dist/**', 'tests/*.spec.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
@@ -30,6 +26,7 @@ export default defineConfig({
         'packages/app/src/components/PackagePrompts.tsx',
         'packages/app/src/components/Result.tsx',
         'packages/app/src/hooks/useCodeRunner.ts',
+        'packages/app/src/host/hostBridge.ts',
         'packages/app/src/lib/execution/ExecutionEngine.ts',
         'packages/app/src/store/index.ts',
       ],

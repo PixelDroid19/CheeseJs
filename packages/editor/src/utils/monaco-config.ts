@@ -1,7 +1,7 @@
 import type { Monaco } from '@monaco-editor/react';
 import type { editor, languages } from 'monaco-editor';
 
-// Import Monaco workers using Vite's worker syntax with inline to avoid path issues in Electron
+// Import Monaco workers using Vite's worker syntax with inline assets.
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker&inline';
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker&inline';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker&inline';

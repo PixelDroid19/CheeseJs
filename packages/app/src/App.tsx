@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { AppShell, useWorkbenchBootstrap } from '@cheesejs/frontend';
 import {
   createNpmPackageBridge,
@@ -8,18 +8,45 @@ import FloatingToolbar from './components/FloatingToolbar';
 import { usePackagesStore, useSettingsStore } from './store/storeHooks';
 import { useAppStore } from './store';
 import { appEventBus } from './events/appEventBus';
-import { subscribeToMagicCommentsShortcut } from './host/electronShortcuts';
+import { subscribeToMagicCommentsShortcut } from './host/nativeShortcuts';
+import { hostBridge } from './host/hostBridge';
 
 // Lazy load Settings (modal, not critical path)
 const Settings = lazy(() => import('./components/Settings/Settings'));
+const CodeEditor = lazy(() => import('./components/Editor'));
+const ResultDisplay = lazy(() => import('./components/Result'));
+const InputTooltip = lazy(() =>
+  import('./components/InputTooltip').then((module) => ({
+    default: module.InputTooltip,
+  }))
+);
 
-// Keep Editor and Result as regular imports since they're in the critical render path
-// and react-split needs direct children
-import CodeEditor from './components/Editor';
-import ResultDisplay from './components/Result';
-import { InputTooltip } from './components/InputTooltip';
+const npmBridge = createNpmPackageBridge(() => hostBridge.packageManager);
 
-const npmBridge = createNpmPackageBridge(() => window.packageManager);
+function LoadingPane({ label }: { label: string }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-background text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
+function DeferredSlot({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback: ReactNode;
+}) {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setReady(true), 0);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  return <>{ready ? children : fallback}</>;
+}
 
 function App() {
   const { setMagicComments } = useSettingsStore();
@@ -43,9 +70,27 @@ function App() {
     <AppShell
       settings={<Settings />}
       toolbar={<FloatingToolbar />}
-      inputTooltip={<InputTooltip />}
-      editor={<CodeEditor />}
-      result={<ResultDisplay />}
+      inputTooltip={
+        <Suspense fallback={null}>
+          <DeferredSlot fallback={null}>
+            <InputTooltip />
+          </DeferredSlot>
+        </Suspense>
+      }
+      editor={
+        <Suspense fallback={<LoadingPane label="Loading editor..." />}>
+          <DeferredSlot fallback={<LoadingPane label="Loading editor..." />}>
+            <CodeEditor />
+          </DeferredSlot>
+        </Suspense>
+      }
+      result={
+        <Suspense fallback={<LoadingPane label="Loading results..." />}>
+          <DeferredSlot fallback={<LoadingPane label="Loading results..." />}>
+            <ResultDisplay />
+          </DeferredSlot>
+        </Suspense>
+      }
     />
   );
 }

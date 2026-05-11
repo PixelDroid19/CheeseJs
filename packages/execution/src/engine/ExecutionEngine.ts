@@ -34,9 +34,7 @@ export interface ExecutionEngineDependencies {
 
 class WorkerUnavailableError extends Error {
   constructor() {
-    super(
-      'Code runner not available. Please ensure you are running in Electron.'
-    );
+    super('Code runner not available. Please ensure the native host is ready.');
     this.name = 'WorkerUnavailableError';
   }
 }

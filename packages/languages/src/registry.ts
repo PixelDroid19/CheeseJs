@@ -83,9 +83,7 @@ export const LANGUAGE_DESCRIPTORS: Record<LanguageId, LanguageDescriptor> = {
     monacoId: 'c',
     displayName: 'C',
     extensions: ['.c', '.h'],
-    executable: true,
-    executionLanguage: 'c',
-    runtimeProvider: 'wasi-clang',
+    executable: false,
     lsp: {
       name: 'C/C++ (clangd)',
       command: CLANGD,
@@ -99,9 +97,7 @@ export const LANGUAGE_DESCRIPTORS: Record<LanguageId, LanguageDescriptor> = {
     monacoId: 'cpp',
     displayName: 'C++',
     extensions: ['.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx', '.ipp'],
-    executable: true,
-    executionLanguage: 'cpp',
-    runtimeProvider: 'wasi-clang',
+    executable: false,
     lsp: {
       name: 'C/C++ (clangd)',
       command: CLANGD,

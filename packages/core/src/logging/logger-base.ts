@@ -2,8 +2,7 @@
  * Shared Logger Base
  *
  * Shared types and base class for the logging system.
- * Used by both the renderer Logger (packages/app/src/lib/logging/logger.ts)
- * and the main process MainLogger (electron/core/logger.ts).
+ * Used by runtime-specific loggers while sharing formatting and filtering.
  *
  * Environment-specific concerns (console formatting, file output, IPC direction)
  * are handled by the subclasses.
@@ -154,7 +153,7 @@ export abstract class BaseLogger<TConfig extends BaseLoggerConfig> {
   }
 
   /**
-   * Environment-specific output (console, electron-log, etc.)
+   * Environment-specific output (console, native log sink, etc.)
    * Must be implemented by subclasses.
    */
   protected abstract outputEntry(entry: LogEntry): void;

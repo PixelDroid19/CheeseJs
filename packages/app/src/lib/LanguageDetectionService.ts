@@ -8,16 +8,24 @@
  * - Metrics for monitoring
  */
 
-import {
-  detectWithML,
-  patternBasedDetection,
-  isMLModelLoaded,
-} from '@cheesejs/editor/languageDetection';
+import { patternBasedDetection } from '@cheesejs/editor/languageDetection/patternDetection';
 import {
   LANGUAGE_DETECTION_DEBOUNCE_MS,
   LANGUAGE_DETECTION_IDLE_TIMEOUT_MS,
 } from '../constants';
-import type { DetectionResult } from '@cheesejs/editor/languageDetection';
+import type { DetectionResult } from '@cheesejs/editor/languageDetection/types';
+
+type MlDetectionModule =
+  typeof import('@cheesejs/editor/languageDetection/mlDetection');
+
+let mlDetectionModule: Promise<MlDetectionModule> | null = null;
+let mlModelLoaded = false;
+
+async function loadMlDetection(): Promise<MlDetectionModule> {
+  mlDetectionModule ??=
+    import('@cheesejs/editor/languageDetection/mlDetection');
+  return mlDetectionModule;
+}
 
 // ============================================================================
 // TYPES
@@ -198,7 +206,9 @@ export class LanguageDetectionService {
     }
 
     try {
-      const result = await detectWithML(detection.content);
+      const ml = await loadMlDetection();
+      const result = await ml.detectWithML(detection.content);
+      mlModelLoaded = ml.isMLModelLoaded();
 
       // Double-check version after async operation
       if (detection.version < this.currentVersion) {
@@ -309,7 +319,7 @@ export class LanguageDetectionService {
    * Check if ML model is ready
    */
   isModelReady(): boolean {
-    return isMLModelLoaded();
+    return mlModelLoaded;
   }
 
   /**

@@ -26,7 +26,7 @@ function warnFallbackOnce(key: string, error: unknown): void {
 
 // Custom storage adapter for Zustand persist middleware.
 // Prefer IndexedDB for larger persisted payloads, but gracefully fall back to
-// localStorage when Electron's backing store is temporarily unavailable.
+// localStorage when the host backing store is temporarily unavailable.
 export const idbStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {

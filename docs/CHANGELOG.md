@@ -2,117 +2,42 @@
 
 All notable changes to CheeseJS will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [Unreleased]
 
 ### Added
 
-- **Development Workflow Improvements**
-  - Git hooks configuration with husky and lint-staged
-  - Commit message validation with commitlint (conventional commits)
-  - EditorConfig for cross-editor consistency
-  - TypeScript type-check script (`pnpm run type-check`)
-  - Test coverage reporting (`pnpm run test:coverage`)
-  - Test UI mode (`pnpm run test:ui`)
-
-- **Code Quality**
-  - Extended ESLint configuration to include `electron/` directory
-  - Prettier formatting for electron files
-  - lint-staged pre-commit hooks for automatic formatting
-
-- **Testing**
-  - Comprehensive unit tests for Babel plugins
-  - Unit tests for Zustand stores (useCodeStore)
-  - Transpiler pattern tests
-  - Improved test coverage infrastructure
-
-- **Architecture**
-  - Modular core modules (`electron/core/`)
-    - `WorkerPoolManager`: Centralized worker lifecycle management
-    - `IPCHandlers`: IPC handler registration module
-    - `WindowManager`: Window creation and management
-  - Shared code transforms (`electron/transpiler/codeTransforms.ts`)
-    - DRY implementation for console transform, loop protection, expression wrapping
-
-- **Documentation**
-  - `docs/ARCHITECTURE.md`: Technical architecture documentation
-  - `docs/CONTRIBUTING.md`: Contribution guidelines
-  - `docs/TESTING.md`: Testing guide and best practices
-  - `docs/CHANGELOG.md`: This changelog
+- Zero Native app manifest in `app.zon`.
+- Zig native shell in `src-native/main.zig` and `src-native/runner.zig`.
+- Zig package dependency on `zero-native` v0.1.9 through `build.zig.zon`.
+- Host bridge contract in `packages/core/src/contracts/hostBridge.ts`.
+- Zero Native/browser host adapter in `packages/app/src/host/hostBridge.ts`.
+- Browser-worker JavaScript/TypeScript execution fallback for development and tests.
+- Core extension registry for runtimes, languages, editor commands, settings tabs, package managers, themes, and future assistant modules.
+- Architecture guard script: `pnpm run arch:check`.
+- Native prerequisite check: `pnpm run native:check`.
+- Web-only development fallback: `pnpm run dev:web`.
+- Cross-platform release helpers: `pnpm run native:build:windows` and `pnpm run release:check`.
+- Platform icon assets for macOS, Windows, and Linux packaging.
+- Local Linux GTK host adapter for Zero Native 0.1.9 so Linux dev windows stay resident instead of exiting after DBus single-instance handoff.
+- Vite dev server wrapper that reuses an existing `127.0.0.1:5173` server instead of failing the native dev flow on reruns.
+- Native package artifact verifier for executable, frontend assets, manifests, and core Zero Native metadata.
+- macOS package output now uses `release/macos/CheeseJS.app`, matching the native app bundle layout.
 
 ### Changed
 
-- Improved pre-commit hook to run lint-staged instead of full test suite
-- Enhanced package.json scripts for better developer experience
-
-### Fixed
-
-- (None yet)
-
-### Deprecated
-
-- (None yet)
+- Active development flow now targets Zero Native instead of a bundled browser runtime.
+- Linux native builds now target Zero Native's supported system WebView route instead of the incomplete Linux CEF shim.
+- Vite config is frontend-only and emits production assets to `dist/`.
+- Quality script now runs native prerequisite validation, manifest validation, lint, architecture checks, formatting, type checks, coverage, and headless native tests.
+- Documentation now describes the Zero Native layered architecture.
 
 ### Removed
 
-- (None yet)
+- Active package scripts and dependencies for the previous desktop host.
+- Public README references to the previous project origin.
 
 ### Security
 
-- (None yet)
-
----
-
-## [1.1.0] - 2024-XX-XX
-
-### Added
-
-- Python support via Pyodide WASM runtime
-- Language auto-detection using ML model
-- Magic comments (`//?`) for inline result display
-- Smart script caching with LRU-K algorithm
-- Memory management for Python runtime
-- Python package installation via micropip
-- Input support for Python (`input()` function)
-- Cooperative cancellation with forced termination fallback
-
-### Changed
-
-- Migrated from JSRunner codebase
-- Renamed to CheeseJS
-- Updated Electron to version 39
-- Improved worker thread architecture
-
-### Fixed
-
-- Memory leaks in code execution
-- Worker thread crashes on timeout
-
----
-
-## [1.0.0] - Initial Release
-
-### Added
-
-- Monaco editor integration
-- JavaScript/TypeScript code execution
-- Inline result display
-- Loop protection
-- npm package installation
-- Custom themes support
-- Settings persistence
-- Code snippets
-- Internationalization (en/es)
-
----
-
-## Types of Changes
-
-- **Added** for new features
-- **Changed** for changes in existing functionality
-- **Deprecated** for soon-to-be removed features
-- **Removed** for now removed features
-- **Fixed** for any bug fixes
-- **Security** for vulnerability fixes
+- Native bridge commands are default-deny through `app.zon`.
+- App navigation is allowlisted to `zero://app` and `http://127.0.0.1:5173`.
+- Future assistant support is represented only as an extension capability, with no active AI/RAG runtime wiring.

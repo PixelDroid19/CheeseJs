@@ -1,0 +1,38 @@
+.{
+    .id = "dev.cheesejs.app",
+    .name = "cheesejs",
+    .display_name = "CheeseJS",
+    .version = "1.1.0",
+    .icons = .{ "assets/icon.icns", "assets/icon.ico", "assets/icon.png" },
+    .platforms = .{ "macos", "linux", "windows" },
+    .permissions = .{ "window" },
+    .capabilities = .{ "webview", "js_bridge" },
+    .bridge = .{
+        .commands = .{
+            .{ .name = "cheese.app.info", .origins = .{ "zero://app", "http://127.0.0.1:5173" } },
+            .{ .name = "cheese.external.open", .origins = .{ "zero://app", "http://127.0.0.1:5173" } },
+            .{ .name = "zero-native.window.close", .permissions = .{ "window" }, .origins = .{ "zero://app", "http://127.0.0.1:5173" } },
+        },
+    },
+    .frontend = .{
+        .dist = "dist",
+        .entry = "index.html",
+        .spa_fallback = true,
+        .dev = .{
+            .url = "http://127.0.0.1:5173/",
+            .command = .{ "pnpm", "run", "dev:vite" },
+            .ready_path = "/",
+            .timeout_ms = 30000,
+        },
+    },
+    .security = .{
+        .navigation = .{
+            .allowed_origins = .{ "zero://app", "http://127.0.0.1:5173" },
+            .external_links = .{ .action = "deny" },
+        },
+    },
+    .web_engine = "system",
+    .windows = .{
+        .{ .label = "main", .title = "CheeseJS", .width = 1280, .height = 820, .restore_state = true },
+    },
+}
