@@ -12,6 +12,8 @@
 - Native shell starts at `src-native/main.zig`; reusable host setup lives in `src-native/runner.zig`.
 - Host access goes through `packages/app/src/host/hostBridge.ts` and the shared contract in `packages/core/src/contracts/hostBridge.ts`.
 - Browser/runtime fallback execution lives in `packages/app/src/host/browserRuntimeBridge.ts`.
+- Core extension and event composition lives in `packages/core/src/coreRuntime/coreRuntime.ts`.
+- Shared Zustand helpers and persisted app slices live in `packages/state/src/`; do not put app state back into `packages/core/src/`.
 - Package ownership is centered under `packages/*`; renderer composition lives in `packages/app/src/`.
 
 ## Verified commands
@@ -41,6 +43,8 @@
 
 - Keep new renderer code in `packages/app/src/` or another dedicated package. Do not recreate root `src/` shims.
 - Keep host capabilities behind `HostBridge`; UI code should not read native globals directly.
+- Keep `@cheesejs/core` focused on contracts, events, extension metadata, logging, persistence adapters, and small cross-cutting utilities.
+- Put reusable state stores and state helpers in `@cheesejs/state`; feature packages may depend on that package when they need shared store types.
 - Active executable runtimes are JavaScript, TypeScript, and Python. Other languages may be detected for editor support without promising execution.
 - AI/RAG is not part of the active runtime. Future assistant behavior must enter through extension contracts, not direct UI/runtime wiring.
 - Run `pnpm run arch:check` after changing package boundaries, host access, or extension capability definitions.

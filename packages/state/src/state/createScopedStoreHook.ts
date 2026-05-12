@@ -25,6 +25,16 @@ interface RootStoreLike<TRootState> {
 
 /**
  * Creates a Zustand-compatible hook scoped to a nested root-store slice.
+ *
+ * The returned hook mirrors the small Zustand API used by CheeseJS components
+ * while hiding the root store shape from feature packages.
+ *
+ * @template TRootState Full application store shape.
+ * @template TSlice State shape of the selected slice.
+ * @param getRootStore Lazily resolves the root store hook to avoid import
+ * cycles during app bootstrap.
+ * @param sliceKey Root state key that owns the selected slice.
+ * @returns A hook-like store facade scoped to one slice.
  */
 export function createScopedStoreHook<TRootState extends object, TSlice>(
   getRootStore: () => RootStoreLike<TRootState>,

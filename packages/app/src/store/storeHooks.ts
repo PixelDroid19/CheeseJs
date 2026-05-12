@@ -1,28 +1,28 @@
 import { useAppStore, type AppState } from './index';
-import { createScopedStoreHook } from '@cheesejs/core';
+import { createScopedStoreHook } from '@cheesejs/state';
 import {
   getExecutionLanguage,
   getLanguageDisplayName,
   getRuntimeProviderId,
   isExecutableLanguage,
 } from '@cheesejs/languages';
-import { type HistoryState } from '@cheesejs/core/state/useHistoryStore';
+import { type HistoryState } from '@cheesejs/state/state/useHistoryStore';
 import {
   type PackageInfo,
   type PackagesState,
-} from '@cheesejs/core/state/usePackagesStore';
+} from '@cheesejs/state/state/usePackagesStore';
 import {
   type PythonPackageInfo,
   type PythonPackagesState,
-} from '@cheesejs/core/state/usePythonPackagesStore';
+} from '@cheesejs/state/state/usePythonPackagesStore';
 import {
   SettingsState,
   type Theme,
-} from '@cheesejs/core/state/useSettingsStore';
+} from '@cheesejs/state/state/useSettingsStore';
 import {
   SnippetsState,
   type Snippet,
-} from '@cheesejs/core/state/useSnippetsStore';
+} from '@cheesejs/state/state/useSnippetsStore';
 import {
   type LanguageState,
   type DetectionResult,

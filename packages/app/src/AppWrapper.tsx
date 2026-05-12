@@ -2,7 +2,6 @@ import { AppFrame } from '@cheesejs/frontend';
 import { themesConfig } from '@cheesejs/themes';
 import { useSettingsStore } from './store/storeHooks';
 import ErrorBoundary from './components/ErrorBoundary';
-import { TitleBar } from './components/TitleBar';
 import App from './App';
 
 function AppWrapper() {
@@ -11,7 +10,6 @@ function AppWrapper() {
 
   return (
     <AppFrame
-      titleBar={<TitleBar />}
       themeName={theme?.name ?? themeName}
       darkMode={theme?.type === 'dark'}
       uiFontSize={uiFontSize}

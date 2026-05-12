@@ -7,7 +7,7 @@ import {
   X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { BasePackageInfo } from '@cheesejs/core';
+import type { BasePackageInfo } from '@cheesejs/state';
 
 export interface PackagePromptMetadata {
   description?: string;

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { BasePackageInfo } from '@cheesejs/core';
+import type { BasePackageInfo } from '@cheesejs/state';
 
 import type { BasePackageMetadata } from '../hooks';
 import { PackagePromptsOverlay } from './PackagePromptsOverlay';

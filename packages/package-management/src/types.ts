@@ -1,4 +1,4 @@
-import type { BasePackageInfo } from '@cheesejs/core';
+import type { BasePackageInfo } from '@cheesejs/state';
 
 export interface NpmPackageStoreAdapter {
   addPackage: (name: string, version?: string) => void;

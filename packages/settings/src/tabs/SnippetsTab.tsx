@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import type { Snippet } from '@cheesejs/core';
+import type { Snippet } from '@cheesejs/state';
 import { SectionHeader } from '@cheesejs/ui';
 
 export interface SnippetsTabProps {

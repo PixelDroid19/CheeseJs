@@ -1,4 +1,4 @@
-import type { Language } from '../contracts/workerTypes';
+import type { Language } from '@cheesejs/core/contracts/workerTypes';
 
 export interface HistoryItem {
   id: string;

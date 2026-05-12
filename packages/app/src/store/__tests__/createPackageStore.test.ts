@@ -4,7 +4,7 @@ import {
   MAX_INSTALL_ATTEMPTS,
   selectPendingPackages,
   selectPackageByName,
-} from '@cheesejs/core/state/createPackageStore';
+} from '@cheesejs/state/state/createPackageStore';
 
 describe('createPackageStore', () => {
   let useStore: ReturnType<typeof createPackageStore>;

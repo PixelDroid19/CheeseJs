@@ -3,33 +3,33 @@ import {
   createHistorySlice,
   type HistoryState,
   partializeHistory,
-} from '@cheesejs/core/state/useHistoryStore';
+} from '@cheesejs/state/state/useHistoryStore';
 import {
   createPackagesSlice,
   type PackagesState,
   partializePackages,
-} from '@cheesejs/core/state/usePackagesStore';
+} from '@cheesejs/state/state/usePackagesStore';
 import {
   createPythonPackagesSlice,
   type PythonPackagesState,
-} from '@cheesejs/core/state/usePythonPackagesStore';
+} from '@cheesejs/state/state/usePythonPackagesStore';
 import {
   createSettingsSlice,
   type SettingsState,
   partializeSettings,
-} from '@cheesejs/core/state/useSettingsStore';
+} from '@cheesejs/state/state/useSettingsStore';
 import {
   createSnippetsSlice,
   type SnippetsState,
   partializeSnippets,
-} from '@cheesejs/core/state/useSnippetsStore';
+} from '@cheesejs/state/state/useSnippetsStore';
 import { idbStorage } from '@cheesejs/core/persistence/idbStorage';
 import {
   persist,
   subscribeWithSelector,
   createJSONStorage,
 } from 'zustand/middleware';
-import { createNestedSlice } from '@cheesejs/core';
+import { createNestedSlice } from '@cheesejs/state';
 import { executionEngine } from '../lib/execution/ExecutionEngine';
 import {
   LanguageState,

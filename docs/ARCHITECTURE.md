@@ -14,7 +14,8 @@ app.zon                      Zero Native manifest
 build.zig(.zon)              Zig build graph and zero-native dependency
 
 packages/
-  core/                      contracts, state primitives, extension registry
+  core/                      host contracts, shared events, extension registry
+  state/                     reusable Zustand slice helpers and stores
   languages/                 language descriptors and detection
   execution/                 execution engine contracts and metrics
   editor/                    Monaco editor integration
@@ -63,7 +64,9 @@ The Vite entry script must stay small enough for the native WebView startup path
 
 ## Extension Points
 
-`packages/core/src/extensions/extensionRegistry.ts` defines the first stable extension registry. Current capabilities are:
+`packages/core/src/coreRuntime/coreRuntime.ts` combines the shared event bus and extension registry into the small core runtime surface. It deliberately does not own UI, execution engines, editor state, package management, or assistant behavior.
+
+`packages/core/src/extensions/extensionRegistry.ts` defines the stable extension registry. Current capabilities are:
 
 - `runtime`
 - `language`

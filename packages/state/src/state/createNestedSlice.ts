@@ -10,6 +10,14 @@ type RootSet<TState> = (
 
 /**
  * Adapts a flat Zustand store so slices can keep their own local state shape.
+ *
+ * @template TState Root application state.
+ * @template TSlice Nested slice state returned by the slice creator.
+ * @param set Root Zustand setter.
+ * @param get Root Zustand getter.
+ * @param sliceKey Root key where the slice is stored.
+ * @param sliceCreator Zustand creator that only sees the nested slice state.
+ * @returns A slice instance whose setters update only the selected root key.
  */
 export function createNestedSlice<TState extends object, TSlice extends object>(
   set: RootSet<TState>,

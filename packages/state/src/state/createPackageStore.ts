@@ -27,6 +27,12 @@ export interface BasePackageInfo {
   lastError?: BasePackageError;
 }
 
+/**
+ * Shared Zustand slice contract for JavaScript and Python package managers.
+ *
+ * @template T Package record shape. Feature packages may extend the base
+ * package info with manager-specific metadata.
+ */
 export interface BasePackagesState<
   T extends BasePackageInfo = BasePackageInfo,
 > {
@@ -44,10 +50,10 @@ export interface BasePackagesState<
   incrementInstallAttempt: (name: string) => number;
 }
 
-// ============================================================================
-// Slice Creator Factory
-// ============================================================================
-
+/**
+ * Create a package-management slice for any package record compatible with
+ * {@link BasePackageInfo}.
+ */
 export const createPackageSlice =
   <T extends BasePackageInfo = BasePackageInfo>(): StateCreator<
     BasePackagesState<T>
@@ -204,21 +210,19 @@ export const createPackageSlice =
     },
   });
 
+/** Persist only package records; transient install state is reconstructed. */
 export const partializePackages = <T extends BasePackageInfo>(
   state: BasePackagesState<T>
 ) => ({
   packages: state.packages,
 });
 
+/** Create an isolated package store for tests or non-app package surfaces. */
 export function createPackageStore<
   T extends BasePackageInfo = BasePackageInfo,
 >(): UseBoundStore<StoreApi<BasePackagesState<T>>> {
   return create<BasePackagesState<T>>(createPackageSlice<T>());
 }
-
-// ============================================================================
-// Generic selectors
-// ============================================================================
 
 export const selectPendingPackages = <T extends BasePackageInfo>(
   state: BasePackagesState<T>

@@ -43,6 +43,30 @@ describe('ExtensionRegistry', () => {
     ).toThrow('Extension already registered: language.python');
   });
 
+  it('rejects blank extension identifiers', () => {
+    const registry = createExtensionRegistry();
+
+    expect(() =>
+      registry.register({
+        id: '   ',
+        capability: 'runtime',
+        displayName: 'Runtime',
+      })
+    ).toThrow('Extension id is required.');
+  });
+
+  it('rejects blank extension display names', () => {
+    const registry = createExtensionRegistry();
+
+    expect(() =>
+      registry.register({
+        id: 'runtime.blank-name',
+        capability: 'runtime',
+        displayName: '',
+      })
+    ).toThrow('Extension displayName is required: runtime.blank-name');
+  });
+
   it('can disable registered extensions without removing them', () => {
     const registry = createExtensionRegistry();
     registry.register({

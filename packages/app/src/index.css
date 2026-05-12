@@ -146,16 +146,6 @@
   --ring: 240 4.9% 83.9%;
 }
 
-/* Window Dragging */
-.titlebar {
-  -webkit-app-region: drag;
-}
-
-.titlebar button,
-.titlebar .no-drag {
-  -webkit-app-region: no-drag;
-}
-
 /* One Dark Theme Override */
 [data-theme='onedark'] {
   --background: 220 13% 18%;

@@ -1,25 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '../__test__/test-utils';
+import { fireEvent, render, screen } from '../__test__/test-utils';
 import { Layout } from '@cheesejs/workbench/components/Layout';
-
-// Mock react-split
-vi.mock('react-split', () => ({
-  default: ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode;
-    className: string;
-  }) => (
-    <div data-testid="split-pane" className={className}>
-      {children}
-    </div>
-  ),
-}));
 
 describe('Layout', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   it('should render children inside split pane', () => {
@@ -31,7 +17,7 @@ describe('Layout', () => {
     );
     expect(screen.getByText('Panel 1')).toBeInTheDocument();
     expect(screen.getByText('Panel 2')).toBeInTheDocument();
-    expect(screen.getByTestId('split-pane')).toBeInTheDocument();
+    expect(screen.getByRole('separator')).toBeInTheDocument();
   });
 
   it('should apply custom className', () => {
@@ -41,7 +27,7 @@ describe('Layout', () => {
         <div>B</div>
       </Layout>
     );
-    const splitPane = screen.getByTestId('split-pane');
+    const splitPane = getSplitPane('A');
     expect(splitPane.className).toContain('custom-class');
   });
 
@@ -52,8 +38,8 @@ describe('Layout', () => {
         <div>B</div>
       </Layout>
     );
-    const splitPane = screen.getByTestId('split-pane');
-    expect(splitPane.className).toContain('horizontal');
+    const splitPane = getSplitPane('A');
+    expect(splitPane.className).toContain('flex-row');
   });
 
   it('should read direction from localStorage', () => {
@@ -64,8 +50,8 @@ describe('Layout', () => {
         <div>B</div>
       </Layout>
     );
-    const splitPane = screen.getByTestId('split-pane');
-    expect(splitPane.className).toContain('vertical');
+    const splitPane = getSplitPane('A');
+    expect(splitPane.className).toContain('flex-col');
   });
 
   it('should handle corrupted localStorage sizes gracefully', () => {
@@ -101,5 +87,44 @@ describe('Layout', () => {
       </Layout>
     );
     expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.getByText('A').parentElement).toHaveStyle({
+      flex: '0 0 60%',
+    });
+  });
+
+  it('clamps stored sizes so panels stay usable', () => {
+    window.localStorage.setItem('split-sizes', JSON.stringify([5, 95]));
+
+    render(
+      <Layout>
+        <div>A</div>
+        <div>B</div>
+      </Layout>
+    );
+
+    expect(screen.getByText('A').parentElement).toHaveStyle({
+      flex: '0 0 20%',
+    });
+  });
+
+  it('supports keyboard resizing', () => {
+    render(
+      <Layout>
+        <div>A</div>
+        <div>B</div>
+      </Layout>
+    );
+
+    fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
+
+    expect(window.localStorage.getItem('split-sizes')).toBe('[55,45]');
   });
 });
+
+function getSplitPane(text: string) {
+  const splitPane = screen.getByText(text).parentElement?.parentElement;
+  if (!splitPane) {
+    throw new Error('Split pane was not rendered.');
+  }
+  return splitPane;
+}

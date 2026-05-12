@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
-import type { BasePackageInfo } from '@cheesejs/core';
+import type { BasePackageInfo } from '@cheesejs/state';
 
 interface PackageListProps {
   isLoading?: boolean;

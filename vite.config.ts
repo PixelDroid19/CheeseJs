@@ -41,6 +41,7 @@ export const packageAliases = {
   ),
   '@cheesejs/runtime-shell': resolve(__dirname, 'packages/runtime-shell/src'),
   '@cheesejs/settings': resolve(__dirname, 'packages/settings/src'),
+  '@cheesejs/state': resolve(__dirname, 'packages/state/src'),
   '@cheesejs/themes': resolve(__dirname, 'packages/themes/src'),
   '@cheesejs/ui': resolve(__dirname, 'packages/ui/src'),
   '@cheesejs/workbench': resolve(__dirname, 'packages/workbench/src'),

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import type { BasePackageInfo } from '@cheesejs/core';
+import type { BasePackageInfo } from '@cheesejs/state';
 
 import { PackageList } from './PackageList';
 
